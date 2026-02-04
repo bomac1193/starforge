@@ -7,7 +7,9 @@ const fs = require('fs');
 
 // Services
 const clarosaService = require('./services/clarosaService');
+const clarosaDirectService = require('./services/clarosaServiceDirect');
 const sinkService = require('./services/sinkService');
+const sinkFolderScanner = require('./services/sinkFolderScanner');
 
 dotenv.config();
 
@@ -409,6 +411,12 @@ app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) 
     });
   }
 });
+
+// ========================================
+// DEEP INTEGRATION ROUTES
+// ========================================
+const deepIntegrationRoutes = require('./routes/deepIntegration');
+app.use('/api/deep', deepIntegrationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
