@@ -122,9 +122,34 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         {clarosaData && !clarosaData.error && (
           <div className="mt-6 border border-brand-border p-4">
             <p className="uppercase-label text-brand-secondary mb-3">Visual DNA</p>
+
+            {/* Style Description */}
             <p className="text-body text-brand-text mb-4">
               {clarosaData.visualDNA?.styleDescription}
             </p>
+
+            {/* Color Palette */}
+            {clarosaData.visualDNA?.colorPalette && clarosaData.visualDNA.colorPalette.length > 0 && (
+              <div className="mb-4">
+                <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
+                <div className="flex gap-2">
+                  {clarosaData.visualDNA.colorPalette.map((color, idx) => (
+                    <div key={idx} className="flex-1">
+                      <div
+                        className="h-12 border border-brand-border"
+                        style={{ backgroundColor: color.hex }}
+                        title={`${color.name} (${color.hex})`}
+                      />
+                      <p className="text-body-sm text-brand-secondary mt-1 text-center">
+                        {color.hex}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stats */}
             <div className="text-body-sm text-brand-secondary">
               {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
               {clarosaData.profile?.stats?.highlight_count || 0} highlights

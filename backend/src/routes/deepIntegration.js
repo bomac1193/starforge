@@ -70,11 +70,12 @@ router.get('/clarosa/top-photos', (req, res) => {
 /**
  * GET /api/deep/clarosa/visual-dna
  * Extract complete visual DNA from user's CLAROSA photos
+ * Now includes sophisticated color analysis and marketing-grade descriptions
  */
-router.get('/clarosa/visual-dna', (req, res) => {
+router.get('/clarosa/visual-dna', async (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
-    const visualDNA = clarosaDirectService.extractVisualDNA(userId);
+    const visualDNA = await clarosaDirectService.extractVisualDNA(userId);
 
     if (!visualDNA) {
       return res.status(404).json({

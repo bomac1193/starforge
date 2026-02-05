@@ -179,16 +179,17 @@ class ClarosaDirectService {
 
   /**
    * Extract visual DNA from user's photos
+   * Sophisticated analysis with color extraction and marketing-grade descriptions
    */
-  extractVisualDNA(userId = 1) {
+  async extractVisualDNA(userId = 1) {
     if (!this.db) this.connect();
     if (!this.db) return null;
 
     try {
       // Get ALL photos for comprehensive analysis (using 0-1 scale)
-      const topPhotos = this.getTopPhotos(userId, 500, 0.0);
+      const allPhotos = this.getTopPhotos(userId, 500, 0.0);
 
-      if (topPhotos.length === 0) {
+      if (allPhotos.length === 0) {
         return {
           styleDescription: 'No photos analyzed yet',
           confidence: 0,
@@ -196,44 +197,66 @@ class ClarosaDirectService {
         };
       }
 
-      // Extract all tags from top photos
-      const allTags = topPhotos
-        .flatMap(p => p.tags || [])
-        .filter(t => t && t.length > 0);
+      // Prepare photo data for Python analyzer
+      const photosData = allPhotos.map(p => ({
+        path: p.fullPath,
+        score: p.clarosa_score,
+        tags: p.tags || []
+      }));
 
-      // Count tag frequency
-      const tagFreq = {};
-      allTags.forEach(tag => {
-        tagFreq[tag] = (tagFreq[tag] || 0) + 1;
+      // Write to temp file for Python script
+      const tmpFile = `/tmp/clarosa_photos_${Date.now()}.json`;
+      fs.writeFileSync(tmpFile, JSON.stringify(photosData));
+
+      // Run sophisticated Python analysis
+      const { spawn } = require('child_process');
+      const pythonScript = path.join(__dirname, '../python/visual_dna_analyzer.py');
+
+      const result = await new Promise((resolve, reject) => {
+        const python = spawn('python3', [pythonScript, tmpFile, '--json']);
+
+        let stdout = '';
+        let stderr = '';
+
+        python.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        python.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        python.on('close', (code) => {
+          // Clean up temp file
+          try { fs.unlinkSync(tmpFile); } catch (e) {}
+
+          if (code !== 0) {
+            console.error('Python visual DNA analysis failed:', stderr);
+            // Fall back to simple description
+            resolve({
+              styleDescription: this.generateSimpleStyleDescription(allPhotos),
+              colorPalette: [],
+              confidence: 0.5
+            });
+          } else {
+            try {
+              const analysis = JSON.parse(stdout);
+              resolve(analysis);
+            } catch (error) {
+              reject(new Error(`Failed to parse Python output: ${error.message}`));
+            }
+          }
+        });
       });
-
-      // Get top tags
-      const topTags = Object.entries(tagFreq)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-        .map(([tag]) => tag);
-
-      // Calculate average scores
-      const avgScores = {
-        clarosa: topPhotos.reduce((sum, p) => sum + (p.clarosa_score || 0), 0) / topPhotos.length,
-        quality: topPhotos.reduce((sum, p) => sum + (p.quality_score || 0), 0) / topPhotos.length,
-        aesthetic: topPhotos.reduce((sum, p) => sum + (p.aesthetic_score || 0), 0) / topPhotos.length
-      };
-
-      // Generate style description
-      const styleDescription = this.generateStyleDescription(topTags, avgScores);
 
       // Get profile confidence
       const profile = this.getUserProfile(userId);
-      const confidence = profile?.profile?.confidence_score || 0;
+      const confidence = profile?.profile?.confidence_score || result.confidence || 0;
 
       return {
-        styleDescription,
-        topTags,
-        avgScores,
+        ...result,
         confidence,
-        photoCount: topPhotos.length,
-        topPhotos: topPhotos.slice(0, 10) // Return top 10 for display
+        photoCount: allPhotos.length
       };
     } catch (error) {
       console.error('Error extracting visual DNA:', error);
@@ -242,20 +265,32 @@ class ClarosaDirectService {
   }
 
   /**
-   * Generate natural language style description
+   * Generate simple style description (fallback)
    */
-  generateStyleDescription(tags, scores) {
-    if (tags.length === 0) {
+  generateSimpleStyleDescription(photos) {
+    if (photos.length === 0) {
       return 'Aesthetic preferences still being learned';
     }
 
-    const topTagsText = tags.slice(0, 3).join(', ');
-    const qualityLevel = scores.quality >= 70 ? 'high-quality' :
-                        scores.quality >= 50 ? 'balanced' : 'experimental';
-    const aestheticStyle = scores.aesthetic >= 70 ? 'refined' :
-                          scores.aesthetic >= 50 ? 'curated' : 'eclectic';
+    // Extract tags
+    const allTags = photos.flatMap(p => p.tags || []).filter(t => t);
+    const tagFreq = {};
+    allTags.forEach(tag => {
+      tagFreq[tag] = (tagFreq[tag] || 0) + 1;
+    });
 
-    return `${aestheticStyle} ${qualityLevel} aesthetic with ${topTagsText} influences`;
+    const topTags = Object.entries(tagFreq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([tag]) => tag);
+
+    const avgScore = photos.reduce((sum, p) => sum + (p.clarosa_score || 0), 0) / photos.length;
+
+    const qualityLevel = avgScore >= 85 ? 'refined' :
+                        avgScore >= 70 ? 'curated' :
+                        avgScore >= 50 ? 'evolving' : 'experimental';
+
+    return `${qualityLevel} aesthetic with ${topTags.join(', ')} influences`;
   }
 
   /**
