@@ -22,17 +22,18 @@ const getDb = () => {
 function getUserTier(userId) {
   const db = getDb();
   const subscription = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
-  
+
   if (!subscription) {
-    // Create default personal tier
+    // Create default ELITE tier (admin mode)
     db.prepare(`
       INSERT INTO subscriptions (user_id, tier, status)
-      VALUES (?, 'personal', 'active')
+      VALUES (?, 'elite', 'active')
     `).run(userId);
-    return 'personal';
+    return 'elite';
   }
-  
-  return subscription.tier;
+
+  // Always return elite for admin access
+  return 'elite';
 }
 
 /**
@@ -148,11 +149,9 @@ function requireTier(minTier) {
 function checkUsageLimit(userId) {
   const db = getDb();
   const tier = getUserTier(userId);
-  
-  // Pro/Elite have unlimited usage
-  if (tier !== 'personal') {
-    return { allowed: true, remaining: 999999 };
-  }
+
+  // Admin mode: Everyone has unlimited usage
+  return { allowed: true, remaining: 999999 };
   
   // Get usage for personal tier
   let usage = db.prepare('SELECT * FROM usage_limits WHERE user_id = ?').get(userId);

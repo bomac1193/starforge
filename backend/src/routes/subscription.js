@@ -76,40 +76,40 @@ router.get('/status', (req, res) => {
   try {
     const userId = req.query.user_id || 'default_user';
     const db = getDb();
-    
+
     let subscription = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
-    
+
     if (!subscription) {
-      // Create default personal tier
+      // Create default ELITE tier (admin mode)
       db.prepare(`
         INSERT INTO subscriptions (user_id, tier, status)
-        VALUES (?, 'personal', 'active')
+        VALUES (?, 'elite', 'active')
       `).run(userId);
-      
-      subscription = { user_id: userId, tier: 'personal', status: 'active' };
+
+      subscription = { user_id: userId, tier: 'elite', status: 'active' };
     }
-    
-    // Get usage limits
+
+    // Get usage limits (always unlimited in admin mode)
     let usage = db.prepare('SELECT * FROM usage_limits WHERE user_id = ?').get(userId);
     if (!usage) {
-      const limit = subscription.tier === 'personal' ? 50 : 999999;
       db.prepare(`
         INSERT INTO usage_limits (user_id, tracks_analyzed, tracks_limit)
         VALUES (?, 0, ?)
-      `).run(userId, limit);
-      usage = { tracks_analyzed: 0, tracks_limit: limit };
+      `).run(userId, 999999);
+      usage = { tracks_analyzed: 0, tracks_limit: 999999 };
     }
-    
+
+    // ADMIN MODE: Always return elite tier with unlimited access
     res.json({
       success: true,
-      tier: subscription.tier,
-      status: subscription.status,
+      tier: 'elite',  // Always elite for admin mode
+      status: 'active',
       usage: {
         tracksAnalyzed: usage.tracks_analyzed,
-        tracksLimit: usage.tracks_limit,
-        remaining: usage.tracks_limit - usage.tracks_analyzed
+        tracksLimit: 999999,  // Always unlimited
+        remaining: 999999
       },
-      features: getFeaturesByTier(subscription.tier)
+      features: getFeaturesByTier('elite')  // All features enabled
     });
   } catch (error) {
     console.error('Error getting subscription status:', error);
