@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const visualDnaCache = require('./visualDnaCache');
 
 /**
  * Direct CLAROSA Database Connection
@@ -180,8 +181,9 @@ class ClarosaDirectService {
   /**
    * Extract visual DNA from user's photos
    * Sophisticated analysis with color extraction and marketing-grade descriptions
+   * Uses intelligent caching to avoid reprocessing
    */
-  async extractVisualDNA(userId = 1) {
+  async extractVisualDNA(userId = 1, forceRefresh = false) {
     if (!this.db) this.connect();
     if (!this.db) return null;
 
@@ -195,6 +197,15 @@ class ClarosaDirectService {
           confidence: 0,
           photoCount: 0
         };
+      }
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedDNA = visualDnaCache.getCached(userId, allPhotos);
+        if (cachedDNA) {
+          console.log(`Using cached Visual DNA (${cachedDNA.cacheAge} minutes old)`);
+          return cachedDNA;
+        }
       }
 
       // Prepare photo data for Python analyzer
@@ -253,11 +264,16 @@ class ClarosaDirectService {
       const profile = this.getUserProfile(userId);
       const confidence = profile?.profile?.confidence_score || result.confidence || 0;
 
-      return {
+      const visualDna = {
         ...result,
         confidence,
         photoCount: allPhotos.length
       };
+
+      // Cache the results for future requests
+      visualDnaCache.saveCache(userId, visualDna, allPhotos);
+
+      return visualDna;
     } catch (error) {
       console.error('Error extracting visual DNA:', error);
       return null;

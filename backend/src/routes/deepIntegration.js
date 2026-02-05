@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const clarosaDirectService = require('../services/clarosaServiceDirect');
 const sinkFolderScanner = require('../services/sinkFolderScanner');
+const visualDnaCache = require('../services/visualDnaCache');
 
 // ========================================
 // CLAROSA DIRECT DATABASE ACCESS
@@ -71,11 +72,14 @@ router.get('/clarosa/top-photos', (req, res) => {
  * GET /api/deep/clarosa/visual-dna
  * Extract complete visual DNA from user's CLAROSA photos
  * Now includes sophisticated color analysis and marketing-grade descriptions
+ * Uses intelligent caching for fast subsequent loads
  */
 router.get('/clarosa/visual-dna', async (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
-    const visualDNA = await clarosaDirectService.extractVisualDNA(userId);
+    const forceRefresh = req.query.refresh === 'true';
+
+    const visualDNA = await clarosaDirectService.extractVisualDNA(userId, forceRefresh);
 
     if (!visualDNA) {
       return res.status(404).json({
@@ -90,6 +94,55 @@ router.get('/clarosa/visual-dna', async (req, res) => {
     });
   } catch (error) {
     console.error('Error extracting visual DNA:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/deep/clarosa/visual-dna/refresh
+ * Force refresh Visual DNA cache
+ */
+router.post('/clarosa/visual-dna/refresh', async (req, res) => {
+  try {
+    const userId = parseInt(req.body.user_id) || 1;
+
+    // Invalidate cache
+    visualDnaCache.invalidateCache(userId);
+
+    // Generate fresh Visual DNA
+    const visualDNA = await clarosaDirectService.extractVisualDNA(userId, true);
+
+    res.json({
+      success: true,
+      visualDNA,
+      message: 'Visual DNA refreshed successfully'
+    });
+  } catch (error) {
+    console.error('Error refreshing visual DNA:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/deep/clarosa/visual-dna/cache-stats
+ * Get cache statistics
+ */
+router.get('/clarosa/visual-dna/cache-stats', (req, res) => {
+  try {
+    const userId = parseInt(req.query.user_id) || 1;
+    const stats = visualDnaCache.getCacheStats(userId);
+
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       error: error.message
