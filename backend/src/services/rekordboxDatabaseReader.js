@@ -60,10 +60,15 @@ class RekordboxDatabaseReader {
 
   /**
    * Find Rekordbox database on USB drive
-   * Looks for PIONEER/rekordbox/master.db structure
+   * Looks for PIONEER/rekordbox/ with master.db or exportLibrary.db
    */
   findUSBRekordboxDatabase(usbPath) {
     const possiblePaths = [
+      // USB export database (most common for DJ USBs)
+      path.join(usbPath, 'PIONEER/rekordbox/exportLibrary.db'),
+      path.join(usbPath, 'Pioneer/rekordbox/exportLibrary.db'),
+      path.join(usbPath, 'pioneer/rekordbox/exportLibrary.db'),
+      // Master database (if copied manually)
       path.join(usbPath, 'PIONEER/rekordbox/master.db'),
       path.join(usbPath, 'Pioneer/rekordbox/master.db'),
       path.join(usbPath, 'pioneer/rekordbox/master.db'),
@@ -161,6 +166,15 @@ class RekordboxDatabaseReader {
       db.close();
       return info;
     } catch (error) {
+      // Check if it's an encrypted USB export database
+      if (error.code === 'SQLITE_NOTADB' && dbPath.includes('exportLibrary')) {
+        console.error('❌ USB export database is encrypted:', dbPath);
+        return {
+          encrypted: true,
+          path: dbPath,
+          error: 'USB export database is encrypted by Rekordbox. Use local Rekordbox scan or XML export instead.'
+        };
+      }
       console.error('Error reading database info:', error);
       return null;
     }

@@ -313,10 +313,10 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <p className="uppercase-label text-brand-text mb-1">
-                  Method 2: USB Scan
+                  Method 2: USB Scan (Limited)
                 </p>
                 <p className="text-body-sm text-brand-secondary">
-                  Import from Rekordbox USB drive
+                  USB databases are encrypted - Use Method 1 instead
                 </p>
               </div>
             </div>
@@ -330,14 +330,22 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
                     const rekordboxDrives = detectResponse.data.drives.filter(d => d.hasRekordbox);
 
                     if (rekordboxDrives.length === 0) {
-                      alert('❌ No Rekordbox USB drives detected. Make sure USB is connected.');
+                      alert('❌ No Rekordbox USB drives detected.\n\nNote: USB export databases are encrypted by Rekordbox.\nUse "Scan Local Rekordbox" instead, or XML export.');
+                      setImporting(false);
+                      return;
+                    }
+
+                    // Check if database is encrypted
+                    const drive = rekordboxDrives[0];
+                    if (drive.info?.encrypted) {
+                      alert('❌ USB export database is encrypted by Rekordbox.\n\nRecommended: Use "Scan Local Rekordbox" (Method 1) which reads your complete library.\n\nAlternative: Use XML export (Method 3).');
                       setImporting(false);
                       return;
                     }
 
                     // Use first Rekordbox drive found
-                    const usbPath = rekordboxDrives[0].path;
-                    const trackCount = rekordboxDrives[0].info?.totalTracks || 0;
+                    const usbPath = drive.path;
+                    const trackCount = drive.info?.totalTracks || '?';
 
                     if (!confirm(`Found Rekordbox USB with ${trackCount} tracks at ${usbPath}. Import?`)) {
                       setImporting(false);
@@ -358,7 +366,12 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
                   }
                 } catch (error) {
                   console.error('USB scan failed:', error);
-                  alert(`❌ Error: ${error.response?.data?.error || error.message}`);
+                  const errorMsg = error.response?.data?.error || error.message;
+                  if (errorMsg.includes('encrypted')) {
+                    alert('❌ USB export database is encrypted by Rekordbox.\n\nRecommended: Use "Scan Local Rekordbox" instead.\nThis reads your complete library from your computer.');
+                  } else {
+                    alert(`❌ Error: ${errorMsg}`);
+                  }
                 } finally {
                   setImporting(false);
                 }
@@ -369,7 +382,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
               {importing ? 'Scanning USB...' : 'Scan USB Drive'}
             </button>
             <p className="text-body-sm text-brand-secondary mt-2">
-              ✓ For large collections (128GB+ USBs supported)
+              ⚠️ Note: USB export databases are encrypted. Use Method 1 (Local Scan) for best results.
             </p>
           </div>
 
