@@ -7,6 +7,7 @@ const rekordboxDatabaseReader = require('../services/rekordboxDatabaseReader');
 const seratoReader = require('../services/seratoReader');
 const contextComparisonService = require('../services/contextComparisonService');
 const Database = require('better-sqlite3');
+const { requireFeature, enforceUsageLimit, incrementUsage } = require('../middleware/subscription');
 
 const router = express.Router();
 
@@ -136,12 +137,16 @@ const uploadXML = multer({
 // Upload and Analyze
 // ========================================
 
-router.post('/upload-and-analyze', upload.single('audio'), async (req, res) => {
+router.post('/upload-and-analyze', enforceUsageLimit, upload.single('audio'), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
+
+    // Increment usage count for personal tier users
+    const userId = req.body.user_id || 'default_user';
+    incrementUsage(userId, 1);
 
     // Analyze with quality scoring and highlights
     const analysis = await sinkEnhanced.analyzeWithQuality(file.path);
@@ -282,7 +287,7 @@ router.post('/rate/:trackId', (req, res) => {
 // Import Rekordbox XML
 // ========================================
 
-router.post('/rekordbox/import-xml', uploadXML.single('xml'), async (req, res) => {
+router.post('/rekordbox/import-xml', requireFeature('dj_library_import'), uploadXML.single('xml'), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
@@ -528,7 +533,7 @@ router.get('/tracks', (req, res) => {
  * Auto-detect and import from local Rekordbox installation
  * Faster and more complete than XML export
  */
-router.post('/rekordbox/scan-local', async (req, res) => {
+router.post('/rekordbox/scan-local', requireFeature('dj_library_import'), async (req, res) => {
   try {
     console.log('🔍 Scanning for local Rekordbox database...');
 
@@ -692,7 +697,7 @@ router.get('/rekordbox/detect-usb', (req, res) => {
  * POST /api/audio/rekordbox/scan-usb
  * Import tracks from Rekordbox database on USB drive
  */
-router.post('/rekordbox/scan-usb', async (req, res) => {
+router.post('/rekordbox/scan-usb', requireFeature('dj_library_import'), async (req, res) => {
   try {
     const { usbPath } = req.body;
 
@@ -875,7 +880,7 @@ router.get('/rekordbox/database-info', (req, res) => {
  * POST /api/audio/serato/scan-local
  * Auto-detect and import from local Serato DJ installation
  */
-router.post('/serato/scan-local', async (req, res) => {
+router.post('/serato/scan-local', requireFeature('dj_library_import'), async (req, res) => {
   try {
     console.log('Scanning for local Serato database...');
 
@@ -1062,7 +1067,7 @@ router.get('/serato/detect', (req, res) => {
  * Compare DJ collection vs personal music contexts
  * Returns alignment scores and insights
  */
-router.get('/context/compare', async (req, res) => {
+router.get('/context/compare', requireFeature('context_comparison'), async (req, res) => {
   try {
     const { userId } = req.query;
     const userIdToUse = userId || 'default_user';
@@ -1089,7 +1094,7 @@ router.get('/context/compare', async (req, res) => {
  * Get taste coherence scores for user's music library
  * Returns 6 coherence metrics and overall score
  */
-router.get('/taste/coherence', (req, res) => {
+router.get('/taste/coherence', requireFeature('taste_coherence'), (req, res) => {
   try {
     const { context } = req.query;
     const db = new Database(dbPath);

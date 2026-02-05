@@ -14,6 +14,7 @@ const crossModalAnalyzer = require('../services/crossModalAnalyzer');
 const contextComparisonService = require('../services/contextComparisonService');
 const Database = require('better-sqlite3');
 const path = require('path');
+const { requireFeature } = require('../middleware/subscription');
 
 // Audio database connection
 const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
@@ -365,7 +366,7 @@ router.post('/sink/generate-music', async (req, res) => {
  * GET /api/deep/audio/sonic-palette?context=dj_collection|my_music|combined
  * Extract sonic palette from user's audio catalog with context filtering
  */
-router.get('/audio/sonic-palette', async (req, res) => {
+router.get('/audio/sonic-palette', requireFeature('sonic_palette'), async (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
     const forceRefresh = req.query.refresh === 'true';
@@ -429,7 +430,7 @@ router.get('/audio/sonic-palette', async (req, res) => {
  * POST /api/deep/audio/sonic-palette/refresh
  * Force refresh sonic palette cache with context support
  */
-router.post('/audio/sonic-palette/refresh', async (req, res) => {
+router.post('/audio/sonic-palette/refresh', requireFeature('sonic_palette'), async (req, res) => {
   try {
     const userId = parseInt(req.body.user_id) || 1;
     const context = req.body.context || 'combined';
@@ -558,7 +559,7 @@ router.get('/audio/taste-coherence', (req, res) => {
  * POST /api/deep/cross-modal/analyze
  * Analyze cross-modal coherence between Visual DNA and Audio DNA
  */
-router.post('/cross-modal/analyze', async (req, res) => {
+router.post('/cross-modal/analyze', requireFeature('cross_modal_coherence'), async (req, res) => {
   try {
     const { userId, visualDNA, audioDNA } = req.body;
 
