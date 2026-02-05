@@ -24,29 +24,31 @@ class CatalogAnalysisService {
   /**
    * Get catalog analysis with intelligent caching
    */
-  async getCatalogAnalysis(userId, forceRefresh = false) {
+  async getCatalogAnalysis(userId, forceRefresh = false, mode = 'hybrid', granularity = 'detailed') {
     const db = this.getDb();
     const currentHash = libraryService.calculateTrackHash(userId);
 
-    // Check cache
+    // Check cache (mode + granularity specific)
     if (!forceRefresh) {
-      const cached = db.prepare('SELECT * FROM catalog_cache WHERE user_id = ?').get(userId);
+      const cached = db.prepare('SELECT * FROM catalog_cache WHERE user_id = ? AND mode = ? AND granularity = ?').get(userId, mode, granularity);
 
       if (cached && cached.track_hash === currentHash) {
         // Cache is valid
         return {
           fromCache: true,
           lastAnalysis: cached.last_analysis,
+          mode: mode,
+          granularity: granularity,
           ...this.parseCachedData(cached)
         };
       }
     }
 
     // Compute fresh analysis
-    const analysis = await this.computeCatalogAnalysis(userId);
+    const analysis = await this.computeCatalogAnalysis(userId, mode, granularity);
 
     // Save to cache
-    this.saveCatalogCache(userId, analysis, currentHash);
+    this.saveCatalogCache(userId, analysis, currentHash, mode, granularity);
 
     // Save snapshot to history
     this.saveAnalysisSnapshot(userId, analysis);
@@ -61,11 +63,22 @@ class CatalogAnalysisService {
   /**
    * Compute fresh catalog analysis
    */
-  async computeCatalogAnalysis(userId) {
+  async computeCatalogAnalysis(userId, mode = 'hybrid', granularity = 'detailed') {
     const db = this.getDb();
 
-    // Get all tracks
-    const tracks = db.prepare('SELECT * FROM audio_tracks WHERE user_id = ?').all(userId);
+    // Get tracks filtered by mode
+    let query = 'SELECT * FROM audio_tracks WHERE user_id = ?';
+    const params = [userId];
+
+    if (mode === 'dj') {
+      query += ' AND source LIKE ?';
+      params.push('%rekordbox%');
+    } else if (mode === 'original') {
+      query += ' AND source = ?';
+      params.push('upload');
+    }
+
+    const tracks = db.prepare(query).all(...params);
 
     if (tracks.length === 0) {
       return {
@@ -80,8 +93,8 @@ class CatalogAnalysisService {
     // Calculate taste coherence
     const tasteCoherence = this.calculateTasteCoherence(tracks);
 
-    // Calculate genre distribution
-    const genreDistribution = this.calculateGenreDistribution(tracks);
+    // Calculate genre distribution (with granularity control)
+    const genreDistribution = this.calculateGenreDistribution(tracks, granularity);
 
     // Get BPM/Energy curves
     const distributions = this.calculateDistributions(tracks);
@@ -102,6 +115,8 @@ class CatalogAnalysisService {
 
     return {
       available: true,
+      mode: mode,
+      granularity: granularity,
       trackCount: tracks.length,
       aggregateStats,
       tasteCoherence,
@@ -122,7 +137,7 @@ class CatalogAnalysisService {
   calculatePreferenceWeights(tracks) {
     // Get max values for normalization
     const maxPlayCount = Math.max(...tracks.map(t => t.rekordbox_play_count || t.play_count || 0), 1);
-    const maxRating = 5; // Star ratings are 0-5
+    const maxRating = 255; // Rekordbox stores ratings as 0-255
 
     return tracks.map(track => {
       const playCount = track.rekordbox_play_count || track.play_count || 0;
@@ -256,45 +271,103 @@ class CatalogAnalysisService {
   }
 
   /**
-   * Calculate genre distribution
+   * Calculate genre distribution using nuanced genre taxonomy
+   * @param {Array} tracks - Array of track objects
+   * @param {String} granularity - 'simplified' or 'detailed'
    */
-  calculateGenreDistribution(tracks) {
-    // Cluster by BPM/energy ranges, weighted by preference
-    const weights = this.calculatePreferenceWeights(tracks);
+  calculateGenreDistribution(tracks, granularity = 'detailed') {
+    // Use the same clustering logic as Influence Genealogy
+    const clusters = influenceGenealogy.clusterTracksByGenre(tracks);
 
-    const clusters = {
-      'Ambient/Downtempo': 0,
-      'House': 0,
-      'Techno': 0,
-      'Drum & Bass': 0,
-      'Other': 0
-    };
+    // If detailed view, return as is
+    if (granularity === 'detailed') {
+      return clusters.map(cluster => ({
+        genre: cluster.genre.name,
+        culturalContext: cluster.genre.cultural_context,
+        count: cluster.trackCount,
+        percentage: cluster.percentage,
+        avgBpm: cluster.avgBpm,
+        avgEnergy: cluster.avgEnergy
+      }));
+    }
 
-    tracks.forEach((t, i) => {
-      const weight = weights[i];
-      if (t.bpm < 100) {
-        clusters['Ambient/Downtempo'] += weight;
-      } else if (t.bpm >= 115 && t.bpm < 130) {
-        clusters['House'] += weight;
-      } else if (t.bpm >= 120 && t.bpm < 150 && t.energy > 0.6) {
-        clusters['Techno'] += weight;
-      } else if (t.bpm >= 160) {
-        clusters['Drum & Bass'] += weight;
+    // If simplified view, group subgenres by parent
+    return this.groupGenresByParent(clusters);
+  }
+
+  /**
+   * Group child genres under their parent genres for simplified view
+   * @param {Array} clusters - Genre clusters from Influence Genealogy
+   */
+  groupGenresByParent(clusters) {
+    const genreTaxonomy = require('./genreTaxonomy');
+    const parentGroups = {};
+
+    clusters.forEach(cluster => {
+      const genre = cluster.genre;
+
+      // If genre has a parent, group under parent
+      if (genre.parent_id) {
+        const parent = genreTaxonomy.getGenre(genre.parent_id);
+        const parentName = parent ? parent.name : 'Other';
+
+        if (!parentGroups[parentName]) {
+          parentGroups[parentName] = {
+            genre: parentName,
+            culturalContext: parent ? parent.cultural_context : null,
+            count: 0,
+            percentage: 0,
+            bpms: [],
+            energies: [],
+            subgenres: []
+          };
+        }
+
+        parentGroups[parentName].count += cluster.trackCount;
+        parentGroups[parentName].percentage += cluster.percentage;
+        parentGroups[parentName].subgenres.push(cluster.genre.name);
+
+        // Collect BPMs and energies for averaging
+        if (cluster.avgBpm) {
+          parentGroups[parentName].bpms.push(cluster.avgBpm);
+        }
+        if (cluster.avgEnergy) {
+          parentGroups[parentName].energies.push(cluster.avgEnergy);
+        }
       } else {
-        clusters['Other'] += weight;
+        // Root genre - keep as is
+        const rootName = genre.name;
+
+        if (!parentGroups[rootName]) {
+          parentGroups[rootName] = {
+            genre: rootName,
+            culturalContext: genre.cultural_context,
+            count: cluster.trackCount,
+            percentage: cluster.percentage,
+            bpms: cluster.avgBpm ? [cluster.avgBpm] : [],
+            energies: cluster.avgEnergy ? [cluster.avgEnergy] : [],
+            subgenres: []
+          };
+        }
       }
     });
 
-    const total = Object.values(clusters).reduce((a, b) => a + b, 0);
-
-    return Object.entries(clusters)
-      .filter(([_, weight]) => weight > 0)
-      .map(([genre, weight]) => ({
-        genre,
-        count: Math.round(weight * 10) / 10, // Weighted count
-        percentage: parseFloat(((weight / total) * 100).toFixed(1))
+    // Calculate averages and format output
+    return Object.values(parentGroups)
+      .map(group => ({
+        genre: group.genre,
+        culturalContext: group.culturalContext,
+        count: group.count,
+        percentage: parseFloat(group.percentage.toFixed(1)),
+        avgBpm: group.bpms.length > 0
+          ? group.bpms.reduce((a, b) => a + b, 0) / group.bpms.length
+          : null,
+        avgEnergy: group.energies.length > 0
+          ? group.energies.reduce((a, b) => a + b, 0) / group.energies.length
+          : null,
+        subgenres: group.subgenres.length > 0 ? group.subgenres : undefined
       }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => b.percentage - a.percentage);
   }
 
   /**
@@ -439,18 +512,32 @@ class CatalogAnalysisService {
   /**
    * Save catalog cache
    */
-  saveCatalogCache(userId, analysis, trackHash) {
+  saveCatalogCache(userId, analysis, trackHash, mode = 'hybrid', granularity = 'detailed') {
     const db = this.getDb();
+
+    // First ensure the table has mode and granularity columns
+    try {
+      db.prepare(`ALTER TABLE catalog_cache ADD COLUMN mode TEXT DEFAULT 'hybrid'`).run();
+    } catch (e) {
+      // Column already exists
+    }
+    try {
+      db.prepare(`ALTER TABLE catalog_cache ADD COLUMN granularity TEXT DEFAULT 'detailed'`).run();
+    } catch (e) {
+      // Column already exists
+    }
 
     db.prepare(`
       INSERT OR REPLACE INTO catalog_cache (
-        user_id, track_count, track_hash,
+        user_id, mode, granularity, track_count, track_hash,
         avg_bpm, avg_energy, avg_valence, bpm_std_dev, energy_std_dev,
         genre_distribution, taste_coherence, influence_genealogy,
         last_analysis, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
+      mode,
+      granularity,
       analysis.trackCount || 0,
       trackHash,
       analysis.aggregateStats?.avgBpm || null,

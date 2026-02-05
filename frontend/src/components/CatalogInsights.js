@@ -10,10 +10,12 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [catalogMode, setCatalogMode] = useState('hybrid'); // 'hybrid' | 'dj' | 'original'
+  const [genreView, setGenreView] = useState('detailed'); // 'simplified' | 'detailed'
 
   useEffect(() => {
     fetchAnalysis();
-  }, [userId]);
+  }, [userId, catalogMode, genreView]);
 
   const fetchAnalysis = async (forceRefresh = false) => {
     try {
@@ -23,7 +25,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
       const response = await axios.get('/api/library/catalog/analyze', {
         params: {
           user_id: userId,
-          refresh: forceRefresh
+          refresh: forceRefresh,
+          mode: catalogMode,
+          granularity: genreView
         }
       });
 
@@ -82,6 +86,66 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
           >
             {refreshing ? 'Refreshing...' : 'Refresh Analysis'}
           </button>
+        </div>
+
+        {/* Mode Selector */}
+        <div className="flex justify-between items-center border-b border-brand-border">
+          <div className="flex gap-0">
+            <button
+              onClick={() => setCatalogMode('hybrid')}
+              className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+                catalogMode === 'hybrid'
+                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  : 'text-brand-secondary hover:text-brand-text'
+              }`}
+            >
+              Hybrid
+            </button>
+            <button
+              onClick={() => setCatalogMode('dj')}
+              className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+                catalogMode === 'dj'
+                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  : 'text-brand-secondary hover:text-brand-text'
+              }`}
+            >
+              DJ Library
+            </button>
+            <button
+              onClick={() => setCatalogMode('original')}
+              className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+                catalogMode === 'original'
+                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  : 'text-brand-secondary hover:text-brand-text'
+              }`}
+            >
+              My Music
+            </button>
+          </div>
+
+          {/* Genre View Toggle */}
+          <div className="flex gap-2 px-4">
+            <button
+              onClick={() => setGenreView('simplified')}
+              className={`px-3 py-1 text-xs transition-all ${
+                genreView === 'simplified'
+                  ? 'text-brand-text bg-brand-border'
+                  : 'text-brand-secondary hover:text-brand-text'
+              }`}
+            >
+              Simplified
+            </button>
+            <button
+              onClick={() => setGenreView('detailed')}
+              className={`px-3 py-1 text-xs transition-all ${
+                genreView === 'detailed'
+                  ? 'text-brand-text bg-brand-border'
+                  : 'text-brand-secondary hover:text-brand-text'
+              }`}
+            >
+              Detailed
+            </button>
+          </div>
         </div>
       </div>
 

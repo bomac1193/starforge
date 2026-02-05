@@ -187,6 +187,48 @@ router.put('/track/:id', async (req, res) => {
 });
 
 /**
+ * PATCH /api/library/track/:id/rating
+ * Update track star rating (0-5 stars)
+ */
+router.patch('/track/:id/rating', async (req, res) => {
+  try {
+    const userId = req.body.user_id || 'default_user';
+    const rating = parseInt(req.body.rating);
+
+    // Validate rating (0-5 scale)
+    if (isNaN(rating) || rating < 0 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Rating must be between 0 and 5'
+      });
+    }
+
+    const updated = libraryService.updateTrack(req.params.id, userId, {
+      rekordbox_star_rating: rating
+    });
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Rating updated successfully',
+      rating
+    });
+  } catch (error) {
+    console.error('Error updating rating:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/library/search
  * Search tracks
  */
@@ -227,8 +269,10 @@ router.get('/catalog/analyze', async (req, res) => {
   try {
     const userId = req.query.user_id || 'default_user';
     const forceRefresh = req.query.refresh === 'true';
+    const mode = req.query.mode || 'hybrid';
+    const granularity = req.query.granularity || 'detailed';
 
-    const analysis = await catalogAnalysisService.getCatalogAnalysis(userId, forceRefresh);
+    const analysis = await catalogAnalysisService.getCatalogAnalysis(userId, forceRefresh, mode, granularity);
 
     res.json({
       success: true,

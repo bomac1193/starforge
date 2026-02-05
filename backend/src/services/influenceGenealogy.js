@@ -14,9 +14,25 @@ class InfluenceGenealogyService {
    */
   async analyzeInfluenceGenealogy(userId, options = {}) {
     try {
-      // Get ALL user's audio data (no limit for proper nuanced analysis)
+      const { mode = 'hybrid' } = options;
+
+      // Get user's audio data filtered by mode
       const audioDb = new Database(path.join(__dirname, '../../starforge_audio.db'));
-      const tracks = audioDb.prepare('SELECT * FROM audio_tracks WHERE user_id = ?').all(userId);
+
+      let query = 'SELECT * FROM audio_tracks WHERE user_id = ?';
+      const params = [userId];
+
+      // Filter by source based on mode
+      if (mode === 'dj') {
+        query += ' AND source LIKE ?';
+        params.push('%rekordbox%');
+      } else if (mode === 'original') {
+        query += ' AND source = ?';
+        params.push('upload');
+      }
+      // hybrid mode = no filter, get all tracks
+
+      const tracks = audioDb.prepare(query).all(...params);
       audioDb.close();
 
       if (tracks.length === 0) {
@@ -47,8 +63,20 @@ class InfluenceGenealogyService {
       // Build visual tree data
       const treeData = this.buildTreeData(lineage, descendants, primaryCluster);
 
+      // Mode-specific context
+      let modeContext = '';
+      if (mode === 'dj') {
+        modeContext = ' (DJ Library Analysis - based on what you play and rate in sets)';
+      } else if (mode === 'original') {
+        modeContext = ' (Your Music Analysis - based on what you create and produce)';
+      } else {
+        modeContext = ' (Hybrid Analysis - combining your DJ curation and original productions)';
+      }
+
       return {
         available: true,
+        mode: mode,
+        modeContext: modeContext,
         // Multiple influences with percentages
         influences: clusters.map(c => ({
           genre: c.genre,
@@ -61,7 +89,7 @@ class InfluenceGenealogyService {
         matchScore: primaryCluster.percentage,
         lineage: lineage,
         descendants: descendants.slice(0, 5),
-        narrative: narrative,
+        narrative: narrative + modeContext,
         treeData: treeData,
         trackCount: tracks.length
       };
@@ -88,10 +116,21 @@ class InfluenceGenealogyService {
       const matches = allGenres
         .map(genre => ({
           genre,
-          score: this.calculateTrackGenreMatch(track, genre)
+          score: this.calculateTrackGenreMatch(track, genre),
+          hasParent: genre.parent_id !== null
         }))
         .filter(m => m.score > 30)
-        .sort((a, b) => b.score - a.score);
+        .sort((a, b) => {
+          // First, sort by score
+          if (Math.abs(a.score - b.score) > 5) {
+            return b.score - a.score;
+          }
+          // If scores are close (within 5 points), prefer child genres over parent genres
+          // This ensures we get Grime instead of Hip Hop, Afro House instead of Afrobeat
+          if (a.hasParent && !b.hasParent) return -1; // a is child, b is parent -> prefer a
+          if (!a.hasParent && b.hasParent) return 1;  // a is parent, b is child -> prefer b
+          return b.score - a.score;
+        });
 
       return {
         track,
@@ -139,7 +178,7 @@ class InfluenceGenealogyService {
           : null
       }))
       .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 5); // Top 5 influences
+      .slice(0, 15); // Top 15 influences (show more granular subgenres)
 
     return clusters;
   }
@@ -148,19 +187,65 @@ class InfluenceGenealogyService {
    * Match individual track to genre
    */
   calculateTrackGenreMatch(track, genre) {
-    if (!track.bpm || track.energy === null) return 0;
+    if (!track.bpm) return 0;
 
-    // BPM match
-    const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
-    const bpmDistance = Math.abs(track.bpm - genreBpmMid);
-    const bpmScore = Math.max(0, 1 - (bpmDistance / 30));
+    // Genre tag match (if Rekordbox has genre metadata)
+    let genreTagBonus = 0;
+    if (track.genre) {
+      const trackGenre = track.genre.toLowerCase().trim();
+      const genreName = genre.name.toLowerCase();
 
-    // Energy match
-    const genreEnergyMid = (genre.energy_min + genre.energy_max) / 2;
-    const energyDistance = Math.abs(track.energy - genreEnergyMid);
-    const energyScore = Math.max(0, 1 - (energyDistance * 2));
+      // Exact match or close match
+      if (trackGenre === genreName) {
+        genreTagBonus = 40; // Strong bonus for exact match
+      } else if (trackGenre.includes(genreName) || genreName.includes(trackGenre)) {
+        genreTagBonus = 25; // Moderate bonus for partial match
+      } else if (
+        // Special cases for common variations
+        (trackGenre.includes('grime') && genreName.includes('grime')) ||
+        (trackGenre.includes('garage') && (genreName.includes('garage') || genreName.includes('ukg'))) ||
+        (trackGenre.includes('trap') && genreName.includes('trap')) ||
+        (trackGenre.includes('house') && genreName.includes('house')) ||
+        (trackGenre.includes('afro') && genreName.includes('afro'))
+      ) {
+        genreTagBonus = 30;
+      }
+    }
 
-    return (bpmScore * 0.6 + energyScore * 0.4) * 100;
+    // BPM match - prefer genres where track BPM falls well within range
+    // Calculate how well the track fits in the genre's BPM range
+    let bpmScore = 0;
+
+    if (track.bpm >= genre.bpm_min && track.bpm <= genre.bpm_max) {
+      // Track is within range - calculate how central it is
+      const rangeSize = genre.bpm_max - genre.bpm_min;
+      const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
+      const distanceFromMid = Math.abs(track.bpm - genreBpmMid);
+      const centralityScore = 1 - (distanceFromMid / (rangeSize / 2));
+
+      // Strong bonus for narrower ranges (more specific genres like Grime vs broad genres like Trap)
+      // Narrow ranges (7-10 BPM) get high bonus, wide ranges (30+ BPM) get low bonus
+      const rangeSpecificityBonus = Math.max(0, 1 - (rangeSize / 30));
+
+      // Weight specificity more heavily (60%) to prefer narrow, specific genres
+      bpmScore = (centralityScore * 0.4) + (rangeSpecificityBonus * 0.6);
+    } else {
+      // Track is outside range - penalize based on distance
+      const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
+      const bpmDistance = Math.abs(track.bpm - genreBpmMid);
+      bpmScore = Math.max(0, 0.5 - (bpmDistance / 40));
+    }
+
+    // Energy match (if available)
+    if (track.energy !== null && track.energy !== undefined) {
+      const genreEnergyMid = (genre.energy_min + genre.energy_max) / 2;
+      const energyDistance = Math.abs(track.energy - genreEnergyMid);
+      const energyScore = Math.max(0, 1 - (energyDistance * 2));
+      return (bpmScore * 0.5 + energyScore * 0.3) * 100 + genreTagBonus;
+    }
+
+    // No energy data - use BPM + genre tag
+    return (bpmScore * 100) + genreTagBonus;
   }
 
   /**
@@ -197,7 +282,7 @@ class InfluenceGenealogyService {
       const rating = track.rekordbox_star_rating || track.star_rating || 0;
 
       const normalizedPlayCount = playCount / maxPlayCount;
-      const normalizedRating = rating / 5;
+      const normalizedRating = rating / 255; // Rekordbox stores ratings as 0-255
 
       // 60% play count (revealed), 40% rating (conscious)
       const weight = (normalizedPlayCount * 0.6) + (normalizedRating * 0.4);
