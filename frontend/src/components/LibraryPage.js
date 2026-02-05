@@ -131,8 +131,10 @@ const LibraryPage = () => {
                 <div>
                   <p className="uppercase-label text-brand-secondary mb-1">Star Rating</p>
                   <p className="text-body-sm text-brand-text">
-                    {'★'.repeat(selectedTrack.rekordbox_star_rating)}
-                    {'☆'.repeat(5 - selectedTrack.rekordbox_star_rating)}
+                    {(() => {
+                      const stars = Math.round(selectedTrack.rekordbox_star_rating / 51);
+                      return '★'.repeat(stars) + '☆'.repeat(5 - stars);
+                    })()}
                   </p>
                 </div>
               )}

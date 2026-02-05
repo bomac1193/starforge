@@ -137,75 +137,95 @@ const uploadXML = multer({
 // Upload and Analyze
 // ========================================
 
-router.post('/upload-and-analyze', enforceUsageLimit, upload.single('audio'), async (req, res) => {
+router.post('/upload-and-analyze', enforceUsageLimit, upload.array('audio', 100), async (req, res) => {
   try {
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    const files = req.files;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ success: false, error: 'No files uploaded' });
     }
 
-    // Increment usage count for personal tier users
     const userId = req.body.user_id || 'default_user';
-    incrementUsage(userId, 1);
+    const results = [];
+    const errors = [];
 
-    // Analyze with quality scoring and highlights
-    const analysis = await sinkEnhanced.analyzeWithQuality(file.path);
-    const highlights = await sinkEnhanced.detectHighlights(file.path, 3);
+    // Process each file
+    for (const file of files) {
+      try {
+        // Increment usage count
+        incrementUsage(userId, 1);
 
-    // Generate unique ID
-    const trackId = 'trk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        // Analyze with quality scoring and highlights
+        const analysis = await sinkEnhanced.analyzeWithQuality(file.path);
+        const highlights = await sinkEnhanced.detectHighlights(file.path, 3);
 
-    // Store in database
-    db.prepare(`
-      INSERT INTO audio_tracks (
-        id, filename, file_path, duration_seconds,
-        bpm, key, energy, valence, loudness, silence_ratio, tempo_confidence,
-        quality_score, quality_breakdown, source, musical_context
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      trackId,
-      file.originalname,
-      file.path,
-      analysis.duration,
-      analysis.bpm,
-      analysis.key,
-      analysis.energy,
-      analysis.valence,
-      analysis.loudness,
-      analysis.silenceRatio,
-      analysis.tempoConfidence,
-      analysis.qualityScore,
-      JSON.stringify(analysis.qualityBreakdown),
-      'upload',
-      'my_music'
-    );
+        // Generate unique ID
+        const trackId = 'trk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-    // Store highlights
-    for (const highlight of highlights) {
-      const highlightId = 'hl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      db.prepare(`
-        INSERT INTO audio_highlights (
-          id, track_id, start_seconds, end_seconds, highlight_score, reason, peak_feature
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        highlightId,
-        trackId,
-        highlight.startSeconds,
-        highlight.endSeconds,
-        highlight.score,
-        highlight.reason,
-        highlight.peakFeature
-      );
+        // Store in database
+        db.prepare(`
+          INSERT INTO audio_tracks (
+            id, filename, file_path, duration_seconds,
+            bpm, key, energy, valence, loudness, silence_ratio, tempo_confidence,
+            quality_score, quality_breakdown, source, musical_context, user_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          trackId,
+          file.originalname,
+          file.path,
+          analysis.duration,
+          analysis.bpm,
+          analysis.key,
+          analysis.energy,
+          analysis.valence,
+          analysis.loudness,
+          analysis.silenceRatio,
+          analysis.tempoConfidence,
+          analysis.qualityScore,
+          JSON.stringify(analysis.qualityBreakdown),
+          'upload',
+          'my_music',
+          userId
+        );
+
+        // Store highlights
+        for (const highlight of highlights) {
+          const highlightId = 'hl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          db.prepare(`
+            INSERT INTO audio_highlights (
+              id, track_id, start_seconds, end_seconds, highlight_score, reason, peak_feature
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            highlightId,
+            trackId,
+            highlight.startSeconds,
+            highlight.endSeconds,
+            highlight.score,
+            highlight.reason,
+            highlight.peakFeature
+          );
+        }
+
+        results.push({
+          id: trackId,
+          filename: file.originalname,
+          analysis,
+          highlights
+        });
+      } catch (error) {
+        console.error(`Error processing ${file.originalname}:`, error);
+        errors.push({
+          filename: file.originalname,
+          error: error.message
+        });
+      }
     }
 
     res.json({
       success: true,
-      track: {
-        id: trackId,
-        filename: file.originalname,
-        analysis,
-        highlights
-      }
+      uploaded: results.length,
+      failed: errors.length,
+      tracks: results,
+      errors: errors.length > 0 ? errors : undefined
     });
   } catch (error) {
     console.error('Upload and analyze error:', error);
@@ -310,10 +330,10 @@ router.post('/rekordbox/import-xml', requireFeature('dj_library_import'), upload
         db.prepare(`
           INSERT OR REPLACE INTO audio_tracks (
             id, filename, file_path, duration_seconds,
-            bpm, key, star_rating,
+            bpm, key, star_rating, genre,
             rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
             rekordbox_color, rekordbox_comments, source, musical_context
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           track.title,
@@ -322,6 +342,7 @@ router.post('/rekordbox/import-xml', requireFeature('dj_library_import'), upload
           track.bpm,
           track.key,
           track.starRating,
+          track.genre || null,
           track.rekordboxId,
           track.playCount,
           track.starRating,

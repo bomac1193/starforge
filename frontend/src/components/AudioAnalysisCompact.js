@@ -27,9 +27,23 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
       'audio/mpeg': ['.mp3'],
       'audio/wav': ['.wav'],
       'audio/x-m4a': ['.m4a'],
+      'audio/mp4': ['.m4a']
     },
     multiple: true,
-    disabled: analyzing
+    disabled: analyzing,
+    // Recursively accept all files when dragging folders
+    getFilesFromEvent: async (event) => {
+      const files = [];
+      const fileList = event.dataTransfer ? event.dataTransfer.files : event.target.files;
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        if (file.name.match(/\.(mp3|wav|m4a)$/i)) {
+          files.push(file);
+        }
+      }
+      return files;
+    }
   });
 
   // Rekordbox XML upload
@@ -92,22 +106,26 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
     setAnalyzing(true);
 
     try {
-      const tracks = [];
-
-      for (const file of audioFiles) {
-        const formData = new FormData();
+      // Send all files at once
+      const formData = new FormData();
+      audioFiles.forEach(file => {
         formData.append('audio', file);
+      });
 
-        const response = await axios.post('/api/audio/upload-and-analyze', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+      const response = await axios.post('/api/audio/upload-and-analyze', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
-        if (response.data.success) {
-          tracks.push(response.data.track);
+      if (response.data.success) {
+        setAnalyzedTracks(response.data.tracks);
+
+        if (response.data.errors && response.data.errors.length > 0) {
+          console.error('Some files failed:', response.data.errors);
+          alert(`Uploaded ${response.data.uploaded} files successfully. ${response.data.failed} failed.`);
         }
       }
 
-      setAnalyzedTracks(tracks);
+      const tracks = response.data.tracks || [];
 
       // Generate DNA
       const analyses = tracks.map(t => t.analysis);
@@ -182,11 +200,11 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
             <input {...getAudioInputProps()} />
             <p className="text-body text-brand-secondary mb-2">
               {isAudioDragActive
-                ? 'Drop files here'
-                : 'Drag audio files or click to browse'}
+                ? 'Drop files/folders here'
+                : 'Drag files, folders, or click to browse'}
             </p>
             <p className="text-body-sm text-brand-secondary">
-              MP3, WAV, M4A supported
+              MP3, WAV, M4A • Supports bulk folder upload
             </p>
           </div>
 

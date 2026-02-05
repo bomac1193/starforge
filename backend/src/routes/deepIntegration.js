@@ -736,8 +736,9 @@ router.post('/twin/generate-complete', async (req, res) => {
 router.get('/audio/influence-genealogy', requireFeature('influence_genealogy'), async (req, res) => {
   try {
     const userId = req.query.user_id || 'default_user';
+    const mode = req.query.mode || 'hybrid'; // 'hybrid' | 'dj' | 'original'
 
-    const genealogy = await influenceGenealogy.analyzeInfluenceGenealogy(userId);
+    const genealogy = await influenceGenealogy.analyzeInfluenceGenealogy(userId, { mode });
 
     if (!genealogy.available) {
       return res.status(404).json({

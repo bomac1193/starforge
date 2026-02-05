@@ -11,10 +11,11 @@ const InfluenceGenealogyPanel = ({ userId = 'default_user' }) => {
   const [genealogyData, setGenealogyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analysisMode, setAnalysisMode] = useState('hybrid'); // 'hybrid' | 'dj' | 'original'
 
   useEffect(() => {
     fetchSubscriptionAndGenealogy();
-  }, [userId]);
+  }, [userId, analysisMode]);
 
   const fetchSubscriptionAndGenealogy = async () => {
     try {
@@ -28,7 +29,7 @@ const InfluenceGenealogyPanel = ({ userId = 'default_user' }) => {
       // Only fetch genealogy if Elite tier
       if (subResponse.data.tier === 'elite') {
         const genealogyResponse = await axios.get(
-          `/api/deep/audio/influence-genealogy?user_id=${userId}`
+          `/api/deep/audio/influence-genealogy?user_id=${userId}&mode=${analysisMode}`
         );
         
         if (genealogyResponse.data.success) {
@@ -144,6 +145,55 @@ const InfluenceGenealogyPanel = ({ userId = 'default_user' }) => {
         >
           Refresh
         </button>
+      </div>
+
+      {/* Analysis Mode Selector */}
+      <div className="flex gap-0 mb-4 border-b border-brand-border">
+        <button
+          onClick={() => setAnalysisMode('hybrid')}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            analysisMode === 'hybrid'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          Hybrid
+        </button>
+        <button
+          onClick={() => setAnalysisMode('dj')}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            analysisMode === 'dj'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          DJ Library
+        </button>
+        <button
+          onClick={() => setAnalysisMode('original')}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            analysisMode === 'original'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          My Music
+        </button>
+      </div>
+
+      {/* Mode Description */}
+      <div className="mb-6 p-4 border border-brand-border bg-brand-bg">
+        <p className="text-body-xs text-brand-secondary">
+          {analysisMode === 'hybrid' && (
+            "Analyzing both your DJ library (what you play) and your original music (what you create) to show how your curation taste influences your production style."
+          )}
+          {analysisMode === 'dj' && (
+            "Analyzing your DJ library based on play counts, ratings, and genre tags - revealing your curation taste and what works in sets."
+          )}
+          {analysisMode === 'original' && (
+            "Analyzing your original productions using full audio analysis (energy, valence, spectral features) - revealing your creative signature."
+          )}
+        </p>
       </div>
 
       <InfluenceGenealogyTree genealogyData={genealogyData} />

@@ -10,15 +10,18 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState('uploaded_at');
+  const [sortBy, setSortBy] = useState('preference');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [search, setSearch] = useState('');
   const [selectedTracks, setSelectedTracks] = useState([]);
+  const [editingRating, setEditingRating] = useState(null); // Track ID being edited
+  const [hoverRating, setHoverRating] = useState(0); // Star hover state
+  const [libraryMode, setLibraryMode] = useState('all'); // 'all' | 'dj' | 'original'
 
   useEffect(() => {
     fetchLibrary();
     fetchStats();
-  }, [page, sortBy, sortOrder, search]);
+  }, [page, sortBy, sortOrder, search, libraryMode]);
 
   const fetchLibrary = async () => {
     try {
@@ -30,7 +33,8 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
           limit: 50,
           sortBy,
           sortOrder,
-          search
+          search,
+          source: libraryMode === 'dj' ? 'rekordbox' : libraryMode === 'original' ? 'upload' : null
         }
       });
 
@@ -74,6 +78,31 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
     e.preventDefault();
     setPage(1);
     fetchLibrary();
+  };
+
+  const handleRatingUpdate = async (trackId, rating) => {
+    try {
+      const response = await axios.patch(`/api/library/track/${trackId}/rating`, {
+        user_id: userId,
+        rating
+      });
+
+      if (response.data.success) {
+        // Update local state
+        setLibrary(prev => ({
+          ...prev,
+          tracks: prev.tracks.map(t =>
+            t.id === trackId
+              ? { ...t, rekordbox_star_rating: rating * 51 } // Convert back to 255 scale for display
+              : t
+          )
+        }));
+        setEditingRating(null);
+      }
+    } catch (error) {
+      console.error('Error updating rating:', error);
+      alert('Failed to update rating');
+    }
   };
 
   const handleDelete = async (trackId) => {
@@ -146,6 +175,40 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
         </div>
       )}
 
+      {/* Library Mode Selector */}
+      <div className="flex gap-0 mb-6 border-b border-brand-border">
+        <button
+          onClick={() => { setLibraryMode('all'); setPage(1); }}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            libraryMode === 'all'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          Hybrid
+        </button>
+        <button
+          onClick={() => { setLibraryMode('dj'); setPage(1); }}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            libraryMode === 'dj'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          DJ Library
+        </button>
+        <button
+          onClick={() => { setLibraryMode('original'); setPage(1); }}
+          className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+            libraryMode === 'original'
+              ? 'text-brand-primary border-b-2 border-brand-primary'
+              : 'text-brand-secondary hover:text-brand-text'
+          }`}
+        >
+          My Music
+        </button>
+      </div>
+
       {/* Search and Controls */}
       <div className="card">
         <form onSubmit={handleSearch} className="flex gap-3 mb-4">
@@ -194,6 +257,24 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
               >
                 Energy {sortBy === 'energy' && (sortOrder === 'ASC' ? '↑' : '↓')}
               </th>
+              <th
+                className="text-center p-3 uppercase-label text-brand-secondary cursor-pointer hover:text-brand-text"
+                onClick={() => handleSort('rekordbox_star_rating')}
+              >
+                Rating {sortBy === 'rekordbox_star_rating' && (sortOrder === 'ASC' ? '↑' : '↓')}
+              </th>
+              <th
+                className="text-center p-3 uppercase-label text-brand-secondary cursor-pointer hover:text-brand-text"
+                onClick={() => handleSort('rekordbox_play_count')}
+              >
+                Plays {sortBy === 'rekordbox_play_count' && (sortOrder === 'ASC' ? '↑' : '↓')}
+              </th>
+              <th
+                className="text-center p-3 uppercase-label text-brand-secondary cursor-pointer hover:text-brand-text"
+                onClick={() => handleSort('preference')}
+              >
+                Preference {sortBy === 'preference' && (sortOrder === 'ASC' ? '↑' : '↓')}
+              </th>
               <th className="text-center p-3 uppercase-label text-brand-secondary">Key</th>
               <th className="text-center p-3 uppercase-label text-brand-secondary">Duration</th>
               <th className="text-center p-3 uppercase-label text-brand-secondary">Source</th>
@@ -226,6 +307,62 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
                 </td>
                 <td className="p-3 text-center text-brand-secondary">
                   {track.energy ? (track.energy * 100).toFixed(0) + '%' : '-'}
+                </td>
+                <td
+                  className="p-3 text-center text-brand-secondary cursor-pointer hover:bg-brand-border transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingRating(track.id);
+                  }}
+                >
+                  {editingRating === track.id ? (
+                    // Star picker
+                    <div className="flex justify-center gap-1" onMouseLeave={() => setHoverRating(0)}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRatingUpdate(track.id, star);
+                          }}
+                          className="text-lg hover:scale-125 transition-transform"
+                        >
+                          <span className={
+                            star <= (hoverRating || Math.round(track.rekordbox_star_rating / 51))
+                              ? 'text-brand-primary'
+                              : 'text-brand-border'
+                          }>
+                            ★
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    // Display stars
+                    <div className="flex items-center justify-center gap-0.5">
+                      {track.rekordbox_star_rating > 0 ? (
+                        <span className="text-brand-primary">
+                          {'★'.repeat(Math.round(track.rekordbox_star_rating / 51))}
+                        </span>
+                      ) : (
+                        <span className="text-brand-muted text-xs">Click to rate</span>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="p-3 text-center text-brand-secondary">
+                  {track.rekordbox_play_count > 0 ? track.rekordbox_play_count : '-'}
+                </td>
+                <td className="p-3 text-center text-brand-secondary">
+                  {(() => {
+                    // Calculate preference score
+                    const maxPlays = Math.max(...library.tracks.map(t => t.rekordbox_play_count || 0), 1);
+                    const playScore = (track.rekordbox_play_count || 0) / maxPlays * 0.6;
+                    const ratingScore = (track.rekordbox_star_rating || 0) / 255 * 0.4;
+                    const preference = (playScore + ratingScore) * 100;
+                    return preference > 0 ? `${preference.toFixed(0)}%` : '-';
+                  })()}
                 </td>
                 <td className="p-3 text-center text-brand-secondary">
                   {track.key || '-'}

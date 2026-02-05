@@ -80,14 +80,33 @@ class LibraryService {
     const countQuery = `SELECT COUNT(*) as total FROM audio_tracks WHERE ${whereClause}`;
     const { total } = db.prepare(countQuery).get(...params);
 
+    // Calculate sort column (preference needs special handling)
+    let orderByClause;
+    if (sortBy === 'preference') {
+      // Weighted preference: (normalized_play_count * 0.6) + (normalized_rating * 0.4)
+      // Get max values for normalization
+      const maxPlayQuery = `SELECT MAX(COALESCE(rekordbox_play_count, play_count, 0)) as max_plays FROM audio_tracks WHERE ${whereClause}`;
+      const { max_plays } = db.prepare(maxPlayQuery).get(...params);
+      const maxPlays = max_plays || 1;
+
+      // Rekordbox stores ratings as 0-255, convert to 0-5 scale
+      orderByClause = `
+        ((COALESCE(rekordbox_play_count, play_count, 0) * 1.0 / ${maxPlays}) * 0.6 +
+         (COALESCE(rekordbox_star_rating, star_rating, 0) * 1.0 / 255) * 0.4) ${sortOrder}
+      `;
+    } else {
+      orderByClause = `${sortBy} ${sortOrder}`;
+    }
+
     // Get paginated tracks
     const query = `
       SELECT
         id, filename, duration_seconds, bpm, key, energy, valence,
-        star_rating, play_count, source, uploaded_at, rekordbox_comments
+        star_rating, play_count, rekordbox_star_rating, rekordbox_play_count,
+        source, uploaded_at, rekordbox_comments, rekordbox_color
       FROM audio_tracks
       WHERE ${whereClause}
-      ORDER BY ${sortBy} ${sortOrder}
+      ORDER BY ${orderByClause}
       LIMIT ? OFFSET ?
     `;
 
@@ -210,14 +229,20 @@ class LibraryService {
    */
   updateTrack(trackId, userId, updates) {
     const db = this.getDb();
-    const allowedFields = ['star_rating', 'is_favorite', 'rekordbox_comments'];
+    const allowedFields = ['star_rating', 'is_favorite', 'rekordbox_comments', 'rekordbox_star_rating'];
     const fields = [];
     const values = [];
 
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key)) {
         fields.push(`${key} = ?`);
-        values.push(value);
+
+        // Convert 0-5 star rating to 0-255 Rekordbox scale
+        if (key === 'rekordbox_star_rating' && value !== null && value !== undefined) {
+          values.push(Math.round(value * 51)); // 5 stars * 51 = 255
+        } else {
+          values.push(value);
+        }
       }
     }
 
