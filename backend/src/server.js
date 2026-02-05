@@ -421,6 +421,12 @@ app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) 
 const deepIntegrationRoutes = require('./routes/deepIntegration');
 app.use('/api/deep', deepIntegrationRoutes);
 
+// ========================================
+// ENHANCED AUDIO ANALYSIS ROUTES
+// ========================================
+const audioEnhancedRoutes = require('./routes/audioEnhanced');
+app.use('/api/audio', audioEnhancedRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

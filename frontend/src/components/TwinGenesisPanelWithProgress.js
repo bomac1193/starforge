@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import AnalysisProgressModal from './AnalysisProgressModal';
+import RekordboxImportPanel from './RekordboxImportPanel';
+import AudioTrackCard from './AudioTrackCard';
 
 const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
   // File states
@@ -15,6 +17,8 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
   // Integration states
   const [clarosaData, setClarosaData] = useState(null);
   const [sinkData, setSinkData] = useState(null);
+  const [rekordboxData, setRekordboxData] = useState(null);
+  const [analyzedTracks, setAnalyzedTracks] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Progress modal states
@@ -119,7 +123,7 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
-  // Analyze audio with progress modal
+  // Analyze audio with progress modal (ENHANCED with quality scoring)
   const handleAnalyzeAudio = async () => {
     if (audioFiles.length === 0) {
       alert('Please upload audio files first');
@@ -132,9 +136,9 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
     setModalItems([]);
 
     try {
-      const analyses = [];
+      const tracks = [];
 
-      // Analyze each file with progress
+      // Analyze each file with enhanced analysis
       for (let i = 0; i < audioFiles.length; i++) {
         const file = audioFiles[i];
 
@@ -153,23 +157,25 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
         formData.append('audio', file);
 
         try {
-          const response = await axios.post('/api/sink/analyze', formData, {
+          // Use enhanced audio analysis endpoint
+          const response = await axios.post('/api/audio/upload-and-analyze', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
 
           if (response.data.success) {
-            const analysis = response.data.analysis;
-            analyses.push(analysis);
+            const track = response.data.track;
+            tracks.push(track);
 
             setModalCurrentItem({
               name: file.name,
               path: file.path,
-              analysis
+              analysis: track.analysis
             });
 
             setModalItems(prev => [...prev, {
               fileName: file.name,
-              analysis
+              analysis: track.analysis,
+              quality: track.analysis.qualityScore
             }]);
 
             // Pause to show result
@@ -186,18 +192,23 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
         percentage: 100
       });
 
+      // Save analyzed tracks
+      setAnalyzedTracks(tracks);
+
       // Generate audio DNA from analyses
+      const analyses = tracks.map(t => t.analysis);
       const audioDNA = {
         totalTracks: analyses.length,
         avgEnergy: analyses.reduce((sum, a) => sum + a.energy, 0) / analyses.length,
         avgValence: analyses.reduce((sum, a) => sum + a.valence, 0) / analyses.length,
         avgBPM: analyses.reduce((sum, a) => sum + a.bpm, 0) / analyses.length,
-        dominantMoods: [...new Set(analyses.flatMap(a => a.mood_tags))].slice(0, 5),
+        avgQuality: analyses.reduce((sum, a) => sum + a.qualityScore, 0) / analyses.length,
+        dominantMoods: [...new Set(analyses.flatMap(a => a.moodTags))].slice(0, 5),
         profile: `Audio DNA from ${analyses.length} tracks`
       };
 
       setSinkData(audioDNA);
-      console.log('SINK analysis complete:', audioDNA);
+      console.log('Enhanced SINK analysis complete:', audioDNA);
     } catch (error) {
       console.error('Failed to analyze audio:', error);
       setModalProgress({ current: audioFiles.length, total: audioFiles.length, percentage: 100 });
@@ -321,6 +332,14 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
                   {Math.round(sinkData.avgBPM)}
                 </span>
               </div>
+              {sinkData.avgQuality && (
+                <div>
+                  <span className="text-muted">Avg Quality:</span>
+                  <span className="ml-2 text-mint font-bold">
+                    {Math.round(sinkData.avgQuality * 100)}%
+                  </span>
+                </div>
+              )}
               <div className="col-span-2">
                 <span className="text-muted">Moods:</span>
                 <span className="ml-2 text-text">
@@ -331,6 +350,29 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
           </div>
         )}
       </div>
+
+      {/* Rekordbox Import */}
+      <RekordboxImportPanel
+        onImportComplete={(data) => setRekordboxData(data)}
+      />
+
+      {/* Analyzed Tracks */}
+      {analyzedTracks.length > 0 && (
+        <div className="card">
+          <h3 className="text-xl mb-4">Your Analyzed Tracks</h3>
+          <div className="space-y-4">
+            {analyzedTracks.map((track) => (
+              <AudioTrackCard
+                key={track.id}
+                track={track}
+                onRatingChange={(trackId, rating) => {
+                  console.log(`Track ${trackId} rated:`, rating);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Audio Upload */}
       <div className="card">
