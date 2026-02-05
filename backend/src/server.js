@@ -427,6 +427,12 @@ app.use('/api/deep', deepIntegrationRoutes);
 const audioEnhancedRoutes = require('./routes/audioEnhanced');
 app.use('/api/audio', audioEnhancedRoutes);
 
+// ========================================
+// SUBSCRIPTION ROUTES (PRO TIER)
+// ========================================
+const subscriptionRoutes = require('./routes/subscription');
+app.use('/api/subscription', subscriptionRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
