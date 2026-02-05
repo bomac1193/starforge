@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Sophisticated Sonic Palette Analysis
-Extracts frequency spectrum characteristics, tonal profiles, and sonic signatures
-from audio catalog for Audio DNA insights.
+Extracts frequency palettes, tonal profiles, and sonic signatures
+from user's music collection for marketing-grade insights.
 
-Audio equivalent of Visual DNA color palette extraction.
+Audio equivalent of Visual DNA color palette.
 """
 
 import sys
@@ -22,311 +22,267 @@ except ImportError as e:
     sys.exit(1)
 
 
-def extract_spectral_features(audio_path):
+# Frequency band definitions (Hz)
+FREQUENCY_BANDS = {
+    'bass': (60, 250),
+    'low_mid': (250, 500),
+    'mid': (500, 2000),
+    'high_mid': (2000, 6000),
+    'treble': (6000, 20000)
+}
+
+
+def extract_spectral_features(audio_path, sr=22050, duration=30):
     """
     Extract spectral features from audio file
-    Returns frequency distribution across bands
+    Returns frequency band energies and tonal characteristics
     """
     try:
-        # Load audio
-        y, sr = librosa.load(audio_path, sr=22050, duration=60)  # First 60 seconds
-
-        # Extract mel-frequency cepstral coefficients (MFCCs)
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-
+        # Load audio (first 30 seconds for speed)
+        y, sr = librosa.load(audio_path, duration=duration, sr=sr)
+        
         # Extract spectral features
         spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
-        spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr)[0]
-
-        # Get mel spectrogram for frequency band analysis
-        mel_spec = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
-        mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-
-        # Divide into frequency bands (bass, low-mid, mid, high-mid, treble)
-        # Mel bins roughly map to frequency ranges
-        n_bins = mel_spec_db.shape[0]
-
-        # Define band boundaries (in mel bin indices)
-        bass_range = (0, int(n_bins * 0.15))           # 0-250 Hz approx
-        low_mid_range = (int(n_bins * 0.15), int(n_bins * 0.30))  # 250-500 Hz
-        mid_range = (int(n_bins * 0.30), int(n_bins * 0.60))      # 500-2k Hz
-        high_mid_range = (int(n_bins * 0.60), int(n_bins * 0.85)) # 2k-6k Hz
-        treble_range = (int(n_bins * 0.85), n_bins)    # 6k+ Hz
-
-        # Calculate average energy in each band
-        bass_energy = np.mean(mel_spec_db[bass_range[0]:bass_range[1], :])
-        low_mid_energy = np.mean(mel_spec_db[low_mid_range[0]:low_mid_range[1], :])
-        mid_energy = np.mean(mel_spec_db[mid_range[0]:mid_range[1], :])
-        high_mid_energy = np.mean(mel_spec_db[high_mid_range[0]:high_mid_range[1], :])
-        treble_energy = np.mean(mel_spec_db[treble_range[0]:treble_range[1], :])
-
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        
+        # Get frequency spectrum
+        stft = np.abs(librosa.stft(y))
+        freqs = librosa.fft_frequencies(sr=sr)
+        
+        # Calculate energy in each frequency band
+        band_energies = {}
+        for band_name, (low, high) in FREQUENCY_BANDS.items():
+            # Find frequency bins in this range
+            mask = (freqs >= low) & (freqs < high)
+            band_energy = np.mean(stft[mask, :]) if np.any(mask) else 0
+            band_energies[band_name] = float(band_energy)
+        
         # Tonal characteristics
-        spectral_centroid_mean = np.mean(spectral_centroids)
-        spectral_rolloff_mean = np.mean(spectral_rolloff)
-
-        # Determine tonal character
-        tonal_char = determine_tonal_character(
-            spectral_centroid_mean,
-            bass_energy,
-            treble_energy,
-            np.mean(spectral_bandwidth)
-        )
-
+        brightness = np.mean(spectral_centroids)  # Higher = brighter
+        warmth = band_energies['bass'] / (band_energies['treble'] + 1e-6)  # Bass vs treble ratio
+        richness = np.std(mfccs)  # Timbral complexity
+        
         return {
-            'frequency_bands': {
-                'bass': float(bass_energy),
-                'low_mid': float(low_mid_energy),
-                'mid': float(mid_energy),
-                'high_mid': float(high_mid_energy),
-                'treble': float(treble_energy)
-            },
-            'spectral_centroid': float(spectral_centroid_mean),
-            'spectral_rolloff': float(spectral_rolloff_mean),
-            'tonal_character': tonal_char,
-            'mfccs': mfccs.mean(axis=1).tolist()
+            'band_energies': band_energies,
+            'brightness': float(brightness),
+            'warmth': float(warmth),
+            'richness': float(richness),
+            'spectral_centroid': float(np.mean(spectral_centroids)),
+            'spectral_rolloff': float(np.mean(spectral_rolloff))
         }
-
+        
     except Exception as e:
+        print(f"Error analyzing {audio_path}: {e}", file=sys.stderr)
         return None
 
 
-def determine_tonal_character(centroid, bass, treble, bandwidth):
+def analyze_track_collection(tracks_data):
     """
-    Determine tonal characteristics (warm/bright/dark/metallic)
-    Based on spectral content
-    """
-    chars = []
-
-    # Warmth: strong bass, moderate centroid
-    if bass > -20 and centroid < 2000:
-        chars.append('warm')
-
-    # Brightness: high centroid, strong treble
-    if centroid > 3000 or treble > -15:
-        chars.append('bright')
-
-    # Darkness: low centroid, weak treble
-    if centroid < 1500 and treble < -30:
-        chars.append('dark')
-
-    # Metallic: high bandwidth, high rolloff
-    if bandwidth > 2000:
-        chars.append('metallic')
-
-    # Organic: moderate values, balanced
-    if 1500 < centroid < 2500 and -25 < bass < -15:
-        chars.append('organic')
-
-    return chars if chars else ['neutral']
-
-
-def analyze_catalog_sonic_palette(tracks_data):
-    """
-    Analyze entire catalog to extract sonic palette
-
+    Analyze entire track collection to extract sonic DNA
+    
     Args:
-        tracks_data: List of dicts with 'path', 'qualityScore', 'analysis' (optional)
-
+        tracks_data: List of dicts with 'path', 'bpm', 'energy', etc.
+    
     Returns:
-        Sonic palette with frequency bands, tonal characteristics
+        Sonic DNA profile with frequency palette, style, characteristics
     """
-
-    all_spectral_features = []
-    frequency_aggregation = {
-        'bass': [],
-        'low_mid': [],
-        'mid': [],
-        'high_mid': [],
-        'treble': []
-    }
-    tonal_chars = []
-
-    # Prioritize high-quality tracks for analysis
-    quality_tracks = sorted(
-        tracks_data,
-        key=lambda t: t.get('qualityScore', 0),
-        reverse=True
-    )[:50]  # Analyze top 50 tracks
-
+    
+    # Extract spectral features from all tracks
+    all_features = []
+    
+    # Prioritize tracks with higher energy/quality
+    sorted_tracks = sorted(tracks_data, key=lambda t: t.get('energy', 0.5), reverse=True)
+    
+    # Analyze up to 50 tracks for comprehensive profile
     analyzed_count = 0
-    high_quality_count = 0
-
-    for track in quality_tracks:
+    for track in sorted_tracks[:50]:
         path = track.get('path')
         if not path or not Path(path).exists():
             continue
-
+        
         features = extract_spectral_features(path)
-        if not features:
-            continue
-
-        analyzed_count += 1
-        quality_score = track.get('qualityScore', 0)
-
-        if quality_score > 0.7:
-            high_quality_count += 1
-
-        # Weight by quality score
-        weight = quality_score if quality_score > 0 else 0.5
-
-        # Aggregate frequency bands
-        for band, energy in features['frequency_bands'].items():
-            frequency_aggregation[band].append({
-                'energy': energy,
-                'weight': weight
+        if features:
+            all_features.append({
+                **features,
+                'bpm': track.get('bpm', 120),
+                'energy': track.get('energy', 0.5)
             })
-
-        # Collect tonal characteristics
-        tonal_chars.extend(features['tonal_character'])
-
-        # Store MFCC features for clustering
-        all_spectral_features.append({
-            'mfccs': features['mfccs'],
-            'weight': weight,
-            'centroid': features['spectral_centroid']
-        })
-
-    if analyzed_count == 0:
+            analyzed_count += 1
+        
+        # Limit analysis to avoid long processing times
+        if analyzed_count >= 30:
+            break
+    
+    if len(all_features) == 0:
         return {
-            'sonicPalette': [],
-            'tonalCharacteristics': 'No tracks analyzed',
-            'dominantFrequencies': [],
-            'totalAnalyzed': 0,
-            'highQualityCount': 0,
-            'confidence': 0
+            'styleDescription': 'No tracks could be analyzed',
+            'confidence': 0,
+            'trackCount': 0
         }
-
-    # Calculate weighted prominence for each frequency band
+    
+    # Aggregate frequency band energies
+    band_aggregates = {band: [] for band in FREQUENCY_BANDS.keys()}
+    for feat in all_features:
+        for band, energy in feat['band_energies'].items():
+            band_aggregates[band].append(energy)
+    
+    # Calculate average prominence for each band
     sonic_palette = []
-    for band, values in frequency_aggregation.items():
-        if not values:
-            continue
-
-        # Weighted average energy
-        total_weight = sum(v['weight'] for v in values)
-        weighted_energy = sum(v['energy'] * v['weight'] for v in values) / total_weight
-
-        # Normalize to prominence (0-1 scale)
-        # dB values are typically -80 to 0, normalize to 0-1
-        prominence = max(0, min(1, (weighted_energy + 80) / 80))
-
+    for band, energies in band_aggregates.items():
+        avg_energy = np.mean(energies)
+        prominence = avg_energy / (sum(np.mean(e) for e in band_aggregates.values()) + 1e-6)
+        
         sonic_palette.append({
             'band': band,
-            'bandLabel': get_band_label(band),
-            'prominence': round(prominence, 3),
-            'energyDb': round(weighted_energy, 2)
+            'frequency_range': f"{FREQUENCY_BANDS[band][0]}-{FREQUENCY_BANDS[band][1]}Hz",
+            'energy': float(avg_energy),
+            'prominence': float(prominence)
         })
-
+    
     # Sort by prominence
-    sonic_palette.sort(key=lambda x: x['prominence'], reverse=True)
-
-    # Determine overall tonal characteristics
-    tonal_counts = Counter(tonal_chars)
-    dominant_tonal = [char for char, _ in tonal_counts.most_common(3)]
-    tonal_description = generate_tonal_description(dominant_tonal, sonic_palette)
-
-    # Dominant frequencies (top 3 bands)
+    sonic_palette = sorted(sonic_palette, key=lambda x: x['prominence'], reverse=True)
+    
+    # Extract tonal characteristics
+    avg_brightness = np.mean([f['brightness'] for f in all_features])
+    avg_warmth = np.mean([f['warmth'] for f in all_features])
+    avg_richness = np.mean([f['richness'] for f in all_features])
+    
+    tonal_characteristics = describe_tonal_profile(avg_brightness, avg_warmth, avg_richness)
+    
+    # Identify dominant frequencies (top 3 bands)
     dominant_frequencies = [
-        {'band': p['bandLabel'], 'prominence': p['prominence']}
-        for p in sonic_palette[:3]
+        {
+            'band': sp['band'],
+            'frequency_range': sp['frequency_range'],
+            'prominence': round(sp['prominence'] * 100, 1)
+        }
+        for sp in sonic_palette[:3]
     ]
-
-    # Confidence based on sample size
-    confidence = min(analyzed_count / 30, 1.0)
-
+    
+    # Generate marketing-grade style description
+    style_description = generate_sonic_style_description(
+        sonic_palette,
+        tonal_characteristics,
+        all_features,
+        tracks_data
+    )
+    
     return {
+        'styleDescription': style_description,
         'sonicPalette': sonic_palette,
-        'tonalCharacteristics': tonal_description,
+        'tonalCharacteristics': tonal_characteristics,
         'dominantFrequencies': dominant_frequencies,
-        'totalAnalyzed': analyzed_count,
-        'highQualityCount': high_quality_count,
-        'confidence': round(confidence, 2)
+        'totalAnalyzed': len(all_features),
+        'highQualityCount': len([f for f in all_features if f['energy'] >= 0.7]),
+        'confidence': min(len(all_features) / 30, 1.0)
     }
 
 
-def get_band_label(band):
-    """Get human-readable label for frequency band"""
-    labels = {
-        'bass': 'Bass (60-250Hz)',
-        'low_mid': 'Low-Mid (250-500Hz)',
-        'mid': 'Mid (500-2kHz)',
-        'high_mid': 'High-Mid (2-6kHz)',
-        'treble': 'Treble (6kHz+)'
-    }
-    return labels.get(band, band)
-
-
-def generate_tonal_description(dominant_chars, sonic_palette):
-    """
-    Generate marketing-grade tonal description
-    Mirror style of Visual DNA descriptions
-    """
-    if not dominant_chars:
-        return "Neutral sonic character with balanced frequency distribution"
-
-    # Primary characteristic
-    primary = dominant_chars[0] if dominant_chars else 'balanced'
-
-    # Secondary characteristic
-    secondary = dominant_chars[1] if len(dominant_chars) > 1 else None
-
-    # Get dominant frequency range
-    if sonic_palette:
-        dominant_freq = sonic_palette[0]['band']
+def describe_tonal_profile(brightness, warmth, richness):
+    """Generate sophisticated description of tonal characteristics"""
+    
+    descriptors = []
+    
+    # Brightness (spectral centroid)
+    if brightness > 3000:
+        descriptors.append('bright')
+    elif brightness > 1500:
+        descriptors.append('balanced')
     else:
-        dominant_freq = 'mid'
+        descriptors.append('dark')
+    
+    # Warmth (bass vs treble)
+    if warmth > 2.0:
+        descriptors.append('warm')
+    elif warmth > 0.5:
+        descriptors.append('neutral')
+    else:
+        descriptors.append('cool')
+    
+    # Richness (timbral complexity)
+    if richness > 15:
+        descriptors.append('complex')
+    elif richness > 8:
+        descriptors.append('textured')
+    else:
+        descriptors.append('minimal')
+    
+    return ', '.join(descriptors)
 
-    # Build description
-    freq_descriptors = {
+
+def generate_sonic_style_description(palette, tonal, features, tracks):
+    """
+    Generate marketing-grade sonic style description
+    Like what Resident Advisor, Pitchfork, or a top music agency would say
+    """
+    
+    # Calculate average energy
+    avg_energy = np.mean([f['energy'] for f in features])
+    avg_bpm = np.mean([f['bpm'] for f in features])
+    
+    # Primary aesthetic modifier based on energy
+    if avg_energy >= 0.75:
+        primary = "High-energy"
+    elif avg_energy >= 0.55:
+        primary = "Dynamic"
+    elif avg_energy >= 0.35:
+        primary = "Balanced"
+    else:
+        primary = "Atmospheric"
+    
+    # Frequency-based modifier (dominant band)
+    dominant_band = palette[0]['band']
+    
+    frequency_modifiers = {
         'bass': 'bass-driven',
-        'low_mid': 'low-end focused',
-        'mid': 'midrange-centered',
-        'high_mid': 'upper-mid rich',
-        'treble': 'high-frequency oriented'
+        'low_mid': 'warm and grounded',
+        'mid': 'vocal-forward',
+        'high_mid': 'crisp and articulate',
+        'treble': 'bright and airy'
     }
-
-    char_descriptors = {
-        'warm': 'warm',
-        'bright': 'bright',
-        'dark': 'dark',
-        'metallic': 'metallic',
-        'organic': 'organic',
-        'neutral': 'balanced'
-    }
-
-    freq_desc = freq_descriptors.get(dominant_freq, 'balanced')
-    char_desc = char_descriptors.get(primary, 'balanced')
-
-    if secondary:
-        secondary_desc = char_descriptors.get(secondary, '')
-        description = f"{char_desc.capitalize()} {freq_desc} sonic aesthetic with {secondary_desc} undertones"
+    
+    freq_mod = frequency_modifiers.get(dominant_band, 'sonically rich')
+    
+    # Tonal characteristic
+    tonal_descriptors = tonal.split(', ')
+    
+    # BPM-based context
+    if avg_bpm >= 140:
+        tempo_context = "uptempo selections"
+    elif avg_bpm >= 115:
+        tempo_context = "mid-tempo grooves"
+    elif avg_bpm >= 90:
+        tempo_context = "steady-paced rhythms"
     else:
-        description = f"{char_desc.capitalize()} {freq_desc} sonic aesthetic"
-
+        tempo_context = "downtempo explorations"
+    
+    # Assemble final description
+    description = f"{primary} {freq_mod} sonic palette across {tempo_context}"
+    
     return description
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Analyze sonic palette from audio catalog')
+    parser = argparse.ArgumentParser(description='Analyze sonic DNA from track collection')
     parser.add_argument('tracks_json', help='JSON file with track data')
     parser.add_argument('--json', action='store_true', help='Output JSON')
-
+    
     args = parser.parse_args()
-
+    
     # Load track data
     with open(args.tracks_json, 'r') as f:
         tracks_data = json.load(f)
-
+    
     # Analyze
-    result = analyze_catalog_sonic_palette(tracks_data)
-
+    result = analyze_track_collection(tracks_data)
+    
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"Tonal Character: {result['tonalCharacteristics']}")
+        print(f"Style: {result['styleDescription']}")
+        print(f"Tonal: {result['tonalCharacteristics']}")
         print(f"Dominant Frequencies: {', '.join(f['band'] for f in result['dominantFrequencies'])}")
-        print(f"Analyzed: {result['totalAnalyzed']} tracks")
 
 
 if __name__ == '__main__':

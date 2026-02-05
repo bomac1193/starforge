@@ -4,8 +4,8 @@ const fs = require('fs');
 
 /**
  * Sonic Palette Cache Service
- * Stores expensive sonic DNA analysis results to avoid reprocessing
- * Mirror architecture of visualDnaCache.js
+ * Stores expensive sonic palette analysis results to avoid reprocessing
+ * Mirrors Visual DNA cache architecture
  */
 class SonicPaletteCacheService {
   constructor() {
@@ -21,10 +21,11 @@ class SonicPaletteCacheService {
     // Create cache table
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS sonic_palette_cache (
-        user_id INTEGER PRIMARY KEY,
+        user_id TEXT PRIMARY KEY,
         sonic_palette TEXT NOT NULL,
         tonal_characteristics TEXT,
         dominant_frequencies TEXT,
+        style_description TEXT NOT NULL,
         total_analyzed INTEGER,
         high_quality_count INTEGER,
         confidence REAL,
@@ -35,16 +36,16 @@ class SonicPaletteCacheService {
       );
     `);
 
-    console.log('✓ Sonic palette cache initialized');
+    console.log('Sonic Palette cache initialized');
   }
 
   /**
    * Generate hash of track collection to detect changes
    */
   generateTrackHash(tracks) {
-    // Create a hash from track IDs and quality scores to detect changes
+    // Create a hash from track IDs and key features to detect changes
     const hashString = tracks
-      .map(t => `${t.id || t.filename}-${t.qualityScore || 0}`)
+      .map(t => `${t.id}-${t.bpm}-${t.energy}`)
       .sort()
       .join('|');
 
@@ -99,7 +100,7 @@ class SonicPaletteCacheService {
     const validation = this.isCacheValid(userId, currentTracks);
 
     if (!validation.valid) {
-      console.log(`Sonic cache invalid: ${validation.reason}`);
+      console.log(`Sonic Palette cache invalid: ${validation.reason}`);
       return null;
     }
 
@@ -107,9 +108,10 @@ class SonicPaletteCacheService {
 
     // Parse JSON fields
     return {
+      styleDescription: cached.style_description,
       sonicPalette: JSON.parse(cached.sonic_palette),
       tonalCharacteristics: cached.tonal_characteristics,
-      dominantFrequencies: JSON.parse(cached.dominant_frequencies || '[]'),
+      dominantFrequencies: JSON.parse(cached.dominant_frequencies),
       totalAnalyzed: cached.total_analyzed,
       highQualityCount: cached.high_quality_count,
       confidence: cached.confidence,
@@ -122,7 +124,7 @@ class SonicPaletteCacheService {
   /**
    * Save Sonic Palette to cache
    */
-  saveCache(userId, sonicData, tracks) {
+  saveCache(userId, sonicPalette, tracks) {
     try {
       const trackHash = this.generateTrackHash(tracks);
 
@@ -132,28 +134,30 @@ class SonicPaletteCacheService {
           sonic_palette,
           tonal_characteristics,
           dominant_frequencies,
+          style_description,
           total_analyzed,
           high_quality_count,
           confidence,
           track_count,
           track_hash,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `).run(
         userId,
-        JSON.stringify(sonicData.sonicPalette || []),
-        sonicData.tonalCharacteristics || '',
-        JSON.stringify(sonicData.dominantFrequencies || []),
-        sonicData.totalAnalyzed || 0,
-        sonicData.highQualityCount || 0,
-        sonicData.confidence || 0,
+        JSON.stringify(sonicPalette.sonicPalette || []),
+        sonicPalette.tonalCharacteristics || '',
+        JSON.stringify(sonicPalette.dominantFrequencies || []),
+        sonicPalette.styleDescription || '',
+        sonicPalette.totalAnalyzed || 0,
+        sonicPalette.highQualityCount || 0,
+        sonicPalette.confidence || 0,
         tracks.length,
         trackHash
       );
 
-      console.log(`Sonic palette cached for user ${userId}`);
+      console.log(`Sonic Palette cached for user ${userId}`);
     } catch (error) {
-      console.error('Failed to save sonic cache:', error);
+      console.error('Failed to save cache:', error);
     }
   }
 
@@ -163,9 +167,9 @@ class SonicPaletteCacheService {
   invalidateCache(userId) {
     try {
       this.db.prepare('DELETE FROM sonic_palette_cache WHERE user_id = ?').run(userId);
-      console.log(`Sonic cache invalidated for user ${userId}`);
+      console.log(`Sonic Palette cache invalidated for user ${userId}`);
     } catch (error) {
-      console.error('Failed to invalidate sonic cache:', error);
+      console.error('Failed to invalidate cache:', error);
     }
   }
 
@@ -199,7 +203,7 @@ class SonicPaletteCacheService {
         trackHash: cached.track_hash
       };
     } catch (error) {
-      console.error('Failed to get sonic cache stats:', error);
+      console.error('Failed to get cache stats:', error);
       return { exists: false };
     }
   }
