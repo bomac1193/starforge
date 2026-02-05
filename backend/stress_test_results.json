@@ -1,0 +1,247 @@
+{
+  "startTime": "2026-02-05T16:16:41.796Z",
+  "tests": [
+    {
+      "name": "Artist Bio - Sophisticated, Medium",
+      "status": "passed",
+      "startTime": 1770308201799,
+      "endTime": 1770308203914,
+      "responseTime": 2115,
+      "output": "Curator of an eclectic sonic tapestry, [Artist Name] deftly weaves together threads of house, ambient, and drum & bass to craft a listening experience that is both contemplative and uplifting. With a keen ear for the nuances of tempo and energy, their meticulously curated catalog of 4,152 tracks gravitates towards the house tempo of 123 BPM, while maintaining a thoughtful, low-energy sensibility that permeates 92% of their musical selections.\n\nThis refined aesthetic is further reflected in their visual language, where a minimalist, monochromatic palette sets the stage for their cultural curation. [Artist Name] is not merely a purveyor of sound, but a tastemaker who distills the essence of disparate musical worlds, seamlessly blending influences from the fringes of electronic music to craft a listening experience that is both cerebral and emotive.\n\nResonating with a 54% positive valence, their sonic imprint invites the listener to engage in a contemplative journey, one that transcends the confines of genre and invites a deeper, more immersive connection with the musical landscape.",
+      "error": null,
+      "quality": {
+        "wordCount": 167,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Artist Bio - Sophisticated, Short",
+      "status": "passed",
+      "startTime": 1770308204916,
+      "endTime": 1770308206342,
+      "responseTime": 1426,
+      "output": "Bridging the realms of house, ambient, and drum & bass, [Artist Name] crafts sonic meditations that captivate the senses. With a refined palate honed across 4,152 tracks, their productions lock into a hypnotic 123 BPM groove, radiating an 8% contemplative energy and a 54% positive vibe. As a cultural curator, [Artist Name] navigates the intersections of electronic music, weaving together threads of the underground with a distinctive visual aesthetic. Their meticulously curated sonic world invites listeners on a transcendent journey, immersing them in a realm of sublime sonic textures and emotive resonance.",
+      "error": null,
+      "quality": {
+        "wordCount": 92,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Artist Bio - Sophisticated, Long",
+      "status": "passed",
+      "startTime": 1770308207344,
+      "endTime": 1770308214110,
+      "responseTime": 6766,
+      "output": "Amidst the cacophony of contemporary music, there emerges a curator whose refined sensibilities and discerning palate have carved out a distinctive space within the sonic landscape. Immersed in a collection of 4,152 meticulously curated tracks, this tastemaker's musical preferences gravitate towards the pulsing rhythms of house music, with a BPM of 123 serving as the heartbeat of their sonic explorations.\n\nYet, beneath the surface of these dance-floor-ready grooves lies a contemplative, low-energy essence, with an energy level of just 8%, conveying a sense of introspection and a penchant for the more cerebral realms of electronic music. This duality is further reflected in the artist's mood, where a 54% valence of positivity and uplift is balanced by a keen appreciation for the more nuanced and atmospheric soundscapes found in the realms of ambient and downtempo.\n\nAs a cultural curator, this artist's musical palette draws inspiration from a diverse array of genres, including house, drum and bass, and the ethereal realms of ambient music. This eclectic blend, coupled with a taste coherence of 62%, suggests a refined and focused sensibility, one that navigates the ever-evolving musical landscape with a keen eye for the unexpected and the avant-garde.\n\nAdorned in a visual aesthetic that is as captivating as the music they curate, this artist's creative vision extends beyond the sonic realm, inviting audiences to immerse themselves in a world where the senses converge, and the boundaries between art and music blur, creating a truly immersive and enriching experience.",
+      "error": null,
+      "quality": {
+        "wordCount": 245,
+        "lengthAppropriate": false,
+        "hasGenericPhrases": true,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": false,
+        "overallScore": 4
+      }
+    },
+    {
+      "name": "Artist Bio - Casual, Medium",
+      "status": "passed",
+      "startTime": 1770308216785,
+      "endTime": 1770308219113,
+      "responseTime": 2328,
+      "output": "Hey there, let me tell you about this artist I've been following. Their musical tastes are super interesting - they've got over 4,000 tracks in their library, and they really seem to vibe with that classic house tempo around 123 BPM. But the cool thing is, they like their music a little more contemplative and low-key, with only about 8% of that energy level. \n\nAnd the mood? Over half of it is positive and uplifting, which I can totally get behind. Their influences span a bunch of genres - other electronic stuff, some ambient/downtempo vibes, and even a little drum and bass thrown in for good measure. It's a really unique blend that gives their tunes a really cohesive, focused feel.\n\nVisually, they've got this super clean, minimalist aesthetic that complements the music perfectly. It's like they're curating this whole mood and atmosphere, you know? They're not trying to be the biggest name out there or anything, they're just doing their own thing and making music that resonates with them. And I can totally respect that. If you're into that sort of vibe, definitely check them out - I think you'll dig it.",
+      "error": null,
+      "quality": {
+        "wordCount": 193,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Artist Bio - Minimal, Medium",
+      "status": "passed",
+      "startTime": 1770308220114,
+      "endTime": 1770308222336,
+      "responseTime": 2222,
+      "output": "Amidst the pulsing rhythms and undulating textures, a solitary figure emerges. Their musical canvas, a tapestry of contemplative house, ambient whispers, and the occasional drum & bass surge. A sonic cartographer, charting pathways through the subterranean realms of electronic music.\n\nGuided by an instinctive 123 BPM cadence and a penchant for low-energy, positive-leaning soundscapes, this artist's sonic palette is a reflection of their introspective nature. Where others chase the dancefloor's apex, they linger in the shadows, coaxing out the subtle emotive nuances that dwell within.\n\nTheir visual aesthetic, a study in minimalism and restraint, mirrors the measured cadence of their music. Sparse, yet evocative – a canvas upon which the listener's imagination can roam freely. In an age of sensory overload, this artist's work offers a respite, a chance to slow down and lose oneself in the mesmerizing ebb and flow of sound.",
+      "error": null,
+      "quality": {
+        "wordCount": 143,
+        "lengthAppropriate": false,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": false,
+        "overallScore": 7
+      }
+    },
+    {
+      "name": "Artist Bio - Poetic, Medium",
+      "status": "passed",
+      "startTime": 1770308223337,
+      "endTime": 1770308225676,
+      "responseTime": 2339,
+      "output": "Here is a 201 word artist bio in the requested style:\n\nDrifting between the hazy realms of house and ambient, SolarSiege's soundscapes unfurl like lucid dreams. A contemplative energy suffuses their work, inviting the listener to sink into its warm, enveloping embrace. Melodic motifs spiral and sway, buoyed by the steady pulse of a 123 BPM heartbeat.\n\nThough the mood often skews positive and uplifting, there's an undercurrent of melancholy that lends SolarSiege's music a bittersweet quality. Ambient washes part to reveal glimpses of drum & bass-inspired rhythmic complexity, the tension and release mirroring the ebb and flow of human emotion. Shimmering pads and sustained chords create a sense of weightlessness, a sonic suspension that defies the constraints of time and space.\n\nTheir visual aesthetic is equally evocative, with album artworks depicting celestial phenomena, organic textures, and the interplay of light and shadow. Like their music, these images conjure feelings of wonder and introspection, transporting the viewer to realms beyond the mundane. In SolarSiege's world, the boundaries between the physical and the metaphysical dissolve, leaving only the sublime.",
+      "error": null,
+      "quality": {
+        "wordCount": 178,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Caption - Minimal Style (New Mix)",
+      "status": "passed",
+      "startTime": 1770308226676,
+      "endTime": 1770308227677,
+      "responseTime": 1001,
+      "output": "Immerse yourself in the ethereal soundscape. New mix arrives this Friday at midnight, meticulously crafted to transport you into a state of tranquil contemplation. Lose yourself in the fusion of House, Ambient, and Drum & Bass.",
+      "error": null,
+      "quality": {
+        "wordCount": 36,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": false,
+        "toneMatches": true,
+        "overallScore": 8
+      }
+    },
+    {
+      "name": "Caption - Poetic Style (Studio Session)",
+      "status": "passed",
+      "startTime": 1770308228679,
+      "endTime": 1770308230378,
+      "responseTime": 1699,
+      "output": "Here is a poetic social media caption that matches the artist's aesthetic:\n\nFloating between worlds,\nEthereal melodies whisper in the ether.\nPulses of light, rhythmic embraces -\nA sanctuary for the soul.\n\nDrifting through the spaces in-between,\nTextures woven, emotions unbound. \nA prism refracting, colors unfolding -\nSeeking the sublime in the everyday.\n\nImmersed in the flow, surrendering to the moment.\nResonant frequencies, pulsing ever onward.\nFinding solace in the contemplative haze,\nWhere the mind can rest and dream.",
+      "error": null,
+      "quality": {
+        "wordCount": 79,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": false,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 8
+      }
+    },
+    {
+      "name": "Caption - Technical Style (Production)",
+      "status": "passed",
+      "startTime": 1770308231379,
+      "endTime": 1770308233205,
+      "responseTime": 1826,
+      "output": "Immersed in the undulating waves of my modular synthesis experiments, I'm thrilled to unveil the sonic odyssey that will comprise my forthcoming EP. Diving deep into the realms of 123 BPM house tempos, I've meticulously crafted a cohesive tapestry of sound, infusing it with a contemplative 8% energy level and a 54% positive valence. \n\nBlending the nuanced textures of ambient/downtempo and the propulsive rhythms of drum & bass, I've forged a sonic landscape that speaks to my eclectic musical sensibilities. With a 62% taste coherence, this release promises to be a captivating exploration of the intersections between the organic and the electronic.\n\nThrough the tactile interplay of oscillators, filters, and modulation sources, I've sculpted a sonic narrative that transports the listener to a realm where the mind can wander and the spirit can soar. Stay tuned for more updates as this modular masterpiece takes shape.\n\n#ModularSynthesis #HouseTempo #AmbientDNB #MusicProduction #NewMusic",
+      "error": null,
+      "quality": {
+        "wordCount": 150,
+        "lengthAppropriate": false,
+        "hasGenericPhrases": true,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 5
+      }
+    },
+    {
+      "name": "Caption - Hype Style (Event)",
+      "status": "passed",
+      "startTime": 1770308234206,
+      "endTime": 1770308236365,
+      "responseTime": 2159,
+      "output": "Get ready for a deep, soulful journey at the warehouse party tonight! 🔊🏪\n\nWith a collection of over 4,000 tracks, this artist's musical taste is laser-focused on that perfect House tempo of 123 BPM. But don't let the low-energy vibes fool you - their selections pack a punch of positivity and uplift that's sure to move the dance floor. \n\nBlending elements of Ambient, Drum & Bass, and more, their eclectic yet cohesive sound is a must-experience for any music lover. Prepare to get lost in the groove and let the energy of this incredible lineup take you higher! 🙌\n\nThis is one party you won't want to miss. See you on the dancefloor! 💫",
+      "error": null,
+      "quality": {
+        "wordCount": 114,
+        "lengthAppropriate": false,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": false,
+        "toneMatches": true,
+        "overallScore": 6
+      }
+    },
+    {
+      "name": "Press Release - Festival Headlining",
+      "status": "passed",
+      "startTime": 1770308237366,
+      "endTime": 1770308239379,
+      "responseTime": 2013,
+      "output": "Hailing from the pioneering UK garage scene, [Artist Name] has emerged as a singular voice in contemporary electronic music. With a catalog spanning over 4,000 tracks, their productions seamlessly blend influences from house, ambient, and drum & bass into a sonic tapestry that is both cerebral and emotive. Boasting a preference for 123 BPM rhythms and a penchant for contemplative, low-energy textures, [Artist Name]'s music radiates a captivating 54% positive valence, creating an uplifting and introspective listening experience.\n\nRecognized as a tastemaker within the electronic music community, [Artist Name] has been tapped to headline the prestigious Detroit Electronic Music Festival this May, making them the first artist from the UK garage tradition to close the festival's main stage. This landmark achievement underscores [Artist Name]'s ability to transcend genre boundaries and cultivate a devoted following among discerning music enthusiasts. With a moderately focused 62% taste coherence, [Artist Name] seamlessly navigates the diverse landscape of contemporary electronic music, distilling its myriad influences into a singular artistic vision that is both sophisticated and accessible.",
+      "error": null,
+      "quality": {
+        "wordCount": 171,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Press Release - New EP Release",
+      "status": "passed",
+      "startTime": 1770308240379,
+      "endTime": 1770308242860,
+      "responseTime": 2481,
+      "output": "Amidst the relentless flux of the contemporary electronic music landscape, a new voice emerges that commands attention through its singular vision and refined sensibilities. Introducing [Artist Name], an artist whose debut EP \"Rust & Amber\" presents a captivating exploration of the liminal spaces between techno and garage, infusing the proceedings with a compelling sense of atmosphere and introspection.\n\nDrawing from a diverse well of influences that include house, ambient, and drum & bass, [Artist Name] has honed a sound that is both immediately captivating and delightfully elusive. With a preference for 123 BPM tempos and a penchant for contemplative, low-energy textures, the artist's music exudes a rare blend of sophistication and emotive depth, striking a perfect balance between cerebral and visceral. \n\nSlated for release on a respected underground label, \"Rust & Amber\" serves as a tantalizing introduction to an artist whose artistic vision is as multifaceted as it is cohesive. Through this debut offering, [Artist Name] carves out a unique space within the electronic music continuum, inviting listeners to immerse themselves in a sonic world that is both familiar and wholly distinctive. This is music for the discerning ear, a testament to the power of restraint and the allure of the unexplored.",
+      "error": null,
+      "quality": {
+        "wordCount": 202,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    },
+    {
+      "name": "Press Release - Residency",
+      "status": "passed",
+      "startTime": 1770308243861,
+      "endTime": 1770308246313,
+      "responseTime": 2452,
+      "output": "Here is a 205-word professional press release paragraph for the artist profile:\n\nA preternaturally gifted selector with an unerring ear for the obscure and overlooked, [Artist Name] brings their refined sensibilities to a new monthly residency at the intimate [Venue Name]. Drawing from a meticulously curated catalog of over 4,000 tracks, their eclectic tastes span the deeper realms of house, ambient, drum & bass and beyond, united by a contemplative energy and an uplifting 54% valence. While theirempo of choice skews toward the house/techno sweet spot of 123 BPM, their programming is never beholden to a single genre or mood - instead, they weave a tapestry of sounds that is as hypnotic as it is surprising, mining the archives for hidden gems and fan favorites alike. With a taste coherence rating of 62%, [Artist Name]'s curatorial vision is winningly focused, though always open to thrilling left turns. As they settle into a monthly residency at the 200-capacity [Venue Name], discerning dancers can expect a master class in dynamic, immersive DJ sets that transport the dancefloor through subtle shifts in tone and texture. Fans of cultivated, connoisseur-level curation would be wise to make this a standing engagement.",
+      "error": null,
+      "quality": {
+        "wordCount": 196,
+        "lengthAppropriate": true,
+        "hasGenericPhrases": false,
+        "hasMusicReferences": true,
+        "hasVisualReferences": true,
+        "toneMatches": true,
+        "overallScore": 10
+      }
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "avgResponseTime": 2371,
+    "totalCost": 0.078,
+    "avgQualityScore": "8.3"
+  }
+}

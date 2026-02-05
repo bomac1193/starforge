@@ -14,7 +14,8 @@ class AITwinService {
   constructor() {
     this.apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
     this.provider = process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai';
-    this.model = this.provider === 'anthropic' ? 'claude-3-5-sonnet-20240620' : 'gpt-4';
+    // Using Haiku - upgrade API key tier for Sonnet access
+    this.model = this.provider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4';
     this.dbPath = path.join(__dirname, '../../starforge_audio.db');
   }
 
