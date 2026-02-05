@@ -301,7 +301,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
               disabled={importing}
               className="btn-primary w-full"
             >
-              {importing ? '🔍 Scanning...' : '🔍 Scan Local Rekordbox'}
+              {importing ? 'Scanning...' : 'Scan Local Rekordbox'}
             </button>
             <p className="text-body-sm text-brand-secondary mt-2">
               ✓ Gets complete play history, ratings & metadata
@@ -366,7 +366,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
               disabled={importing}
               className="btn-primary w-full"
             >
-              {importing ? '💾 Scanning USB...' : '💾 Scan USB Drive'}
+              {importing ? 'Scanning USB...' : 'Scan USB Drive'}
             </button>
             <p className="text-body-sm text-brand-secondary mt-2">
               ✓ For large collections (128GB+ USBs supported)
