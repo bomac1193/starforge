@@ -347,7 +347,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
                     const usbPath = drive.path;
                     const trackCount = drive.info?.totalTracks || '?';
 
-                    if (!confirm(`Found Rekordbox USB with ${trackCount} tracks at ${usbPath}. Import?`)) {
+                    if (!window.confirm(`Found Rekordbox USB with ${trackCount} tracks at ${usbPath}. Import?`)) {
                       setImporting(false);
                       return;
                     }
