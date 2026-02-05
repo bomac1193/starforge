@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 import librosa
 from scipy.signal import find_peaks
+import pyloudnorm as pyln
 
 def detect_halftime(y, sr, tempo, beat_frames):
     """
@@ -67,6 +68,18 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         y, sr = librosa.load(audio_path, sr=None)
         duration = librosa.get_duration(y=y, sr=sr)
 
+        # LUFS LOUDNESS NORMALIZATION (for fair energy comparison)
+        # Normalize to -14 LUFS (streaming standard) before energy calculation
+        # This removes mastering loudness bias - quiet tracks normalized UP, loud tracks normalized DOWN
+        meter = pyln.Meter(sr)  # Create loudness meter
+        loudness = meter.integrated_loudness(y)  # Measure current loudness
+
+        # Normalize to -14 LUFS target (Spotify/Apple Music standard)
+        y_normalized = pyln.normalize.loudness(y, loudness, -14.0)
+
+        # Use normalized audio for energy calculation (but original for BPM/key/spectral)
+        y_for_energy = y_normalized
+
         # Basic features
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
         tempo_confidence = calculate_tempo_confidence(y, sr, tempo)
@@ -83,9 +96,9 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
         zero_crossing_rate = librosa.feature.zero_crossing_rate(y)[0]
 
-        # IMPROVED ENERGY CALCULATION
-        # 1. RMS energy per frame
-        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+        # IMPROVED ENERGY CALCULATION (using LUFS-normalized audio)
+        # 1. RMS energy per frame (from normalized audio for fair comparison)
+        rms = librosa.feature.rms(y=y_for_energy, frame_length=2048, hop_length=512)[0]
 
         # 2. Exclude quiet sections (below threshold)
         rms_db = librosa.amplitude_to_db(rms, ref=np.max)
@@ -100,12 +113,13 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         # 3. Calculate energy from active sections only
         improved_energy = np.mean(active_rms)
 
-        # 4. Calculate spectral flux (perceived energy)
-        spectral_flux = librosa.onset.onset_strength(y=y, sr=sr)
+        # 4. Calculate spectral flux (perceived energy from normalized audio)
+        spectral_flux = librosa.onset.onset_strength(y=y_for_energy, sr=sr)
         spectral_energy = np.mean(spectral_flux) / 10.0
 
         # 5. Combine RMS and spectral flux (weighted)
-        combined_energy = (improved_energy * 0.6) + (spectral_energy * 0.4)
+        # Favor spectral characteristics (brightness/dynamics) over pure loudness for club music
+        combined_energy = (improved_energy * 0.4) + (spectral_energy * 0.6)
 
         # 6. Apply loudness normalization (calibrated for better spread)
         # Typical RMS values: quiet=0.01, moderate=0.05, loud=0.15, very loud=0.3+

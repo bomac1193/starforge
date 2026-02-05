@@ -50,6 +50,12 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                       <span>{Math.round(influence.avgEnergy * 100)}% energy</span>
                     </>
                   )}
+                  {influence.avgValence !== null && influence.avgValence !== undefined && (
+                    <>
+                      <span>•</span>
+                      <span>{Math.round(influence.avgValence * 100)}% valence</span>
+                    </>
+                  )}
                   <span>•</span>
                   <span>{influence.trackCount} tracks</span>
                   {influence.genre.origin_location && (

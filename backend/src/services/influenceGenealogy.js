@@ -83,7 +83,8 @@ class InfluenceGenealogyService {
           percentage: c.percentage,
           trackCount: c.trackCount,
           avgBpm: c.avgBpm,
-          avgEnergy: c.avgEnergy
+          avgEnergy: c.avgEnergy,
+          avgValence: c.avgValence
         })),
         primaryGenre: primaryCluster.genre,
         matchScore: primaryCluster.percentage,
@@ -153,7 +154,8 @@ class InfluenceGenealogyService {
           genre: bestMatch.genre,
           weightedCount: 0,
           bpms: [],
-          energies: []
+          energies: [],
+          valences: []
         };
       }
 
@@ -164,6 +166,7 @@ class InfluenceGenealogyService {
       const bpmForStats = track.effective_bpm || track.bpm;
       if (bpmForStats) genreClusters[genreId].bpms.push(bpmForStats);
       if (track.energy !== null) genreClusters[genreId].energies.push(track.energy);
+      if (track.valence !== null) genreClusters[genreId].valences.push(track.valence);
     });
 
     // Calculate percentages and averages
@@ -177,6 +180,9 @@ class InfluenceGenealogyService {
           : null,
         avgEnergy: cluster.energies.length > 0
           ? parseFloat((cluster.energies.reduce((a, b) => a + b, 0) / cluster.energies.length).toFixed(2))
+          : null,
+        avgValence: cluster.valences.length > 0
+          ? parseFloat((cluster.valences.reduce((a, b) => a + b, 0) / cluster.valences.length).toFixed(2))
           : null
       }))
       .sort((a, b) => b.percentage - a.percentage)
@@ -331,17 +337,31 @@ class InfluenceGenealogyService {
       }
     });
 
+    // Get tracks with valence and their weights
+    const valences = [];
+    const valenceWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.valence !== null && t.valence !== undefined) {
+        valences.push(t.valence);
+        valenceWeights.push(weights[i]);
+      }
+    });
+
     const avgBpm = this.weightedAverage(bpms, bpmWeights) || 120;
     const avgEnergy = this.weightedAverage(energies, energyWeights) || 0.5;
+    const avgValence = this.weightedAverage(valences, valenceWeights) || 0.5;
 
     const bpmVariance = this.calculateVariance(bpms);
     const energyVariance = this.calculateVariance(energies);
+    const valenceVariance = this.calculateVariance(valences);
 
     return {
       avgBpm: Math.round(avgBpm),
       avgEnergy: parseFloat(avgEnergy.toFixed(2)),
+      avgValence: parseFloat(avgValence.toFixed(2)),
       bpmVariance: parseFloat(bpmVariance.toFixed(2)),
       energyVariance: parseFloat(energyVariance.toFixed(2)),
+      valenceVariance: parseFloat(valenceVariance.toFixed(2)),
       trackCount: tracks.length
     };
   }
@@ -411,9 +431,13 @@ class InfluenceGenealogyService {
       current.description.toLowerCase() + '.'
     );
 
+    const valenceLabel = userSignature.avgValence >= 0.6 ? 'uplifting' :
+                         userSignature.avgValence >= 0.4 ? 'balanced' : 'darker';
+
     narrativeParts.push(
       'Your sonic signature: ' + userSignature.avgBpm + ' BPM average, ' +
-      (userSignature.avgEnergy * 100).toFixed(0) + '% energy level.'
+      (userSignature.avgEnergy * 100).toFixed(0) + '% energy, ' +
+      valenceLabel + ' mood (' + (userSignature.avgValence * 100).toFixed(0) + '% valence).'
     );
 
     return narrativeParts.join(' ');

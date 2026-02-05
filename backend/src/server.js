@@ -428,6 +428,12 @@ const audioEnhancedRoutes = require('./routes/audioEnhanced');
 app.use('/api/audio', audioEnhancedRoutes);
 
 // ========================================
+// BATCH AUDIO ANALYSIS (Parallel + Progress)
+// ========================================
+const audioBatchRoutes = require('./routes/audioBatch');
+app.use('/api/audio', audioBatchRoutes);
+
+// ========================================
 // SUBSCRIPTION ROUTES (PRO TIER)
 // ========================================
 const subscriptionRoutes = require('./routes/subscription');
