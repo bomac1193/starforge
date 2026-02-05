@@ -12,6 +12,7 @@ const sonicPaletteService = require('../services/sonicPaletteService');
 const sinkEnhanced = require('../services/sinkEnhanced');
 const crossModalAnalyzer = require('../services/crossModalAnalyzer');
 const contextComparisonService = require('../services/contextComparisonService');
+const influenceGenealogy = require('../services/influenceGenealogy');
 const Database = require('better-sqlite3');
 const path = require('path');
 const { requireFeature } = require('../middleware/subscription');
@@ -716,6 +717,42 @@ router.post('/twin/generate-complete', async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating complete Twin:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// INFLUENCE GENEALOGY (ELITE TIER)
+// ========================================
+
+/**
+ * GET /api/deep/audio/influence-genealogy
+ * Analyze user's taste lineage and genre heritage
+ * Elite tier exclusive feature
+ */
+router.get('/audio/influence-genealogy', requireFeature('influence_genealogy'), async (req, res) => {
+  try {
+    const userId = req.query.user_id || 'default_user';
+
+    const genealogy = await influenceGenealogy.analyzeInfluenceGenealogy(userId);
+
+    if (!genealogy.available) {
+      return res.status(404).json({
+        success: false,
+        message: genealogy.message || genealogy.error,
+        available: false
+      });
+    }
+
+    res.json({
+      success: true,
+      genealogy
+    });
+  } catch (error) {
+    console.error('Error analyzing influence genealogy:', error);
     res.status(500).json({
       success: false,
       error: error.message
