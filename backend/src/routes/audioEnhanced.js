@@ -1084,4 +1084,63 @@ router.get('/context/compare', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/audio/taste/coherence
+ * Get taste coherence scores for user's music library
+ * Returns 6 coherence metrics and overall score
+ */
+router.get('/taste/coherence', (req, res) => {
+  try {
+    const { context } = req.query;
+    const db = new Database(dbPath);
+
+    // Get tracks for specified context (or all tracks)
+    let tracks;
+    if (context) {
+      tracks = db.prepare('SELECT * FROM audio_tracks WHERE musical_context = ?').all(context);
+    } else {
+      tracks = db.prepare('SELECT * FROM audio_tracks').all();
+    }
+
+    if (tracks.length === 0) {
+      return res.json({
+        success: true,
+        available: false,
+        message: 'No tracks found. Import your music library to see coherence scores.'
+      });
+    }
+
+    console.log(`Calculating taste coherence for ${tracks.length} tracks (context: ${context || 'all'})`);
+
+    const coherence = sinkEnhanced.calculateTasteCoherence(tracks);
+
+    // Generate interpretation
+    const interpretation = {
+      overall: coherence.overall >= 0.75 ? 'Highly Cohesive' :
+               coherence.overall >= 0.5 ? 'Moderately Cohesive' :
+               'Highly Eclectic',
+      description: coherence.overall >= 0.75
+        ? 'Your taste is very consistent - you know what you like and stick to it.'
+        : coherence.overall >= 0.5
+        ? 'Your taste balances consistency with exploration.'
+        : 'Your taste is highly diverse - you explore many different sounds.'
+    };
+
+    res.json({
+      success: true,
+      available: true,
+      trackCount: tracks.length,
+      context: context || 'all',
+      coherence,
+      interpretation
+    });
+  } catch (error) {
+    console.error('Taste coherence error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

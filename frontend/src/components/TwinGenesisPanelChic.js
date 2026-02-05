@@ -3,6 +3,7 @@ import axios from 'axios';
 import AudioAnalysisCompact from './AudioAnalysisCompact';
 import AudioDNAPanel from './AudioDNAPanel';
 import ContextComparisonView from './ContextComparisonView';
+import TasteCoherenceView from './TasteCoherenceView';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -183,6 +184,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         {/* Context Comparison - DJ vs Personal Music */}
         <div className="mt-6">
           <ContextComparisonView userId="default_user" />
+        </div>
+
+        {/* Taste Coherence Score */}
+        <div className="mt-6">
+          <TasteCoherenceView userId="default_user" />
         </div>
       </div>
 
