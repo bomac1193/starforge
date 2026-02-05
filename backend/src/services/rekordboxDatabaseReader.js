@@ -40,10 +40,29 @@ class RekordboxDatabaseReader {
         path.join(os.homedir(), 'Library/Application Support/Pioneer/rekordbox/master.db'),
       ];
     } else if (platform === 'linux') {
-      // Linux paths (if running Rekordbox via Wine)
+      // Linux/WSL paths
       searchPaths = [
+        // Wine paths
         path.join(os.homedir(), '.wine/drive_c/users', os.userInfo().username, 'AppData/Roaming/Pioneer/rekordbox/master.db'),
       ];
+
+      // WSL: Check Windows file system
+      // Try to find Windows users and check their AppData
+      try {
+        if (fs.existsSync('/mnt/c/Users')) {
+          const users = fs.readdirSync('/mnt/c/Users').filter(u =>
+            !['All Users', 'Default', 'Default User', 'Public'].includes(u) &&
+            !u.endsWith('.ini') && !u.endsWith('.log')
+          );
+
+          for (const user of users) {
+            searchPaths.push(`/mnt/c/Users/${user}/AppData/Roaming/Pioneer/rekordbox/master.db`);
+            searchPaths.push(`/mnt/c/Users/${user}/AppData/Roaming/Pioneer/rekordbox6/master.db`);
+          }
+        }
+      } catch (error) {
+        console.log('Could not scan WSL Windows users:', error.message);
+      }
     }
 
     for (const dbPath of searchPaths) {
@@ -150,8 +169,35 @@ class RekordboxDatabaseReader {
    * Quick preview of what's in the database
    */
   getDatabaseInfo(dbPath) {
+    let tempDbPath = null;
+
     try {
-      const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+      // For WSL/Windows file system, copy to temp location first
+      // This avoids file locking issues when Rekordbox is running
+      const isWSL = dbPath.startsWith('/mnt/');
+      let actualDbPath = dbPath;
+
+      if (isWSL) {
+        // Copy database to temp location in Linux file system
+        // Need to copy all WAL files (.db, .db-shm, .db-wal) for databases in WAL mode
+        tempDbPath = `/tmp/rekordbox_${Date.now()}.db`;
+        fs.copyFileSync(dbPath, tempDbPath);
+
+        // Copy WAL files if they exist
+        const shmPath = dbPath + '-shm';
+        const walPath = dbPath + '-wal';
+        if (fs.existsSync(shmPath)) {
+          fs.copyFileSync(shmPath, tempDbPath + '-shm');
+        }
+        if (fs.existsSync(walPath)) {
+          fs.copyFileSync(walPath, tempDbPath + '-wal');
+        }
+
+        actualDbPath = tempDbPath;
+        console.log('📋 Copied WSL database (with WAL files) to temp location for reading');
+      }
+
+      const db = new Database(actualDbPath, { readonly: true, fileMustExist: true });
 
       const info = {
         path: dbPath,
@@ -164,8 +210,25 @@ class RekordboxDatabaseReader {
       };
 
       db.close();
+
+      // Clean up temp files if created (including WAL files)
+      if (tempDbPath) {
+        if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
+        if (fs.existsSync(tempDbPath + '-shm')) fs.unlinkSync(tempDbPath + '-shm');
+        if (fs.existsSync(tempDbPath + '-wal')) fs.unlinkSync(tempDbPath + '-wal');
+      }
+
       return info;
     } catch (error) {
+      // Clean up temp files if created (including WAL files)
+      if (tempDbPath) {
+        try {
+          if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
+          if (fs.existsSync(tempDbPath + '-shm')) fs.unlinkSync(tempDbPath + '-shm');
+          if (fs.existsSync(tempDbPath + '-wal')) fs.unlinkSync(tempDbPath + '-wal');
+        } catch (e) {}
+      }
+
       // Check if it's an encrypted USB export database
       if (error.code === 'SQLITE_NOTADB' && dbPath.includes('exportLibrary')) {
         console.error('❌ USB export database is encrypted:', dbPath);
@@ -196,10 +259,30 @@ class RekordboxDatabaseReader {
     console.log('📖 Reading Rekordbox database:', dbPath);
 
     // Open database READ-ONLY (important for safety and legality)
-    const db = new Database(dbPath, {
-      readonly: true,
-      fileMustExist: true
-    });
+    // For WSL, copy to temp location first to avoid file locking issues
+    const isWSL = dbPath.startsWith('/mnt/');
+    let actualDbPath = dbPath;
+    let tempDbPath = null;
+
+    if (isWSL) {
+      tempDbPath = `/tmp/rekordbox_${Date.now()}.db`;
+      console.log('📋 Copying WSL database to temp location...');
+      fs.copyFileSync(dbPath, tempDbPath);
+
+      // Copy WAL files if they exist
+      const shmPath = dbPath + '-shm';
+      const walPath = dbPath + '-wal';
+      if (fs.existsSync(shmPath)) {
+        fs.copyFileSync(shmPath, tempDbPath + '-shm');
+      }
+      if (fs.existsSync(walPath)) {
+        fs.copyFileSync(walPath, tempDbPath + '-wal');
+      }
+
+      actualDbPath = tempDbPath;
+    }
+
+    const db = new Database(actualDbPath, { readonly: true, fileMustExist: true });
 
     try {
       // Get total count
@@ -244,6 +327,12 @@ class RekordboxDatabaseReader {
 
       db.close();
 
+      // Clean up temp file if created
+      if (tempDbPath && fs.existsSync(tempDbPath)) {
+        fs.unlinkSync(tempDbPath);
+        console.log('🧹 Cleaned up temp database file');
+      }
+
       return {
         total,
         tracks,
@@ -253,6 +342,16 @@ class RekordboxDatabaseReader {
       };
     } catch (error) {
       db.close();
+
+      // Clean up temp files if created (including WAL files)
+      if (tempDbPath) {
+        try {
+          if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
+          if (fs.existsSync(tempDbPath + '-shm')) fs.unlinkSync(tempDbPath + '-shm');
+          if (fs.existsSync(tempDbPath + '-wal')) fs.unlinkSync(tempDbPath + '-wal');
+        } catch (e) {}
+      }
+
       console.error('❌ Error reading tracks:', error);
       throw error;
     }
