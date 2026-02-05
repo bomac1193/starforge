@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
-import TwinGenesisPanelWithProgress from './components/TwinGenesisPanelWithProgress';
+import TwinGenesisPanelChic from './components/TwinGenesisPanelChic';
 import Glowmeter from './components/Glowmeter';
 import RitualEngine from './components/RitualEngine';
 import Glowline from './components/Glowline';
@@ -21,21 +21,21 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-cosmic">
+    <div className="min-h-screen bg-brand-bg">
       {/* Header */}
-      <header className="border-b border-muted py-6">
-        <div className="max-w-container mx-auto px-6">
-          <h1 className="text-glow">
-            🌌 Starforge
+      <header className="border-b border-brand-border py-8">
+        <div className="max-w-container mx-auto px-8">
+          <h1 className="text-display-lg text-brand-text">
+            Starforge
           </h1>
-          <p className="text-muted text-sm mt-2">Don't Grind. Forge.</p>
+          <p className="text-body text-brand-secondary mt-1">Don't Grind. Forge.</p>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-container mx-auto px-6 py-12">
+      <main className="max-w-container mx-auto px-8 py-16">
         {/* Glowmeter - Always visible */}
-        <div className="mb-12">
+        <div className="mb-16">
           <Glowmeter
             glowLevel={glowLevel}
             ritualPlan={ritualPlan}
@@ -43,23 +43,23 @@ function App() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex gap-4 mb-8 border-b border-muted pb-4">
+        <nav className="flex gap-6 mb-12 border-b border-brand-border pb-1">
           <button
             onClick={() => setActiveView('genesis')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`pb-4 uppercase-label transition-all ${
               activeView === 'genesis'
-                ? 'bg-glow text-cosmic'
-                : 'text-muted hover:text-text'
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
             }`}
           >
             Twin Genesis
           </button>
           <button
             onClick={() => setActiveView('ritual')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`pb-4 uppercase-label transition-all ${
               activeView === 'ritual'
-                ? 'bg-glow text-cosmic'
-                : 'text-muted hover:text-text'
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
             }`}
             disabled={!twinData}
           >
@@ -67,21 +67,21 @@ function App() {
           </button>
           <button
             onClick={() => setActiveView('timeline')}
-            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`pb-4 uppercase-label transition-all ${
               activeView === 'timeline'
-                ? 'bg-glow text-cosmic'
-                : 'text-muted hover:text-text'
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
             }`}
             disabled={!ritualPlan}
           >
-            Glowline
+            Timeline
           </button>
         </nav>
 
         {/* View Content */}
         <div className="animate-fadeIn">
           {activeView === 'genesis' && (
-            <TwinGenesisPanelWithProgress
+            <TwinGenesisPanelChic
               onTwinGenerated={handleTwinGenerated}
               onGlowChange={setGlowLevel}
             />
@@ -104,18 +104,18 @@ function App() {
       {/* Fixed CTA - Bottom Right */}
       {ritualPlan && (
         <button
-          className="fixed bottom-8 right-8 bg-mint text-cosmic px-8 py-4 rounded-full font-bold glow-effect hover:scale-105 transition-transform shadow-lg"
+          className="fixed bottom-8 right-8 btn-primary shadow-sm"
           onClick={() => setActiveView('ritual')}
         >
-          Plan / Adjust Drop
+          Adjust Drop
         </button>
       )}
 
       {/* Twin Voice - Subtle nudge */}
       {glowLevel <= 2 && (
-        <div className="fixed bottom-8 left-8 max-w-xs p-4 bg-cosmic border border-glow rounded-lg glow-effect">
-          <p className="text-glow text-sm italic">
-            "Glow low. Ritual compressed."
+        <div className="fixed bottom-8 left-8 max-w-xs p-4 bg-brand-surface border border-brand-border">
+          <p className="text-brand-secondary text-body-sm italic">
+            Low energy. Ritual compressed.
           </p>
         </div>
       )}

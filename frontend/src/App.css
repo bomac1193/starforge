@@ -1,9 +1,11 @@
-/* Additional animations and effects */
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap');
 
+/* Minimal animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -12,49 +14,142 @@
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(168, 130, 255, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(168, 130, 255, 0.5);
-  }
-}
-
-.glow-effect {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-/* Custom scrollbar */
+/* Custom scrollbar - minimal */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F0F1A;
+  background: #FAFAFA;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #6C6C80;
-  border-radius: 4px;
+  background: #E0E0E0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #A882FF;
+  background: #6A6A6A;
 }
 
-/* Smooth transitions */
+/* Smooth transitions - minimal */
 * {
-  transition-property: color, background-color, border-color;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-property: color, background-color, border-color, opacity;
+  transition-timing-function: ease;
   transition-duration: 150ms;
 }
 
 /* Disabled state */
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
+}
+
+/* Remove default focus outline, add custom */
+*:focus {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 1px solid #0A0A0A;
+  outline-offset: 2px;
+}
+
+/* Global typography */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #FAFAFA;
+  color: #0A0A0A;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Utility classes */
+.text-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.text-body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.uppercase-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+/* Card styles */
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E0E0E0;
+  padding: 24px;
+}
+
+/* Button styles */
+.btn-primary {
+  background: #0A0A0A;
+  color: #FAFAFA;
+  border: 1px solid #0A0A0A;
+  padding: 12px 24px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1A1A1A;
+  border-color: #1A1A1A;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #0A0A0A;
+  border: 1px solid #E0E0E0;
+  padding: 12px 24px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #0A0A0A;
+}
+
+/* Input styles */
+.input-field {
+  background: #FAFAFA;
+  border: 1px solid #E0E0E0;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #0A0A0A;
+  width: 100%;
+}
+
+.input-field:focus {
+  border-color: #0A0A0A;
+  background: #FFFFFF;
+}
+
+.input-field::placeholder {
+  color: #6A6A6A;
+}
+
+/* Remove all rounded corners by default */
+* {
+  border-radius: 0;
 }
