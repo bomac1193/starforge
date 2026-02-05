@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import AudioAnalysisCompact from './AudioAnalysisCompact';
 import AudioDNAPanel from './AudioDNAPanel';
@@ -8,6 +8,7 @@ import TasteCoherenceView from './TasteCoherenceView';
 /**
  * Minimal, chic Twin Genesis Panel
  * No emojis, clean typography, editorial aesthetic
+ * Now with tier-aware features and onboarding guidance
  */
 const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
   const [caption, setCaption] = useState('');
@@ -18,6 +19,25 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
   const [rekordboxData, setRekordboxData] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [connectingClarosa, setConnectingClarosa] = useState(false);
+  const [subscriptionTier, setSubscriptionTier] = useState('personal');
+  const [usageInfo, setUsageInfo] = useState(null);
+
+  // Fetch subscription status on mount
+  useEffect(() => {
+    fetchSubscriptionStatus();
+  }, []);
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await axios.get('/api/subscription/status');
+      if (response.data.success) {
+        setSubscriptionTier(response.data.tier);
+        setUsageInfo(response.data.usage);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription status:', error);
+    }
+  };
 
   const handleGlowChange = (e) => {
     const level = parseInt(e.target.value);
@@ -88,6 +108,19 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
 
   const canGenerate = (audioData || clarosaData || rekordboxData) && (caption || bio);
 
+  // Helper: Tier Badge Component
+  const TierBadge = ({ tier }) => (
+    <span className="ml-2 px-2 py-0.5 text-xs border border-brand-text text-brand-text">
+      {tier.toUpperCase()}
+    </span>
+  );
+
+  // Helper: Check if user has access to tier
+  const hasTierAccess = (requiredTier) => {
+    const tierLevels = { personal: 0, pro: 1, elite: 2 };
+    return tierLevels[subscriptionTier] >= tierLevels[requiredTier];
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -97,6 +130,42 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
           Connect your creative catalogs. The Twin learns from your actual data.
         </p>
       </div>
+
+      {/* Onboarding Guide */}
+      {!audioData && !clarosaData && !rekordboxData && (
+        <div className="card bg-brand-border">
+          <h3 className="text-display-sm mb-4">Start Here</h3>
+          <div className="space-y-4 text-body-sm text-brand-secondary">
+            <p className="text-brand-text font-medium">
+              To generate your Twin OS, connect at least one creative catalog:
+            </p>
+            <ol className="list-decimal list-inside space-y-2 ml-2">
+              <li>
+                <span className="text-brand-text">Visual DNA:</span> Connect CLAROSA to analyze your photo aesthetic
+              </li>
+              <li>
+                <span className="text-brand-text">Audio DNA:</span> Upload tracks or import DJ library
+                {subscriptionTier === 'personal' && (
+                  <span className="text-brand-secondary ml-2">
+                    ({usageInfo?.remaining || 50} uploads remaining • <a href="/pricing" className="underline">Upgrade for unlimited</a>)
+                  </span>
+                )}
+              </li>
+              <li>
+                <span className="text-brand-text">Voice & Identity:</span> Add caption samples and bio below
+              </li>
+            </ol>
+            {subscriptionTier === 'personal' && (
+              <div className="mt-4 pt-4 border-t border-brand-border">
+                <p className="text-brand-text font-medium mb-2">Want more?</p>
+                <p>
+                  Upgrade to <a href="/pricing" className="underline text-brand-text">Pro</a> for DJ library import, context comparison, taste coherence, and unlimited tracks.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Subtaste Integration */}
       <div className="card">
