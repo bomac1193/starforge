@@ -20,8 +20,33 @@ class AITwinService {
   }
 
   /**
+   * Get user's writing samples for voice training (dual-layer)
+   */
+  getWritingSamples(userId) {
+    try {
+      const db = new Database(this.dbPath);
+      const samples = db.prepare(`
+        SELECT social_posts, subconscious_writing
+        FROM user_writing_samples
+        WHERE user_id = ?
+      `).get(userId);
+      db.close();
+
+      if (!samples) return null;
+
+      return {
+        social: samples.social_posts || null,
+        subconscious: samples.subconscious_writing || null
+      };
+    } catch (error) {
+      console.error('Error getting writing samples:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get complete aesthetic DNA for user
-   * Combines Visual DNA + Audio DNA + Taste Profile
+   * Combines Visual DNA + Audio DNA + Taste Profile + Writing Samples
    */
   async getAestheticDNA(userId) {
     try {
@@ -45,6 +70,9 @@ class AITwinService {
         influenceGenealogy = audioDNA.influenceGenealogy;
       }
 
+      // Get Writing Samples for voice training
+      const writingSamples = this.getWritingSamples(userId);
+
       return {
         available: true,
         audio: {
@@ -61,7 +89,8 @@ class AITwinService {
           colorPalette: visualDNA.colorPalette?.map(c => c.name).slice(0, 5),
           paletteCharacteristics: visualDNA.paletteCharacteristics,
           themes: visualDNA.dominantThemes?.slice(0, 5)
-        } : null
+        } : null,
+        writingSamples: writingSamples
       };
     } catch (error) {
       console.error('Error getting aesthetic DNA:', error);
@@ -73,7 +102,7 @@ class AITwinService {
    * Build context prompt from aesthetic DNA
    */
   buildAestheticContext(aestheticDNA) {
-    const { audio, visual } = aestheticDNA;
+    const { audio, visual, writingSamples } = aestheticDNA;
 
     let context = 'Artist Profile:\n\n';
 
@@ -115,6 +144,23 @@ class AITwinService {
       }
 
       context += '\n';
+    }
+
+    // Writing Samples (Voice DNA) - Dual Layer
+    if (writingSamples) {
+      if (writingSamples.social) {
+        context += `Public Voice (Social Posts):\n${writingSamples.social}\n\n`;
+      }
+
+      if (writingSamples.subconscious) {
+        context += `Raw Voice (Stream of Consciousness):\n${writingSamples.subconscious}\n\n`;
+      }
+
+      context += `CRITICAL INSTRUCTION:\n`;
+      context += `- Use vocabulary/rhythm from raw voice (authentic)\n`;
+      context += `- Use structure/clarity from social posts (presentable)\n`;
+      context += `- NO formal language: "sophisticated tastemaker", "discerning purveyor", "impeccable taste"\n`;
+      context += `- Write like THEM, not a marketing agency\n\n`;
     }
 
     return context;

@@ -120,6 +120,23 @@ const LibraryPage = () => {
                 </div>
               )}
 
+              {selectedTrack.rekordbox_play_count > 0 && (
+                <div>
+                  <p className="uppercase-label text-brand-secondary mb-1">Play Count</p>
+                  <p className="text-body-sm text-brand-text">{selectedTrack.rekordbox_play_count} plays</p>
+                </div>
+              )}
+
+              {selectedTrack.rekordbox_star_rating > 0 && (
+                <div>
+                  <p className="uppercase-label text-brand-secondary mb-1">Star Rating</p>
+                  <p className="text-body-sm text-brand-text">
+                    {'★'.repeat(selectedTrack.rekordbox_star_rating)}
+                    {'☆'.repeat(5 - selectedTrack.rekordbox_star_rating)}
+                  </p>
+                </div>
+              )}
+
               {selectedTrack.source && (
                 <div>
                   <p className="uppercase-label text-brand-secondary mb-1">Source</p>

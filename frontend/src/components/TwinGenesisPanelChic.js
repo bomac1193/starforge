@@ -6,6 +6,7 @@ import CrossModalCoherence from './CrossModalCoherence';
 import ContextComparisonView from './ContextComparisonView';
 import TasteCoherenceView from './TasteCoherenceView';
 import InfluenceGenealogyPanel from './InfluenceGenealogyPanel';
+import WritingSamplesInput from './WritingSamplesInput';
 import AIGenerationPanel from './AIGenerationPanel';
 
 /**
@@ -272,6 +273,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         <div className="mt-6">
           <InfluenceGenealogyPanel userId="default_user" />
         </div>
+      </div>
+
+      {/* Writing Samples - Train Your Voice */}
+      <div className="mt-6">
+        <WritingSamplesInput userId="default_user" />
       </div>
 
       {/* AI Generation - Personal AI Twin */}

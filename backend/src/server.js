@@ -445,6 +445,12 @@ app.use('/api/library', libraryRoutes);
 const aiGenerationRoutes = require('./routes/aiGeneration');
 app.use('/api/ai', aiGenerationRoutes);
 
+// ========================================
+// WRITING SAMPLES (VOICE DNA TRAINING)
+// ========================================
+const writingSamplesRoutes = require('./routes/writingSamples');
+app.use('/api/writing-samples', writingSamplesRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

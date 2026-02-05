@@ -115,30 +115,94 @@ class CatalogAnalysisService {
   }
 
   /**
-   * Calculate aggregate statistics
+   * Calculate preference weight for each track
+   * Combines play count (60%) + star rating (40%)
+   * Returns normalized weights (0-1 scale)
+   */
+  calculatePreferenceWeights(tracks) {
+    // Get max values for normalization
+    const maxPlayCount = Math.max(...tracks.map(t => t.rekordbox_play_count || t.play_count || 0), 1);
+    const maxRating = 5; // Star ratings are 0-5
+
+    return tracks.map(track => {
+      const playCount = track.rekordbox_play_count || track.play_count || 0;
+      const rating = track.rekordbox_star_rating || track.star_rating || 0;
+
+      // Normalize to 0-1
+      const normalizedPlayCount = playCount / maxPlayCount;
+      const normalizedRating = rating / maxRating;
+
+      // Weighted combination: 60% play count (revealed), 40% rating (conscious)
+      const weight = (normalizedPlayCount * 0.6) + (normalizedRating * 0.4);
+
+      // If no preference data, use minimum weight (not zero, to include in analysis)
+      return weight > 0 ? weight : 0.1;
+    });
+  }
+
+  /**
+   * Calculate weighted average
+   */
+  weightedAverage(values, weights) {
+    if (values.length === 0 || values.length !== weights.length) return 0;
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    if (totalWeight === 0) return values.reduce((a, b) => a + b, 0) / values.length;
+    return values.reduce((sum, val, i) => sum + val * weights[i], 0) / totalWeight;
+  }
+
+  /**
+   * Calculate aggregate statistics (PREFERENCE WEIGHTED)
    */
   calculateAggregateStats(tracks) {
-    const bpms = tracks.map(t => t.bpm).filter(b => b && b > 0);
-    const energies = tracks.map(t => t.energy).filter(e => e !== null && e !== undefined);
-    const valences = tracks.map(t => t.valence).filter(v => v !== null && v !== undefined);
+    // Calculate preference weights
+    const weights = this.calculatePreferenceWeights(tracks);
+
+    // Filter tracks with valid data and get corresponding weights
+    const tracksWithBpm = [];
+    const bpmWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.bpm && t.bpm > 0) {
+        tracksWithBpm.push(t.bpm);
+        bpmWeights.push(weights[i]);
+      }
+    });
+
+    const tracksWithEnergy = [];
+    const energyWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.energy !== null && t.energy !== undefined) {
+        tracksWithEnergy.push(t.energy);
+        energyWeights.push(weights[i]);
+      }
+    });
+
+    const tracksWithValence = [];
+    const valenceWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.valence !== null && t.valence !== undefined) {
+        tracksWithValence.push(t.valence);
+        valenceWeights.push(weights[i]);
+      }
+    });
 
     return {
-      avgBpm: bpms.length > 0 ? bpms.reduce((a, b) => a + b, 0) / bpms.length : 0,
-      minBpm: bpms.length > 0 ? Math.min(...bpms) : 0,
-      maxBpm: bpms.length > 0 ? Math.max(...bpms) : 0,
-      bpmRange: bpms.length > 0 ? Math.max(...bpms) - Math.min(...bpms) : 0,
+      // Weighted averages (what you ACTUALLY like)
+      avgBpm: this.weightedAverage(tracksWithBpm, bpmWeights),
+      minBpm: tracksWithBpm.length > 0 ? Math.min(...tracksWithBpm) : 0,
+      maxBpm: tracksWithBpm.length > 0 ? Math.max(...tracksWithBpm) : 0,
+      bpmRange: tracksWithBpm.length > 0 ? Math.max(...tracksWithBpm) - Math.min(...tracksWithBpm) : 0,
 
-      avgEnergy: energies.length > 0 ? energies.reduce((a, b) => a + b, 0) / energies.length : 0,
-      minEnergy: energies.length > 0 ? Math.min(...energies) : 0,
-      maxEnergy: energies.length > 0 ? Math.max(...energies) : 0,
+      avgEnergy: this.weightedAverage(tracksWithEnergy, energyWeights),
+      minEnergy: tracksWithEnergy.length > 0 ? Math.min(...tracksWithEnergy) : 0,
+      maxEnergy: tracksWithEnergy.length > 0 ? Math.max(...tracksWithEnergy) : 0,
 
-      avgValence: valences.length > 0 ? valences.reduce((a, b) => a + b, 0) / valences.length : 0,
+      avgValence: this.weightedAverage(tracksWithValence, valenceWeights),
 
       totalDuration: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0),
       avgDuration: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0) / tracks.length,
 
-      totalPlayCount: tracks.reduce((sum, t) => sum + (t.play_count || 0), 0),
-      avgPlayCount: tracks.reduce((sum, t) => sum + (t.play_count || 0), 0) / tracks.length
+      totalPlayCount: tracks.reduce((sum, t) => sum + (t.rekordbox_play_count || t.play_count || 0), 0),
+      avgPlayCount: tracks.reduce((sum, t) => sum + (t.rekordbox_play_count || t.play_count || 0), 0) / tracks.length
     };
   }
 
@@ -195,24 +259,40 @@ class CatalogAnalysisService {
    * Calculate genre distribution
    */
   calculateGenreDistribution(tracks) {
-    // This would use genre tags if we had them
-    // For now, cluster by BPM/energy ranges as proxy for genre
+    // Cluster by BPM/energy ranges, weighted by preference
+    const weights = this.calculatePreferenceWeights(tracks);
+
     const clusters = {
-      'Ambient/Downtempo': tracks.filter(t => t.bpm < 100).length,
-      'House': tracks.filter(t => t.bpm >= 115 && t.bpm < 130).length,
-      'Techno': tracks.filter(t => t.bpm >= 120 && t.bpm < 150 && t.energy > 0.6).length,
-      'Drum & Bass': tracks.filter(t => t.bpm >= 160).length,
-      'Other': tracks.filter(t => !t.bpm || (t.bpm >= 100 && t.bpm < 115) || (t.bpm >= 130 && t.bpm < 160)).length
+      'Ambient/Downtempo': 0,
+      'House': 0,
+      'Techno': 0,
+      'Drum & Bass': 0,
+      'Other': 0
     };
+
+    tracks.forEach((t, i) => {
+      const weight = weights[i];
+      if (t.bpm < 100) {
+        clusters['Ambient/Downtempo'] += weight;
+      } else if (t.bpm >= 115 && t.bpm < 130) {
+        clusters['House'] += weight;
+      } else if (t.bpm >= 120 && t.bpm < 150 && t.energy > 0.6) {
+        clusters['Techno'] += weight;
+      } else if (t.bpm >= 160) {
+        clusters['Drum & Bass'] += weight;
+      } else {
+        clusters['Other'] += weight;
+      }
+    });
 
     const total = Object.values(clusters).reduce((a, b) => a + b, 0);
 
     return Object.entries(clusters)
-      .filter(([_, count]) => count > 0)
-      .map(([genre, count]) => ({
+      .filter(([_, weight]) => weight > 0)
+      .map(([genre, weight]) => ({
         genre,
-        count,
-        percentage: parseFloat(((count / total) * 100).toFixed(1))
+        count: Math.round(weight * 10) / 10, // Weighted count
+        percentage: parseFloat(((weight / total) * 100).toFixed(1))
       }))
       .sort((a, b) => b.count - a.count);
   }

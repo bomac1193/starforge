@@ -14,9 +14,9 @@ class InfluenceGenealogyService {
    */
   async analyzeInfluenceGenealogy(userId, options = {}) {
     try {
-      // Get user's audio data
+      // Get ALL user's audio data (no limit for proper nuanced analysis)
       const audioDb = new Database(path.join(__dirname, '../../starforge_audio.db'));
-      const tracks = audioDb.prepare('SELECT * FROM audio_tracks WHERE 1=1 LIMIT 200').all();
+      const tracks = audioDb.prepare('SELECT * FROM audio_tracks WHERE user_id = ?').all(userId);
       audioDb.close();
 
       if (tracks.length === 0) {
@@ -26,40 +26,43 @@ class InfluenceGenealogyService {
         };
       }
 
-      // Calculate user's sonic signature
-      const userSignature = this.calculateUserSonicSignature(tracks);
+      // NUANCED ANALYSIS: Cluster tracks into sonic groups
+      const clusters = this.clusterTracksByGenre(tracks);
 
-      // Find matching genres
-      const matches = this.findMatchingGenres(userSignature);
-
-      if (matches.length === 0) {
+      if (clusters.length === 0) {
         return {
           available: false,
-          message: 'Could not match your music to genre lineages. Try adding more tracks.'
+          message: 'Could not match your music to genre lineages.'
         };
       }
 
-      // Get top match for primary lineage
-      const primaryMatch = matches[0];
-      const lineage = genreTaxonomy.getLineage(primaryMatch.genreId);
-      const descendants = genreTaxonomy.getDescendants(primaryMatch.genreId);
+      // Get top cluster as primary
+      const primaryCluster = clusters[0];
+      const lineage = genreTaxonomy.getLineage(primaryCluster.genreId);
+      const descendants = genreTaxonomy.getDescendants(primaryCluster.genreId);
 
-      // Generate narrative
-      const narrative = this.generateNarrative(lineage, primaryMatch, userSignature);
+      // Generate narrative with multiple influences
+      const narrative = this.generateMultiInfluenceNarrative(clusters, tracks.length);
 
       // Build visual tree data
-      const treeData = this.buildTreeData(lineage, descendants, primaryMatch);
+      const treeData = this.buildTreeData(lineage, descendants, primaryCluster);
 
       return {
         available: true,
-        primaryGenre: primaryMatch.genre,
-        matchScore: primaryMatch.score,
+        // Multiple influences with percentages
+        influences: clusters.map(c => ({
+          genre: c.genre,
+          percentage: c.percentage,
+          trackCount: c.trackCount,
+          avgBpm: c.avgBpm,
+          avgEnergy: c.avgEnergy
+        })),
+        primaryGenre: primaryCluster.genre,
+        matchScore: primaryCluster.percentage,
         lineage: lineage,
         descendants: descendants.slice(0, 5),
         narrative: narrative,
         treeData: treeData,
-        alternativeMatches: matches.slice(1, 4),
-        userSignature: userSignature,
         trackCount: tracks.length
       };
 
@@ -72,17 +75,174 @@ class InfluenceGenealogyService {
     }
   }
 
+  /**
+   * Cluster tracks by genre (with preference weighting)
+   * Returns multiple influences with percentages
+   */
+  clusterTracksByGenre(tracks) {
+    const weights = this.calculatePreferenceWeights(tracks);
+    const allGenres = genreTaxonomy.db.prepare('SELECT * FROM genres').all();
+
+    // Match each track to genres
+    const trackGenreMatches = tracks.map((track, i) => {
+      const matches = allGenres
+        .map(genre => ({
+          genre,
+          score: this.calculateTrackGenreMatch(track, genre)
+        }))
+        .filter(m => m.score > 30)
+        .sort((a, b) => b.score - a.score);
+
+      return {
+        track,
+        weight: weights[i],
+        bestMatch: matches[0] || null
+      };
+    });
+
+    // Group by genre and calculate weighted percentages
+    const genreClusters = {};
+    let totalWeight = 0;
+
+    trackGenreMatches.forEach(({ track, weight, bestMatch }) => {
+      if (!bestMatch) return;
+
+      const genreId = bestMatch.genre.id;
+      if (!genreClusters[genreId]) {
+        genreClusters[genreId] = {
+          genreId,
+          genre: bestMatch.genre,
+          weightedCount: 0,
+          bpms: [],
+          energies: []
+        };
+      }
+
+      genreClusters[genreId].weightedCount += weight;
+      totalWeight += weight;
+
+      if (track.bpm) genreClusters[genreId].bpms.push(track.bpm);
+      if (track.energy !== null) genreClusters[genreId].energies.push(track.energy);
+    });
+
+    // Calculate percentages and averages
+    const clusters = Object.values(genreClusters)
+      .map(cluster => ({
+        ...cluster,
+        percentage: parseFloat(((cluster.weightedCount / totalWeight) * 100).toFixed(1)),
+        trackCount: Math.round(cluster.weightedCount * 10) / 10,
+        avgBpm: cluster.bpms.length > 0
+          ? Math.round(cluster.bpms.reduce((a, b) => a + b, 0) / cluster.bpms.length)
+          : null,
+        avgEnergy: cluster.energies.length > 0
+          ? parseFloat((cluster.energies.reduce((a, b) => a + b, 0) / cluster.energies.length).toFixed(2))
+          : null
+      }))
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5); // Top 5 influences
+
+    return clusters;
+  }
+
+  /**
+   * Match individual track to genre
+   */
+  calculateTrackGenreMatch(track, genre) {
+    if (!track.bpm || track.energy === null) return 0;
+
+    // BPM match
+    const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
+    const bpmDistance = Math.abs(track.bpm - genreBpmMid);
+    const bpmScore = Math.max(0, 1 - (bpmDistance / 30));
+
+    // Energy match
+    const genreEnergyMid = (genre.energy_min + genre.energy_max) / 2;
+    const energyDistance = Math.abs(track.energy - genreEnergyMid);
+    const energyScore = Math.max(0, 1 - (energyDistance * 2));
+
+    return (bpmScore * 0.6 + energyScore * 0.4) * 100;
+  }
+
+  /**
+   * Generate narrative with multiple influences
+   */
+  generateMultiInfluenceNarrative(clusters, totalTracks) {
+    if (clusters.length === 0) return 'Your taste defies traditional classification.';
+
+    const primary = clusters[0];
+    const lineage = genreTaxonomy.getLineage(primary.genreId);
+
+    let narrative = `Your taste spans ${clusters.length} distinct influences across ${totalTracks} tracks:\n\n`;
+
+    clusters.forEach((cluster, i) => {
+      const genre = cluster.genre;
+      narrative += `${i + 1}. ${genre.name} (${cluster.percentage}%) - ${genre.cultural_context}\n`;
+    });
+
+    if (lineage.length > 1) {
+      narrative += `\nPrimary lineage traces: ${lineage.map(g => g.name).join(' → ')}`;
+    }
+
+    return narrative;
+  }
+
+  /**
+   * Calculate preference weight (play count + star rating)
+   */
+  calculatePreferenceWeights(tracks) {
+    const maxPlayCount = Math.max(...tracks.map(t => t.rekordbox_play_count || t.play_count || 0), 1);
+
+    return tracks.map(track => {
+      const playCount = track.rekordbox_play_count || track.play_count || 0;
+      const rating = track.rekordbox_star_rating || track.star_rating || 0;
+
+      const normalizedPlayCount = playCount / maxPlayCount;
+      const normalizedRating = rating / 5;
+
+      // 60% play count (revealed), 40% rating (conscious)
+      const weight = (normalizedPlayCount * 0.6) + (normalizedRating * 0.4);
+      return weight > 0 ? weight : 0.1;
+    });
+  }
+
+  /**
+   * Weighted average helper
+   */
+  weightedAverage(values, weights) {
+    if (values.length === 0) return 0;
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    if (totalWeight === 0) return values.reduce((a, b) => a + b, 0) / values.length;
+    return values.reduce((sum, val, i) => sum + val * weights[i], 0) / totalWeight;
+  }
+
+  /**
+   * Calculate user sonic signature (PREFERENCE WEIGHTED)
+   */
   calculateUserSonicSignature(tracks) {
-    const bpms = tracks.map(t => t.bpm).filter(b => b > 0);
-    const energies = tracks.map(t => t.energy).filter(e => e !== null && e !== undefined);
+    const weights = this.calculatePreferenceWeights(tracks);
 
-    const avgBpm = bpms.length > 0 
-      ? bpms.reduce((sum, b) => sum + b, 0) / bpms.length 
-      : 120;
+    // Get tracks with BPM and their weights
+    const bpms = [];
+    const bpmWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.bpm && t.bpm > 0) {
+        bpms.push(t.bpm);
+        bpmWeights.push(weights[i]);
+      }
+    });
 
-    const avgEnergy = energies.length > 0
-      ? energies.reduce((sum, e) => sum + e, 0) / energies.length
-      : 0.5;
+    // Get tracks with energy and their weights
+    const energies = [];
+    const energyWeights = [];
+    tracks.forEach((t, i) => {
+      if (t.energy !== null && t.energy !== undefined) {
+        energies.push(t.energy);
+        energyWeights.push(weights[i]);
+      }
+    });
+
+    const avgBpm = this.weightedAverage(bpms, bpmWeights) || 120;
+    const avgEnergy = this.weightedAverage(energies, energyWeights) || 0.5;
 
     const bpmVariance = this.calculateVariance(bpms);
     const energyVariance = this.calculateVariance(energies);

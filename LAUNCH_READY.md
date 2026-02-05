@@ -215,12 +215,14 @@ invites deep, immersive engagement with the sonic landscape.
 
 **Backend:**
 - ✅ AI generation working (8.3/10 quality)
+- ✅ Dual-layer voice training (social posts 70% + subconscious writing 30%)
 - ⏳ Add generation history endpoint (show last 20)
 - ⏳ Add "regenerate" endpoint (try again with different output)
 - ⏳ Add usage tracking (count generations per user)
 
 **Frontend:**
 - ✅ AIGenerationPanel integrated
+- ✅ WritingSamplesInput (dual-layer: social + subconscious)
 - ⏳ Add "Regenerate" button
 - ⏳ Add generation history view
 - ⏳ Add "Generate 3 variations" (pick best)
@@ -398,3 +400,35 @@ $50/mo • Replace $500/mo assistant • Save 2-3 hrs/week
 - Fast, cheap, and defensible
 
 **Ready to launch.** 🚀
+
+---
+
+## Voice Training Enhancement (Implemented 2026-02-05)
+
+### Dual-Layer Writing Samples
+**Status:** ✅ Implemented, ready for testing
+
+**What it does:**
+- Users input two types of writing:
+  - Social Posts (70% weight): Public voice, proven structure
+  - Subconscious Writing (30% weight): Raw vocabulary, authentic rhythm
+- AI combines: Presentable structure + Authentic vocabulary
+- Result: Output sounds like YOU, not generic AI
+
+**Files:**
+- Backend: `/backend/src/routes/writingSamples.js` (dual-layer API)
+- Backend: `/backend/src/services/aiTwinService.js` (weighted prompt building)
+- Frontend: `/frontend/src/components/WritingSamplesInput.js` (two-column input)
+- Database: `user_writing_samples` table (social_posts, subconscious_writing columns)
+
+**Future Iterations:**
+- [ ] Automatic voice analysis (detect sentence patterns, vocabulary frequency)
+- [ ] Ritual writing integration (daily prompts, emotional pattern detection)
+- [ ] Voice DNA metrics (show authenticity score, coherence)
+- [ ] A/B testing interface (generate with/without subconscious writing, compare)
+- [ ] Writing sample suggestions (prompt user with "write about X")
+
+**Strategic Value (ERRC):**
+- CREATE: AI trained on music + writing (not just music)
+- Moat: Hard to replicate, requires YOUR unique data
+- TAM: Same 500K artist-operators, higher quality/retention
