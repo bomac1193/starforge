@@ -160,6 +160,12 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               <p className="text-display-sm text-brand-text">
                 {aggregateStats.minBpm?.toFixed(0)} - {aggregateStats.maxBpm?.toFixed(0)}
               </p>
+              {aggregateStats.preferredBpmMin && aggregateStats.preferredBpmMax && (
+                <p className="text-body-xs text-brand-accent mt-1">
+                  ⭐ Preference: {aggregateStats.preferredBpmMin} - {aggregateStats.preferredBpmMax}
+                  {aggregateStats.preferredBpmCoverage && ` (${aggregateStats.preferredBpmCoverage}%)`}
+                </p>
+              )}
               <p className="text-body-xs text-brand-secondary mt-1">
                 Avg: {aggregateStats.avgBpm?.toFixed(1)}
               </p>

@@ -166,6 +166,50 @@ class CatalogAnalysisService {
   }
 
   /**
+   * Calculate weighted BPM range (10th-90th percentile of preference-weighted tracks)
+   * Shows the BPM range that covers 80% of your actual listening
+   */
+  calculateWeightedBpmRange(tracks, weights) {
+    // Create array of [bpm, weight] pairs
+    const bpmWeightPairs = tracks
+      .map((t, i) => ({ bpm: t.bpm, weight: weights[i] }))
+      .filter(pair => pair.bpm && pair.bpm > 0)
+      .sort((a, b) => a.bpm - b.bpm);
+
+    if (bpmWeightPairs.length === 0) {
+      return { min: 0, max: 0, coverage: 0 };
+    }
+
+    // Calculate cumulative weights
+    const totalWeight = bpmWeightPairs.reduce((sum, pair) => sum + pair.weight, 0);
+    let cumulativeWeight = 0;
+    const cumulativeWeights = bpmWeightPairs.map(pair => {
+      cumulativeWeight += pair.weight;
+      return cumulativeWeight / totalWeight;
+    });
+
+    // Find 10th percentile (bottom 10% of weighted plays)
+    const p10Index = cumulativeWeights.findIndex(w => w >= 0.10);
+    const minBpm = bpmWeightPairs[Math.max(0, p10Index)].bpm;
+
+    // Find 90th percentile (top 10% of weighted plays excluded)
+    const p90Index = cumulativeWeights.findIndex(w => w >= 0.90);
+    const maxBpm = bpmWeightPairs[Math.min(bpmWeightPairs.length - 1, p90Index)].bpm;
+
+    // Calculate what % of total weight falls in this range
+    const rangeWeight = bpmWeightPairs
+      .filter(pair => pair.bpm >= minBpm && pair.bpm <= maxBpm)
+      .reduce((sum, pair) => sum + pair.weight, 0);
+    const coverage = (rangeWeight / totalWeight) * 100;
+
+    return {
+      min: Math.round(minBpm),
+      max: Math.round(maxBpm),
+      coverage: Math.round(coverage)
+    };
+  }
+
+  /**
    * Calculate aggregate statistics (PREFERENCE WEIGHTED)
    */
   calculateAggregateStats(tracks) {
@@ -200,12 +244,23 @@ class CatalogAnalysisService {
       }
     });
 
+    // Calculate weighted BPM percentiles (your actual comfort zone)
+    const weightedBpmRange = this.calculateWeightedBpmRange(tracks, weights);
+
     return {
       // Weighted averages (what you ACTUALLY like)
       avgBpm: this.weightedAverage(tracksWithBpm, bpmWeights),
+
+      // Full library range (what you HAVE)
       minBpm: tracksWithBpm.length > 0 ? Math.min(...tracksWithBpm) : 0,
       maxBpm: tracksWithBpm.length > 0 ? Math.max(...tracksWithBpm) : 0,
       bpmRange: tracksWithBpm.length > 0 ? Math.max(...tracksWithBpm) - Math.min(...tracksWithBpm) : 0,
+
+      // Weighted range (what you ACTUALLY PLAY) - 80% of your preference weight
+      preferredBpmMin: weightedBpmRange.min,
+      preferredBpmMax: weightedBpmRange.max,
+      preferredBpmRange: weightedBpmRange.max - weightedBpmRange.min,
+      preferredBpmCoverage: weightedBpmRange.coverage, // % of plays in this range
 
       avgEnergy: this.weightedAverage(tracksWithEnergy, energyWeights),
       minEnergy: tracksWithEnergy.length > 0 ? Math.min(...tracksWithEnergy) : 0,
