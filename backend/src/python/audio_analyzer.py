@@ -107,9 +107,13 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         # 5. Combine RMS and spectral flux (weighted)
         combined_energy = (improved_energy * 0.6) + (spectral_energy * 0.4)
 
-        # 6. Apply loudness normalization (log scaling for perceptual loudness)
+        # 6. Apply loudness normalization (calibrated for better spread)
+        # Typical RMS values: quiet=0.01, moderate=0.05, loud=0.15, very loud=0.3+
+        # Map to 0-1 range with better distribution
         if combined_energy > 0:
-            energy = min(1.0, np.log10(combined_energy + 0.01) / np.log10(0.51) + 1)
+            # Use power scaling for better spread (not logarithmic)
+            # This gives: 0.01→0.2, 0.05→0.45, 0.1→0.63, 0.15→0.77, 0.2→0.89, 0.3+→1.0
+            energy = min(1.0, (combined_energy / 0.2) ** 0.7)
         else:
             energy = 0
 

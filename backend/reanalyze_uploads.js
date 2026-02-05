@@ -63,25 +63,24 @@ async function main() {
     try {
       const analysis = await runPythonAnalyzer(track.file_path);
 
-      // Update database with new analysis
+      // Update database with new analysis (keep existing BPM if already set)
+      const useBpm = track.old_bpm || analysis.bpm;
+      const useEffectiveBpm = analysis.is_halftime ? useBpm / 2 : useBpm;
+
       db.prepare(`
         UPDATE audio_tracks
-        SET bpm = ?,
-            effective_bpm = ?,
-            is_halftime = ?,
-            energy = ?,
+        SET energy = ?,
             valence = ?,
             loudness = ?,
-            key = ?
+            key = ?,
+            is_halftime = ?
         WHERE id = ?
       `).run(
-        analysis.bpm,
-        analysis.effective_bpm,
-        analysis.is_halftime ? 1 : 0,
         analysis.energy,
         analysis.valence,
         analysis.loudness,
         analysis.key,
+        analysis.is_halftime ? 1 : 0,
         track.id
       );
 
