@@ -185,8 +185,8 @@ class ClarosaDirectService {
     if (!this.db) return null;
 
     try {
-      // Get top photos (using 0-1 scale: 0.70 = 70%)
-      const topPhotos = this.getTopPhotos(userId, 30, 0.70);
+      // Get ALL photos for comprehensive analysis (using 0-1 scale)
+      const topPhotos = this.getTopPhotos(userId, 500, 0.0);
 
       if (topPhotos.length === 0) {
         return {

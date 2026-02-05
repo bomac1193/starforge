@@ -27,8 +27,12 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
 
     try {
       const profileRes = await axios.get('/api/deep/clarosa/profile');
+      // Fetch ALL photos (not just top 20)
       const photosRes = await axios.get('/api/deep/clarosa/top-photos', {
-        params: { limit: 20 }
+        params: {
+          limit: 500,  // High limit to get all photos
+          minScore: 0  // Include all scores, not just top-rated
+        }
       });
       const dnaRes = await axios.get('/api/deep/clarosa/visual-dna');
 
@@ -122,7 +126,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
               {clarosaData.visualDNA?.styleDescription}
             </p>
             <div className="text-body-sm text-brand-secondary">
-              {clarosaData.photos?.length || 0} photos analyzed •{' '}
+              {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
               {clarosaData.profile?.stats?.highlight_count || 0} highlights
             </div>
           </div>
