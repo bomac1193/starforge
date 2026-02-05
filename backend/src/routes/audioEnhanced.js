@@ -5,6 +5,7 @@ const fs = require('fs');
 const sinkEnhanced = require('../services/sinkEnhanced');
 const rekordboxDatabaseReader = require('../services/rekordboxDatabaseReader');
 const seratoReader = require('../services/seratoReader');
+const contextComparisonService = require('../services/contextComparisonService');
 const Database = require('better-sqlite3');
 
 const router = express.Router();
@@ -1045,6 +1046,37 @@ router.get('/serato/detect', (req, res) => {
       info
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// CONTEXT COMPARISON
+// ========================================
+
+/**
+ * GET /api/audio/context/compare
+ * Compare DJ collection vs personal music contexts
+ * Returns alignment scores and insights
+ */
+router.get('/context/compare', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const userIdToUse = userId || 'default_user';
+
+    console.log('Comparing musical contexts for user:', userIdToUse);
+
+    const comparison = await contextComparisonService.compareContexts(userIdToUse);
+
+    res.json({
+      success: true,
+      comparison
+    });
+  } catch (error) {
+    console.error('Context comparison error:', error);
     res.status(500).json({
       success: false,
       error: error.message

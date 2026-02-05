@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import AudioAnalysisCompact from './AudioAnalysisCompact';
 import AudioDNAPanel from './AudioDNAPanel';
+import ContextComparisonView from './ContextComparisonView';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -178,6 +179,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
           rekordboxData={rekordboxData}
           clarosaData={clarosaData}
         />
+
+        {/* Context Comparison - DJ vs Personal Music */}
+        <div className="mt-6">
+          <ContextComparisonView userId="default_user" />
+        </div>
       </div>
 
       {/* Audio Analysis - Compact Unified */}

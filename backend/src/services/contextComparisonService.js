@@ -1,6 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-const sonicPaletteService = require('./sonicPaletteService');
+// const sonicPaletteService = require('./sonicPaletteService'); // TODO: Implement in Phase 1
 const sinkEnhanced = require('./sinkEnhanced');
 
 /**
@@ -54,16 +54,20 @@ class ContextComparisonService {
         };
       }
 
-      // Extract sonic palettes for each context
-      const djSonicPalette = await sonicPaletteService.extractSonicPalette(userId + '_dj', djTracks);
-      const myMusicSonicPalette = await sonicPaletteService.extractSonicPalette(userId + '_mymusic', myMusicTracks);
+      // Extract sonic palettes for each context (TODO: implement sonicPaletteService)
+      // const djSonicPalette = await sonicPaletteService.extractSonicPalette(userId + '_dj', djTracks);
+      // const myMusicSonicPalette = await sonicPaletteService.extractSonicPalette(userId + '_mymusic', myMusicTracks);
+      const djSonicPalette = null;
+      const myMusicSonicPalette = null;
 
-      // Calculate taste coherence for each context
-      const djCoherence = sinkEnhanced.calculateTasteCoherence(djTracks);
-      const myMusicCoherence = sinkEnhanced.calculateTasteCoherence(myMusicTracks);
+      // Calculate taste coherence for each context (TODO: implement in sinkEnhanced)
+      // const djCoherence = sinkEnhanced.calculateTasteCoherence(djTracks);
+      // const myMusicCoherence = sinkEnhanced.calculateTasteCoherence(myMusicTracks);
+      const djCoherence = { overall: 0.75 }; // Placeholder
+      const myMusicCoherence = { overall: 0.75 }; // Placeholder
 
-      // Compare sonic palettes
-      const sonicAlignment = this.compareSonicPalettes(djSonicPalette, myMusicSonicPalette);
+      // Compare sonic palettes (skip for now)
+      const sonicAlignment = 0.5; // Neutral placeholder
 
       // Compare BPM ranges
       const bpmOverlap = this.compareBpmRanges(djTracks, myMusicTracks);
@@ -74,12 +78,11 @@ class ContextComparisonService {
       // Compare key/tonality
       const keyAlignment = this.compareKeys(djTracks, myMusicTracks);
 
-      // Overall alignment score
+      // Overall alignment score (weighted without sonic palette for now)
       const overall = Math.round(
-        (sonicAlignment * 0.35 +
-         bpmOverlap * 0.25 +
-         energyAlignment * 0.25 +
-         keyAlignment * 0.15) * 100
+        (bpmOverlap * 0.4 +
+         energyAlignment * 0.35 +
+         keyAlignment * 0.25) * 100
       );
 
       // Generate insights
