@@ -95,6 +95,20 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         </p>
       </div>
 
+      {/* Subtaste Integration */}
+      <div className="card">
+        <h3 className="text-display-md mb-4">Subtaste</h3>
+        <p className="text-body text-brand-secondary mb-6">
+          Connect your aesthetic preference system
+        </p>
+        <button
+          className="btn-primary w-full"
+          disabled
+        >
+          Connect Subtaste
+        </button>
+      </div>
+
       {/* Visual Integration */}
       <div className="card">
         <h3 className="text-display-md mb-4">Visual Catalog</h3>
