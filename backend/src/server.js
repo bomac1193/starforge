@@ -433,6 +433,12 @@ app.use('/api/audio', audioEnhancedRoutes);
 const subscriptionRoutes = require('./routes/subscription');
 app.use('/api/subscription', subscriptionRoutes);
 
+// ========================================
+// LIBRARY & CATALOG ANALYSIS ROUTES
+// ========================================
+const libraryRoutes = require('./routes/library');
+app.use('/api/library', libraryRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

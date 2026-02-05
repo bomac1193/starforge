@@ -61,6 +61,10 @@ class SinkEnhancedService {
         numHighlights
       });
 
+      if (!result || !result.highlights) {
+        return [];
+      }
+
       return result.highlights.map(h => ({
         startSeconds: h.start,
         endSeconds: h.end,
