@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const sinkEnhanced = require('../services/sinkEnhanced');
+const rekordboxDatabaseReader = require('../services/rekordboxDatabaseReader');
 const Database = require('better-sqlite3');
 
 const router = express.Router();
@@ -513,6 +514,354 @@ router.get('/tracks', (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========================================
+// REKORDBOX DATABASE READER
+// ========================================
+
+/**
+ * POST /api/audio/rekordbox/scan-local
+ * Auto-detect and import from local Rekordbox installation
+ * Faster and more complete than XML export
+ */
+router.post('/rekordbox/scan-local', async (req, res) => {
+  try {
+    console.log('🔍 Scanning for local Rekordbox database...');
+
+    // Find local Rekordbox database
+    const dbPath = rekordboxDatabaseReader.findLocalRekordboxDatabase();
+
+    if (!dbPath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Rekordbox database not found. Is Rekordbox installed on this computer?',
+        searched: 'Standard Rekordbox installation paths'
+      });
+    }
+
+    // Get database info first (preview)
+    const info = rekordboxDatabaseReader.getDatabaseInfo(dbPath);
+
+    if (!info) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to read Rekordbox database'
+      });
+    }
+
+    console.log(`📊 Found ${info.totalTracks} tracks with ${info.totalPlays} total plays`);
+
+    // Read all tracks
+    const result = await rekordboxDatabaseReader.readAllTracks(dbPath);
+
+    // Generate import ID
+    const importId = 'imp_db_' + Date.now();
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Import tracks into Starforge database
+    for (const track of result.tracks) {
+      try {
+        const trackId = 'trk_rb_' + track.rekordbox_id;
+
+        db.prepare(`
+          INSERT OR REPLACE INTO audio_tracks (
+            id, filename, file_path, duration_seconds,
+            bpm, key, star_rating, play_count,
+            rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
+            rekordbox_color, rekordbox_comments, source, musical_context,
+            last_played_at, uploaded_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          trackId,
+          track.title || 'Unknown',
+          track.file_path,
+          track.duration_ms ? track.duration_ms / 1000 : null,
+          track.bpm,
+          track.key,
+          track.star_rating || 0,
+          track.play_count || 0,
+          track.rekordbox_id,
+          track.play_count || 0,
+          track.star_rating || 0,
+          track.color,
+          track.comments,
+          'rekordbox_database',
+          'dj_collection',
+          track.last_played,
+          track.date_added || new Date().toISOString()
+        );
+
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to import track ${track.title}:`, error.message);
+        failCount++;
+      }
+    }
+
+    // Store import record
+    db.prepare(`
+      INSERT INTO rekordbox_imports (
+        id, total_tracks, successful_imports, failed_imports, xml_file_path
+      ) VALUES (?, ?, ?, ?, ?)
+    `).run(importId, result.total, successCount, failCount, dbPath);
+
+    // Generate taste profile
+    const tasteProfile = sinkEnhanced.generateTasteProfile({
+      tracks: result.tracks,
+      totalTracks: result.total,
+      stats: result.stats
+    });
+
+    // Store taste profile
+    db.prepare(`
+      INSERT INTO taste_profiles (profile_data) VALUES (?)
+    `).run(JSON.stringify(tasteProfile));
+
+    console.log(`✅ Import complete: ${successCount} tracks imported`);
+
+    res.json({
+      success: true,
+      import: {
+        importId,
+        method: 'database_reader',
+        dbPath,
+        totalTracks: result.total,
+        imported: successCount,
+        failed: failCount,
+        stats: result.stats,
+        tasteProfile,
+        highSignalData: {
+          totalPlays: result.stats.totalPlays,
+          avgRating: result.stats.avgRating,
+          mostPlayed: result.stats.mostPlayed,
+          topGenres: result.stats.topGenres
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Rekordbox database scan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/audio/rekordbox/detect-usb
+ * Detect connected USB drives and check for Rekordbox databases
+ */
+router.get('/rekordbox/detect-usb', (req, res) => {
+  try {
+    const drives = rekordboxDatabaseReader.detectUSBDrives();
+
+    // Check each drive for Rekordbox database
+    const drivesWithInfo = drives.map(drive => {
+      const dbPath = rekordboxDatabaseReader.findUSBRekordboxDatabase(drive.path);
+      const info = dbPath ? rekordboxDatabaseReader.getDatabaseInfo(dbPath) : null;
+
+      return {
+        ...drive,
+        hasRekordbox: !!dbPath,
+        dbPath,
+        info
+      };
+    });
+
+    res.json({
+      success: true,
+      drives: drivesWithInfo,
+      count: drivesWithInfo.length
+    });
+  } catch (error) {
+    console.error('USB detection error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/audio/rekordbox/scan-usb
+ * Import tracks from Rekordbox database on USB drive
+ */
+router.post('/rekordbox/scan-usb', async (req, res) => {
+  try {
+    const { usbPath } = req.body;
+
+    if (!usbPath) {
+      return res.status(400).json({
+        success: false,
+        error: 'USB path is required'
+      });
+    }
+
+    console.log('💾 Scanning USB drive:', usbPath);
+
+    // Find Rekordbox database on USB
+    const dbPath = rekordboxDatabaseReader.findUSBRekordboxDatabase(usbPath);
+
+    if (!dbPath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Rekordbox database not found on this USB drive',
+        usbPath
+      });
+    }
+
+    // Get database info
+    const info = rekordboxDatabaseReader.getDatabaseInfo(dbPath);
+    console.log(`📊 Found ${info.totalTracks} tracks on USB`);
+
+    // Read all tracks
+    const result = await rekordboxDatabaseReader.readAllTracks(dbPath);
+
+    // Generate import ID
+    const importId = 'imp_usb_' + Date.now();
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Import tracks
+    for (const track of result.tracks) {
+      try {
+        const trackId = 'trk_rb_' + track.rekordbox_id;
+
+        db.prepare(`
+          INSERT OR REPLACE INTO audio_tracks (
+            id, filename, file_path, duration_seconds,
+            bpm, key, star_rating, play_count,
+            rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
+            rekordbox_color, rekordbox_comments, source, musical_context,
+            last_played_at, uploaded_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          trackId,
+          track.title || 'Unknown',
+          track.file_path,
+          track.duration_ms ? track.duration_ms / 1000 : null,
+          track.bpm,
+          track.key,
+          track.star_rating || 0,
+          track.play_count || 0,
+          track.rekordbox_id,
+          track.play_count || 0,
+          track.star_rating || 0,
+          track.color,
+          track.comments,
+          'rekordbox_usb',
+          'dj_collection',
+          track.last_played,
+          track.date_added || new Date().toISOString()
+        );
+
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to import track ${track.title}:`, error.message);
+        failCount++;
+      }
+    }
+
+    // Store import record
+    db.prepare(`
+      INSERT INTO rekordbox_imports (
+        id, total_tracks, successful_imports, failed_imports, xml_file_path
+      ) VALUES (?, ?, ?, ?, ?)
+    `).run(importId, result.total, successCount, failCount, dbPath);
+
+    // Generate taste profile
+    const tasteProfile = sinkEnhanced.generateTasteProfile({
+      tracks: result.tracks,
+      totalTracks: result.total,
+      stats: result.stats
+    });
+
+    // Store taste profile
+    db.prepare(`
+      INSERT INTO taste_profiles (profile_data) VALUES (?)
+    `).run(JSON.stringify(tasteProfile));
+
+    console.log(`✅ USB import complete: ${successCount} tracks imported`);
+
+    res.json({
+      success: true,
+      import: {
+        importId,
+        method: 'usb_reader',
+        usbPath,
+        dbPath,
+        totalTracks: result.total,
+        imported: successCount,
+        failed: failCount,
+        stats: result.stats,
+        tasteProfile,
+        highSignalData: {
+          totalPlays: result.stats.totalPlays,
+          avgRating: result.stats.avgRating,
+          mostPlayed: result.stats.mostPlayed,
+          topGenres: result.stats.topGenres
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ USB scan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/audio/rekordbox/database-info
+ * Get quick preview of database without importing
+ */
+router.get('/rekordbox/database-info', (req, res) => {
+  try {
+    const { path: dbPath } = req.query;
+
+    if (!dbPath) {
+      // Try to find local database
+      const localPath = rekordboxDatabaseReader.findLocalRekordboxDatabase();
+      if (!localPath) {
+        return res.status(404).json({
+          success: false,
+          error: 'No database path provided and no local Rekordbox found'
+        });
+      }
+
+      const info = rekordboxDatabaseReader.getDatabaseInfo(localPath);
+      return res.json({
+        success: true,
+        info,
+        source: 'local'
+      });
+    }
+
+    const info = rekordboxDatabaseReader.getDatabaseInfo(dbPath);
+
+    if (!info) {
+      return res.status(404).json({
+        success: false,
+        error: 'Could not read database'
+      });
+    }
+
+    res.json({
+      success: true,
+      info,
+      source: 'custom'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 

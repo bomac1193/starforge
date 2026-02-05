@@ -263,24 +263,144 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
       {/* Rekordbox Tab */}
       {activeTab === 'rekordbox' && (
         <div className="space-y-4">
-          {/* Dropzone */}
-          <div
-            {...getRekordboxRootProps()}
-            className={`border border-brand-border p-8 text-center cursor-pointer transition-all ${
-              isRekordboxDragActive ? 'border-brand-text bg-brand-bg' : 'hover:border-brand-text'
-            } ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <input {...getRekordboxInputProps()} />
-            <p className="text-body text-brand-secondary mb-2">
-              {isRekordboxDragActive
-                ? 'Drop collection.xml here'
-                : importing
-                ? 'Importing...'
-                : 'Drag collection.xml or click to browse'}
+          {/* Method 1: Scan Local Rekordbox (Recommended) */}
+          <div className="border border-brand-border p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="uppercase-label text-brand-text mb-1">
+                  Method 1: Auto-Scan (Recommended)
+                </p>
+                <p className="text-body-sm text-brand-secondary">
+                  One-click import from local Rekordbox installation
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setImporting(true);
+                try {
+                  const response = await axios.post('/api/audio/rekordbox/scan-local');
+                  if (response.data.success) {
+                    setRekordboxData(response.data.import);
+                    if (onRekordboxImport) {
+                      onRekordboxImport(response.data.import);
+                    }
+                    alert(`✅ Imported ${response.data.import.imported} tracks from local Rekordbox!`);
+                  }
+                } catch (error) {
+                  console.error('Local scan failed:', error);
+                  if (error.response?.status === 404) {
+                    alert('❌ Rekordbox not found on this computer. Try USB scan or XML upload.');
+                  } else {
+                    alert(`❌ Error: ${error.response?.data?.error || error.message}`);
+                  }
+                } finally {
+                  setImporting(false);
+                }
+              }}
+              disabled={importing}
+              className="btn-primary w-full"
+            >
+              {importing ? '🔍 Scanning...' : '🔍 Scan Local Rekordbox'}
+            </button>
+            <p className="text-body-sm text-brand-secondary mt-2">
+              ✓ Gets complete play history, ratings & metadata
             </p>
-            <p className="text-body-sm text-brand-secondary">
-              File → Export Collection in xml format
+          </div>
+
+          {/* Method 2: Scan USB Drive */}
+          <div className="border border-brand-border p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="uppercase-label text-brand-text mb-1">
+                  Method 2: USB Scan
+                </p>
+                <p className="text-body-sm text-brand-secondary">
+                  Import from Rekordbox USB drive
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setImporting(true);
+                try {
+                  // Detect USB drives
+                  const detectResponse = await axios.get('/api/audio/rekordbox/detect-usb');
+                  if (detectResponse.data.success && detectResponse.data.drives.length > 0) {
+                    const rekordboxDrives = detectResponse.data.drives.filter(d => d.hasRekordbox);
+
+                    if (rekordboxDrives.length === 0) {
+                      alert('❌ No Rekordbox USB drives detected. Make sure USB is connected.');
+                      setImporting(false);
+                      return;
+                    }
+
+                    // Use first Rekordbox drive found
+                    const usbPath = rekordboxDrives[0].path;
+                    const trackCount = rekordboxDrives[0].info?.totalTracks || 0;
+
+                    if (!confirm(`Found Rekordbox USB with ${trackCount} tracks at ${usbPath}. Import?`)) {
+                      setImporting(false);
+                      return;
+                    }
+
+                    // Scan USB
+                    const scanResponse = await axios.post('/api/audio/rekordbox/scan-usb', { usbPath });
+                    if (scanResponse.data.success) {
+                      setRekordboxData(scanResponse.data.import);
+                      if (onRekordboxImport) {
+                        onRekordboxImport(scanResponse.data.import);
+                      }
+                      alert(`✅ Imported ${scanResponse.data.import.imported} tracks from USB!`);
+                    }
+                  } else {
+                    alert('❌ No USB drives detected. Make sure USB is connected.');
+                  }
+                } catch (error) {
+                  console.error('USB scan failed:', error);
+                  alert(`❌ Error: ${error.response?.data?.error || error.message}`);
+                } finally {
+                  setImporting(false);
+                }
+              }}
+              disabled={importing}
+              className="btn-primary w-full"
+            >
+              {importing ? '💾 Scanning USB...' : '💾 Scan USB Drive'}
+            </button>
+            <p className="text-body-sm text-brand-secondary mt-2">
+              ✓ For large collections (128GB+ USBs supported)
             </p>
+          </div>
+
+          {/* Method 3: XML Upload (Fallback) */}
+          <div className="border border-brand-border p-4">
+            <div className="mb-3">
+              <p className="uppercase-label text-brand-text mb-1">
+                Method 3: XML Upload (Fallback)
+              </p>
+              <p className="text-body-sm text-brand-secondary">
+                Manual export from Rekordbox
+              </p>
+            </div>
+            <div
+              {...getRekordboxRootProps()}
+              className={`border border-brand-border p-6 text-center cursor-pointer transition-all ${
+                isRekordboxDragActive ? 'border-brand-text bg-brand-bg' : 'hover:border-brand-text'
+              } ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <input {...getRekordboxInputProps()} />
+              <p className="text-body text-brand-secondary mb-2">
+                {isRekordboxDragActive
+                  ? 'Drop collection.xml here'
+                  : importing
+                  ? 'Importing...'
+                  : 'Drag collection.xml or click to browse'}
+              </p>
+              <p className="text-body-sm text-brand-secondary">
+                File → Export Collection in xml format
+              </p>
+            </div>
           </div>
 
           {/* Import Result */}
