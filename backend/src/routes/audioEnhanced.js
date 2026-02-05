@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const sinkEnhanced = require('../services/sinkEnhanced');
 const rekordboxDatabaseReader = require('../services/rekordboxDatabaseReader');
+const seratoReader = require('../services/seratoReader');
 const Database = require('better-sqlite3');
 
 const router = express.Router();
@@ -856,6 +857,192 @@ router.get('/rekordbox/database-info', (req, res) => {
       success: true,
       info,
       source: 'custom'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// SERATO READER
+// ========================================
+
+/**
+ * POST /api/audio/serato/scan-local
+ * Auto-detect and import from local Serato DJ installation
+ */
+router.post('/serato/scan-local', async (req, res) => {
+  try {
+    console.log('Scanning for local Serato database...');
+
+    // Find local Serato database
+    const dbPath = seratoReader.findLocalSeratoDatabase();
+
+    if (!dbPath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Serato database not found. Is Serato DJ installed on this computer?',
+        searched: 'Standard Serato installation paths'
+      });
+    }
+
+    console.log('Found Serato database:', dbPath);
+
+    // Get database info first (preview)
+    const info = seratoReader.getDatabaseInfo(dbPath);
+
+    if (!info) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to read Serato database'
+      });
+    }
+
+    console.log(`Found ${info.totalTracks} tracks in Serato library`);
+
+    // Read all tracks
+    const result = await seratoReader.readAllTracks(dbPath);
+
+    // Generate import ID
+    const importId = 'imp_serato_' + Date.now();
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Import tracks into Starforge database
+    for (const track of result.tracks) {
+      try {
+        const trackId = 'trk_serato_' + (track.serato_id || Date.now() + '_' + successCount);
+
+        db.prepare(`
+          INSERT OR REPLACE INTO audio_tracks (
+            id, filename, file_path, duration_seconds,
+            bpm, key, play_count,
+            source, musical_context,
+            import_id, imported_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          trackId,
+          path.basename(track.file_path || ''),
+          track.file_path || '',
+          track.duration_ms ? track.duration_ms / 1000 : null,
+          track.bpm || null,
+          track.key || null,
+          track.play_count || 0,
+          'serato',
+          'dj_collection',
+          importId,
+          new Date().toISOString()
+        );
+
+        successCount++;
+      } catch (trackError) {
+        console.error('Error importing track:', trackError.message);
+        failCount++;
+      }
+    }
+
+    console.log(`Import complete: ${successCount} succeeded, ${failCount} failed`);
+
+    // Generate taste profile
+    const tasteProfile = sinkEnhanced.generateTasteProfile(result.tracks);
+
+    res.json({
+      success: true,
+      import: {
+        importId,
+        method: 'serato_database',
+        dbPath,
+        totalTracks: result.total,
+        imported: successCount,
+        failed: failCount,
+        crates: result.crates ? result.crates.length : 0,
+        tasteProfile
+      }
+    });
+  } catch (error) {
+    console.error('Error scanning Serato:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/audio/serato/database-info
+ * Get database info without importing
+ */
+router.get('/serato/database-info', (req, res) => {
+  try {
+    const { path: dbPath } = req.query;
+
+    if (!dbPath) {
+      // Try to find local database
+      const localPath = seratoReader.findLocalSeratoDatabase();
+      if (!localPath) {
+        return res.status(404).json({
+          success: false,
+          error: 'No database path provided and no local Serato found'
+        });
+      }
+
+      const info = seratoReader.getDatabaseInfo(localPath);
+      return res.json({
+        success: true,
+        info,
+        source: 'local'
+      });
+    }
+
+    const info = seratoReader.getDatabaseInfo(dbPath);
+
+    if (!info) {
+      return res.status(404).json({
+        success: false,
+        error: 'Could not read database'
+      });
+    }
+
+    res.json({
+      success: true,
+      info,
+      source: 'custom'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/audio/serato/detect
+ * Check if Serato DJ is installed
+ */
+router.get('/serato/detect', (req, res) => {
+  try {
+    const dbPath = seratoReader.findLocalSeratoDatabase();
+
+    if (!dbPath) {
+      return res.json({
+        success: true,
+        found: false,
+        message: 'Serato DJ not found on this computer'
+      });
+    }
+
+    const info = seratoReader.getDatabaseInfo(dbPath);
+
+    res.json({
+      success: true,
+      found: true,
+      dbPath,
+      info
     });
   } catch (error) {
     res.status(500).json({

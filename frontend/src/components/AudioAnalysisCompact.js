@@ -165,7 +165,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
               : 'text-brand-secondary hover:text-brand-text'
           }`}
         >
-          Rekordbox
+          DJ Software
         </button>
       </div>
 
@@ -414,6 +414,55 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
                 File → Export Collection in xml format
               </p>
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-brand-border my-6"></div>
+          <p className="uppercase-label text-brand-secondary mb-4">Serato DJ</p>
+
+          {/* Method 4: Scan Local Serato */}
+          <div className="border border-brand-border p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="uppercase-label text-brand-text mb-1">
+                  Scan Local Serato
+                </p>
+                <p className="text-body-sm text-brand-secondary">
+                  One-click import from local Serato DJ installation
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setImporting(true);
+                try {
+                  const response = await axios.post('/api/audio/serato/scan-local');
+                  if (response.data.success) {
+                    setRekordboxData(response.data.import);
+                    if (onRekordboxImport) {
+                      onRekordboxImport(response.data.import);
+                    }
+                    alert(`Imported ${response.data.import.imported} tracks from Serato!`);
+                  }
+                } catch (error) {
+                  console.error('Serato scan failed:', error);
+                  if (error.response?.status === 404) {
+                    alert(`Serato DJ not found. Is Serato installed on this computer?`);
+                  } else {
+                    alert(`Error: ${error.response?.data?.error || error.message}`);
+                  }
+                } finally {
+                  setImporting(false);
+                }
+              }}
+              disabled={importing}
+              className="btn-primary w-full"
+            >
+              {importing ? 'Scanning...' : 'Scan Local Serato'}
+            </button>
+            <p className="text-body-sm text-brand-secondary mt-2">
+              Gets complete play history, crates & metadata
+            </p>
           </div>
 
           {/* Import Result */}

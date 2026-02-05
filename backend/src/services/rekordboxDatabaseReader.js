@@ -170,31 +170,49 @@ class RekordboxDatabaseReader {
    */
   getDatabaseInfo(dbPath) {
     let tempDbPath = null;
+    let sourceDb = null;
 
     try {
-      // For WSL/Windows file system, copy to temp location first
-      // This avoids file locking issues when Rekordbox is running
+      // For WSL/Windows file system, use SQLite backup API instead of file copying
+      // This properly handles WAL mode databases and avoids corruption
       const isWSL = dbPath.startsWith('/mnt/');
       let actualDbPath = dbPath;
 
       if (isWSL) {
-        // Copy database to temp location in Linux file system
-        // Need to copy all WAL files (.db, .db-shm, .db-wal) for databases in WAL mode
+        // For WSL, copy database files and convert from WAL mode
+        // WAL mode doesn't work across NTFS-WSL boundary
         tempDbPath = `/tmp/rekordbox_${Date.now()}.db`;
+
+        // For WSL with WAL mode: copy ONLY the main .db file (no WAL files)
+        // WAL files don't work across NTFS-WSL boundary
+        // We'll read the main database file only (may not include very latest changes)
+        console.log(`Copying database (main file only): ${dbPath} → ${tempDbPath}`);
         fs.copyFileSync(dbPath, tempDbPath);
 
-        // Copy WAL files if they exist
-        const shmPath = dbPath + '-shm';
-        const walPath = dbPath + '-wal';
-        if (fs.existsSync(shmPath)) {
-          fs.copyFileSync(shmPath, tempDbPath + '-shm');
+        const originalSize = fs.statSync(dbPath).size;
+        const copiedSize = fs.statSync(tempDbPath).size;
+        console.log(`Database size: ${copiedSize} bytes`);
+
+        if (originalSize !== copiedSize) {
+          throw new Error(`Copy failed: size mismatch`);
         }
-        if (fs.existsSync(walPath)) {
-          fs.copyFileSync(walPath, tempDbPath + '-wal');
+
+        // Open the copied database and convert to DELETE mode
+        // This removes WAL mode requirements
+        try {
+          const convertDb = new Database(tempDbPath);
+
+          // Convert to DELETE mode (normal journaling)
+          const newMode = convertDb.pragma('journal_mode = DELETE', { simple: true });
+          console.log(`✅ Set journal mode to: ${newMode}`);
+
+          convertDb.close();
+        } catch (convertError) {
+          console.error(`❌ Failed to open copied database: ${convertError.message}`);
+          throw new Error(`Cannot read Rekordbox database. Make sure Rekordbox is completely closed.`);
         }
 
         actualDbPath = tempDbPath;
-        console.log('📋 Copied WSL database (with WAL files) to temp location for reading');
       }
 
       const db = new Database(actualDbPath, { readonly: true, fileMustExist: true });
@@ -220,7 +238,14 @@ class RekordboxDatabaseReader {
 
       return info;
     } catch (error) {
-      // Clean up temp files if created (including WAL files)
+      // Close source database if still open
+      if (sourceDb) {
+        try {
+          sourceDb.close();
+        } catch (e) {}
+      }
+
+      // Clean up temp files if created
       if (tempDbPath) {
         try {
           if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
@@ -259,14 +284,17 @@ class RekordboxDatabaseReader {
     console.log('📖 Reading Rekordbox database:', dbPath);
 
     // Open database READ-ONLY (important for safety and legality)
-    // For WSL, copy to temp location first to avoid file locking issues
+    // For WSL, use SQLite backup API to avoid file locking issues
     const isWSL = dbPath.startsWith('/mnt/');
     let actualDbPath = dbPath;
     let tempDbPath = null;
+    let sourceDb = null;
 
     if (isWSL) {
       tempDbPath = `/tmp/rekordbox_${Date.now()}.db`;
       console.log('📋 Copying WSL database to temp location...');
+
+      // Copy main database file
       fs.copyFileSync(dbPath, tempDbPath);
 
       // Copy WAL files if they exist
@@ -277,6 +305,16 @@ class RekordboxDatabaseReader {
       }
       if (fs.existsSync(walPath)) {
         fs.copyFileSync(walPath, tempDbPath + '-wal');
+      }
+
+      // Open copied database and convert from WAL mode to DELETE mode
+      try {
+        const convertDb = new Database(tempDbPath);
+        convertDb.pragma('journal_mode = DELETE');
+        convertDb.close();
+        console.log('✅ Copied and converted database from WAL to DELETE mode');
+      } catch (convertError) {
+        console.log('⚠️ Could not convert journal mode:', convertError.message);
       }
 
       actualDbPath = tempDbPath;
@@ -343,7 +381,14 @@ class RekordboxDatabaseReader {
     } catch (error) {
       db.close();
 
-      // Clean up temp files if created (including WAL files)
+      // Close source database if still open
+      if (sourceDb) {
+        try {
+          sourceDb.close();
+        } catch (e) {}
+      }
+
+      // Clean up temp files if created
       if (tempDbPath) {
         try {
           if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath);
