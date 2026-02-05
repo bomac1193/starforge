@@ -4,6 +4,7 @@ import TwinGenesisPanelChic from './components/TwinGenesisPanelChic';
 import Glowmeter from './components/Glowmeter';
 import RitualEngine from './components/RitualEngine';
 import Glowline from './components/Glowline';
+import LibraryPage from './components/LibraryPage';
 
 function App() {
   const [activeView, setActiveView] = useState('genesis');
@@ -55,6 +56,16 @@ function App() {
             Twin Genesis
           </button>
           <button
+            onClick={() => setActiveView('library')}
+            className={`pb-4 uppercase-label transition-all ${
+              activeView === 'library'
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
+            }`}
+          >
+            Music Library
+          </button>
+          <button
             onClick={() => setActiveView('ritual')}
             className={`pb-4 uppercase-label transition-all ${
               activeView === 'ritual'
@@ -85,6 +96,10 @@ function App() {
               onTwinGenerated={handleTwinGenerated}
               onGlowChange={setGlowLevel}
             />
+          )}
+
+          {activeView === 'library' && (
+            <LibraryPage />
           )}
 
           {activeView === 'ritual' && twinData && (
