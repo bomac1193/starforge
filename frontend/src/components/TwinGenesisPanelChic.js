@@ -6,6 +6,7 @@ import CrossModalCoherence from './CrossModalCoherence';
 import ContextComparisonView from './ContextComparisonView';
 import TasteCoherenceView from './TasteCoherenceView';
 import InfluenceGenealogyPanel from './InfluenceGenealogyPanel';
+import AIGenerationPanel from './AIGenerationPanel';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -271,6 +272,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         <div className="mt-6">
           <InfluenceGenealogyPanel userId="default_user" />
         </div>
+      </div>
+
+      {/* AI Generation - Personal AI Twin */}
+      <div className="mt-6">
+        <AIGenerationPanel userId="default_user" />
       </div>
 
       {/* Audio Analysis - Compact Unified */}

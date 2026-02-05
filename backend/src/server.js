@@ -439,6 +439,12 @@ app.use('/api/subscription', subscriptionRoutes);
 const libraryRoutes = require('./routes/library');
 app.use('/api/library', libraryRoutes);
 
+// ========================================
+// AI GENERATION ROUTES (PERSONAL AI TWIN)
+// ========================================
+const aiGenerationRoutes = require('./routes/aiGeneration');
+app.use('/api/ai', aiGenerationRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

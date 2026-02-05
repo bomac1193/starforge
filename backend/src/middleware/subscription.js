@@ -63,6 +63,7 @@ function getFeaturesByTier(tier) {
       'taste_coherence',
       'sonic_palette',
       'cross_modal_coherence',
+      'ai_generation',
       'export_data'
     ],
     elite: [
@@ -74,6 +75,7 @@ function getFeaturesByTier(tier) {
       'taste_coherence',
       'sonic_palette',
       'cross_modal_coherence',
+      'ai_generation',
       'export_data',
       'cultural_moments',
       'influence_genealogy',
