@@ -160,7 +160,9 @@ class InfluenceGenealogyService {
       genreClusters[genreId].weightedCount += weight;
       totalWeight += weight;
 
-      if (track.bpm) genreClusters[genreId].bpms.push(track.bpm);
+      // Use effective_bpm for stats (shows actual perceived tempo)
+      const bpmForStats = track.effective_bpm || track.bpm;
+      if (bpmForStats) genreClusters[genreId].bpms.push(bpmForStats);
       if (track.energy !== null) genreClusters[genreId].energies.push(track.energy);
     });
 
@@ -189,6 +191,9 @@ class InfluenceGenealogyService {
   calculateTrackGenreMatch(track, genre) {
     if (!track.bpm) return 0;
 
+    // Use effective_bpm (half-time adjusted) if available, otherwise use raw bpm
+    const bpmForMatching = track.effective_bpm || track.bpm;
+
     // Genre tag match (if Rekordbox has genre metadata)
     let genreTagBonus = 0;
     if (track.genre) {
@@ -213,14 +218,14 @@ class InfluenceGenealogyService {
     }
 
     // BPM match - prefer genres where track BPM falls well within range
-    // Calculate how well the track fits in the genre's BPM range
+    // Use effective_bpm for half-time tracks (e.g., 178 BPM half-time → 89 BPM feel)
     let bpmScore = 0;
 
-    if (track.bpm >= genre.bpm_min && track.bpm <= genre.bpm_max) {
+    if (bpmForMatching >= genre.bpm_min && bpmForMatching <= genre.bpm_max) {
       // Track is within range - calculate how central it is
       const rangeSize = genre.bpm_max - genre.bpm_min;
       const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
-      const distanceFromMid = Math.abs(track.bpm - genreBpmMid);
+      const distanceFromMid = Math.abs(bpmForMatching - genreBpmMid);
       const centralityScore = 1 - (distanceFromMid / (rangeSize / 2));
 
       // Strong bonus for narrower ranges (more specific genres like Grime vs broad genres like Trap)
@@ -232,7 +237,7 @@ class InfluenceGenealogyService {
     } else {
       // Track is outside range - penalize based on distance
       const genreBpmMid = (genre.bpm_min + genre.bpm_max) / 2;
-      const bpmDistance = Math.abs(track.bpm - genreBpmMid);
+      const bpmDistance = Math.abs(bpmForMatching - genreBpmMid);
       bpmScore = Math.max(0, 0.5 - (bpmDistance / 40));
     }
 
