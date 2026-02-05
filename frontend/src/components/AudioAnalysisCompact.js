@@ -37,24 +37,39 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
+    console.log('Rekordbox file dropped:', file.name, file.type, file.size);
     setImporting(true);
 
     try {
       const formData = new FormData();
       formData.append('xml', file);
 
+      console.log('Sending to /api/audio/rekordbox/import-xml...');
       const response = await axios.post('/api/audio/rekordbox/import-xml', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000 // 60 second timeout for large files
       });
+
+      console.log('Import response:', response.data);
 
       if (response.data.success) {
         setRekordboxData(response.data.import);
         if (onRekordboxImport) {
           onRekordboxImport(response.data.import);
         }
+        alert(`✅ Import successful! ${response.data.import.imported} tracks imported.`);
+      } else {
+        alert(`❌ Import failed: ${response.data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Rekordbox import failed:', error);
+      if (error.response) {
+        alert(`❌ Server error: ${error.response.data?.error || error.response.statusText}`);
+      } else if (error.code === 'ECONNABORTED') {
+        alert('❌ Import timed out. File may be too large.');
+      } else {
+        alert(`❌ Network error: ${error.message}`);
+      }
     } finally {
       setImporting(false);
     }

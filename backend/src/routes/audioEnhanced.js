@@ -78,6 +78,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS taste_profiles (
     id INTEGER PRIMARY KEY,
     profile_data TEXT,
+    coherence_score TEXT,
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `);
@@ -107,6 +108,23 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Invalid audio file type'));
+    }
+  }
+});
+
+// Separate multer configuration for XML files (Rekordbox import)
+const uploadXML = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for XML
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /xml/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = file.mimetype === 'application/xml' || file.mimetype === 'text/xml';
+
+    if (extname || mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only XML files are accepted.'));
     }
   }
 });
@@ -260,7 +278,7 @@ router.post('/rate/:trackId', (req, res) => {
 // Import Rekordbox XML
 // ========================================
 
-router.post('/rekordbox/import-xml', upload.single('xml'), async (req, res) => {
+router.post('/rekordbox/import-xml', uploadXML.single('xml'), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {

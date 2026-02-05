@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import AudioAnalysisCompact from './AudioAnalysisCompact';
+import AudioDNAPanel from './AudioDNAPanel';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -170,6 +171,13 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             </div>
           </div>
         )}
+
+        {/* Audio DNA Panel - integrated below Visual DNA */}
+        <AudioDNAPanel
+          audioData={audioData}
+          rekordboxData={rekordboxData}
+          clarosaData={clarosaData}
+        />
       </div>
 
       {/* Audio Analysis - Compact Unified */}

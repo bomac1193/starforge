@@ -8,6 +8,22 @@ const router = express.Router();
 const clarosaDirectService = require('../services/clarosaServiceDirect');
 const sinkFolderScanner = require('../services/sinkFolderScanner');
 const visualDnaCache = require('../services/visualDnaCache');
+const sonicPaletteService = require('../services/sonicPaletteService');
+const sinkEnhanced = require('../services/sinkEnhanced');
+const crossModalAnalyzer = require('../services/crossModalAnalyzer');
+const Database = require('better-sqlite3');
+const path = require('path');
+
+// Audio database connection
+const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
+let audioDB = null;
+
+const getAudioDB = () => {
+  if (!audioDB) {
+    audioDB = new Database(audioDbPath);
+  }
+  return audioDB;
+};
 
 // ========================================
 // CLAROSA DIRECT DATABASE ACCESS
@@ -333,6 +349,215 @@ router.post('/sink/generate-music', async (req, res) => {
       message: 'This will integrate AudioCraft/Magenta for generative music based on your catalog patterns'
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ========================================
+// AUDIO DNA ROUTES
+// ========================================
+
+/**
+ * GET /api/deep/audio/sonic-palette
+ * Extract sonic palette from user's audio catalog
+ */
+router.get('/audio/sonic-palette', async (req, res) => {
+  try {
+    const userId = parseInt(req.query.user_id) || 1;
+    const forceRefresh = req.query.refresh === 'true';
+
+    // Get tracks from audio database
+    const db = getAudioDB();
+    const tracks = db.prepare(`
+      SELECT * FROM audio_tracks
+      ORDER BY quality_score DESC, uploaded_at DESC
+      LIMIT 100
+    `).all();
+
+    if (tracks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No audio tracks available. Upload tracks or import Rekordbox first.'
+      });
+    }
+
+    const sonicPalette = await sonicPaletteService.extractSonicPalette(
+      userId,
+      tracks,
+      forceRefresh
+    );
+
+    res.json({
+      success: true,
+      sonicPalette
+    });
+  } catch (error) {
+    console.error('Error extracting sonic palette:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/deep/audio/sonic-palette/refresh
+ * Force refresh sonic palette cache
+ */
+router.post('/audio/sonic-palette/refresh', async (req, res) => {
+  try {
+    const userId = parseInt(req.body.user_id) || 1;
+
+    // Get tracks from audio database
+    const db = getAudioDB();
+    const tracks = db.prepare(`
+      SELECT * FROM audio_tracks
+      ORDER BY quality_score DESC, uploaded_at DESC
+      LIMIT 100
+    `).all();
+
+    if (tracks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No audio tracks available'
+      });
+    }
+
+    const sonicPalette = await sonicPaletteService.refreshCache(userId, tracks);
+
+    res.json({
+      success: true,
+      sonicPalette,
+      message: 'Sonic palette refreshed successfully'
+    });
+  } catch (error) {
+    console.error('Error refreshing sonic palette:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/deep/audio/sonic-palette/cache-stats
+ * Get sonic palette cache statistics
+ */
+router.get('/audio/sonic-palette/cache-stats', (req, res) => {
+  try {
+    const userId = parseInt(req.query.user_id) || 1;
+    const stats = sonicPaletteService.getCacheStats(userId);
+
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/deep/audio/taste-coherence
+ * Calculate taste coherence metrics from user's audio catalog
+ */
+router.get('/audio/taste-coherence', (req, res) => {
+  try {
+    // Get tracks from audio database
+    const db = getAudioDB();
+    const tracks = db.prepare(`
+      SELECT * FROM audio_tracks
+      ORDER BY uploaded_at DESC
+      LIMIT 200
+    `).all();
+
+    if (tracks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No audio tracks available'
+      });
+    }
+
+    const coherence = sinkEnhanced.calculateTasteCoherence(tracks);
+
+    res.json({
+      success: true,
+      coherence
+    });
+  } catch (error) {
+    console.error('Error calculating taste coherence:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/deep/cross-modal/analyze
+ * Analyze cross-modal coherence between Visual DNA and Audio DNA
+ */
+router.post('/cross-modal/analyze', async (req, res) => {
+  try {
+    const { userId, visualDNA, audioDNA } = req.body;
+
+    // If not provided, fetch from services
+    let visual = visualDNA;
+    let audio = audioDNA;
+
+    if (!visual) {
+      visual = await clarosaDirectService.extractVisualDNA(userId || 1);
+    }
+
+    if (!audio) {
+      // Get tracks from audio database
+      const db = getAudioDB();
+      const tracks = db.prepare(`
+        SELECT * FROM audio_tracks
+        ORDER BY quality_score DESC, uploaded_at DESC
+        LIMIT 100
+      `).all();
+
+      if (tracks.length > 0) {
+        const sonicPalette = await sonicPaletteService.extractSonicPalette(
+          userId || 1,
+          tracks
+        );
+        const coherence = sinkEnhanced.calculateTasteCoherence(tracks);
+
+        audio = {
+          tonalCharacteristics: sonicPalette.tonalCharacteristics,
+          dominantFrequencies: sonicPalette.dominantFrequencies,
+          trackCount: tracks.length,
+          tasteCoherence: coherence,
+          avgEnergy: tracks.reduce((sum, t) => sum + (t.energy || 0.5), 0) / tracks.length
+        };
+      }
+    }
+
+    if (!visual || !audio) {
+      return res.status(404).json({
+        success: false,
+        error: 'Missing visual or audio DNA'
+      });
+    }
+
+    const coherence = crossModalAnalyzer.analyzeCrossModalCoherence(visual, audio);
+    const detailedReport = crossModalAnalyzer.generateDetailedReport(visual, audio, coherence);
+
+    res.json({
+      success: true,
+      coherence,
+      detailedReport
+    });
+  } catch (error) {
+    console.error('Error analyzing cross-modal coherence:', error);
     res.status(500).json({
       success: false,
       error: error.message

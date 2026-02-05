@@ -473,6 +473,143 @@ class SinkEnhancedService {
   }
 
   /**
+   * Calculate taste coherence score
+   * Measures how cohesive/consistent the user's music taste is
+   */
+  calculateTasteCoherence(tracks) {
+    if (!tracks || tracks.length < 2) {
+      return {
+        overall: 0,
+        bpmConsistency: 0,
+        energyConsistency: 0,
+        genreCoherence: 0,
+        keyCoherence: 0,
+        moodCoherence: 0
+      };
+    }
+
+    // Extract values
+    const bpms = tracks.map(t => t.bpm).filter(b => b > 0);
+    const energies = tracks.map(t => t.energy || t.analysis?.energy).filter(e => e !== undefined);
+    const genres = tracks.map(t => t.genre).filter(g => g);
+    const keys = tracks.map(t => t.key || t.analysis?.key).filter(k => k);
+    const valences = tracks.map(t => t.valence || t.analysis?.valence).filter(v => v !== undefined);
+
+    // 1. BPM Consistency (lower coefficient of variation = more consistent)
+    const bpmConsistency = bpms.length > 1
+      ? this.calculateConsistencyScore(bpms)
+      : 0.5;
+
+    // 2. Energy Consistency
+    const energyConsistency = energies.length > 1
+      ? this.calculateConsistencyScore(energies)
+      : 0.5;
+
+    // 3. Genre Coherence (Shannon entropy - lower = more focused)
+    const genreCoherence = genres.length > 1
+      ? this.calculateGenreCoherence(genres)
+      : 0.5;
+
+    // 4. Key Coherence (variety of keys used)
+    const keyCoherence = keys.length > 1
+      ? this.calculateKeyCoherence(keys)
+      : 0.5;
+
+    // 5. Mood Coherence (valence consistency)
+    const moodCoherence = valences.length > 1
+      ? this.calculateConsistencyScore(valences)
+      : 0.5;
+
+    // Overall coherence (weighted average)
+    const overall = (
+      bpmConsistency * 0.25 +
+      energyConsistency * 0.25 +
+      genreCoherence * 0.20 +
+      keyCoherence * 0.15 +
+      moodCoherence * 0.15
+    );
+
+    return {
+      overall: Math.round(overall * 100) / 100,
+      bpmConsistency: Math.round(bpmConsistency * 100) / 100,
+      energyConsistency: Math.round(energyConsistency * 100) / 100,
+      genreCoherence: Math.round(genreCoherence * 100) / 100,
+      keyCoherence: Math.round(keyCoherence * 100) / 100,
+      moodCoherence: Math.round(moodCoherence * 100) / 100
+    };
+  }
+
+  /**
+   * Calculate consistency score from numeric array
+   * Uses coefficient of variation (lower = more consistent)
+   * Returns 0-1 score (1 = very consistent, 0 = very diverse)
+   */
+  calculateConsistencyScore(values) {
+    if (values.length < 2) return 0.5;
+
+    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+
+    // Coefficient of variation (CV)
+    const cv = mean !== 0 ? stdDev / mean : 0;
+
+    // Convert CV to 0-1 score (lower CV = higher consistency)
+    // CV of 0 = perfect consistency (1.0), CV of 1+ = very diverse (0.0)
+    const consistency = Math.max(0, Math.min(1, 1 - cv));
+
+    return consistency;
+  }
+
+  /**
+   * Calculate genre coherence using Shannon entropy
+   * Lower entropy = more focused genre taste
+   */
+  calculateGenreCoherence(genres) {
+    if (genres.length < 2) return 0.5;
+
+    // Count genre frequencies
+    const genreCounts = {};
+    genres.forEach(g => {
+      genreCounts[g] = (genreCounts[g] || 0) + 1;
+    });
+
+    const total = genres.length;
+    const uniqueGenres = Object.keys(genreCounts).length;
+
+    // Shannon entropy
+    let entropy = 0;
+    for (const genre in genreCounts) {
+      const p = genreCounts[genre] / total;
+      entropy -= p * Math.log2(p);
+    }
+
+    // Maximum possible entropy (all genres equally distributed)
+    const maxEntropy = Math.log2(uniqueGenres);
+
+    // Normalize to 0-1 (1 = very focused, 0 = very diverse)
+    const coherence = maxEntropy > 0 ? 1 - (entropy / maxEntropy) : 0.5;
+
+    return coherence;
+  }
+
+  /**
+   * Calculate key coherence
+   * Measures how varied the musical keys are
+   */
+  calculateKeyCoherence(keys) {
+    if (keys.length < 2) return 0.5;
+
+    const uniqueKeys = new Set(keys).size;
+    const maxKeys = 24; // 12 major + 12 minor
+
+    // Fewer unique keys = higher coherence
+    const coherence = 1 - (uniqueKeys / maxKeys);
+
+    return Math.max(0, Math.min(1, coherence));
+  }
+
+  /**
    * Helper: Calculate median
    */
   median(arr) {
