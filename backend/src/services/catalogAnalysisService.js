@@ -247,6 +247,9 @@ class CatalogAnalysisService {
     // Calculate weighted BPM percentiles (your actual comfort zone)
     const weightedBpmRange = this.calculateWeightedBpmRange(tracks, weights);
 
+    // Calculate library diversity score
+    const diversityScore = this.calculateLibraryDiversity(tracks, weights);
+
     return {
       // Weighted averages (what you ACTUALLY like)
       avgBpm: this.weightedAverage(tracksWithBpm, bpmWeights),
@@ -272,8 +275,87 @@ class CatalogAnalysisService {
       avgDuration: tracks.reduce((sum, t) => sum + (t.duration_seconds || 0), 0) / tracks.length,
 
       totalPlayCount: tracks.reduce((sum, t) => sum + (t.rekordbox_play_count || t.play_count || 0), 0),
-      avgPlayCount: tracks.reduce((sum, t) => sum + (t.rekordbox_play_count || t.play_count || 0), 0) / tracks.length
+      avgPlayCount: tracks.reduce((sum, t) => sum + (t.rekordbox_play_count || t.play_count || 0), 0) / tracks.length,
+
+      // Library diversity (how much variety you explore)
+      diversityScore: diversityScore.overall,
+      genreDiversity: diversityScore.genre,
+      bpmDiversity: diversityScore.bpm,
+      diversityCategory: diversityScore.category
     };
+  }
+
+  /**
+   * Calculate library diversity score
+   * Measures how much variety you explore vs focused specialization
+   */
+  calculateLibraryDiversity(tracks, weights) {
+    if (tracks.length === 0) {
+      return { overall: 0, genre: 0, bpm: 0, category: 'Unknown' };
+    }
+
+    // 1. Genre Diversity - Shannon entropy weighted by preference
+    const genreClusters = influenceGenealogy.clusterTracksByGenre(tracks);
+    const genreEntropy = this.calculateWeightedEntropy(
+      genreClusters.map(c => c.percentage / 100)
+    );
+    // Normalize: max entropy for 15 genres = log2(15) = 3.9
+    const maxGenreEntropy = Math.log2(Math.min(genreClusters.length, 15));
+    const genreDiversity = maxGenreEntropy > 0
+      ? Math.min(100, (genreEntropy / maxGenreEntropy) * 100)
+      : 0;
+
+    // 2. BPM Diversity - coefficient of variation of weighted BPM distribution
+    const bpmWeightPairs = tracks
+      .map((t, i) => ({ bpm: t.bpm, weight: weights[i] }))
+      .filter(pair => pair.bpm && pair.bpm > 0);
+
+    if (bpmWeightPairs.length === 0) {
+      return { overall: 0, genre: genreDiversity, bpm: 0, category: 'Unknown' };
+    }
+
+    const weightedBpmMean = bpmWeightPairs.reduce((sum, pair) =>
+      sum + pair.bpm * pair.weight, 0) / bpmWeightPairs.reduce((sum, pair) =>
+      sum + pair.weight, 0);
+
+    const totalWeight = bpmWeightPairs.reduce((sum, pair) => sum + pair.weight, 0);
+    const weightedBpmVariance = bpmWeightPairs.reduce((sum, pair) =>
+      sum + Math.pow(pair.bpm - weightedBpmMean, 2) * pair.weight, 0) / totalWeight;
+
+    const weightedBpmStdDev = Math.sqrt(weightedBpmVariance);
+    const coefficientOfVariation = weightedBpmStdDev / weightedBpmMean;
+
+    // Normalize: CV of 0.3 (high variety) = 100, CV of 0.05 (focused) = 0
+    const bpmDiversity = Math.min(100, Math.max(0, (coefficientOfVariation - 0.05) / 0.25 * 100));
+
+    // 3. Overall Diversity (60% genre, 40% BPM)
+    const overallDiversity = (genreDiversity * 0.6) + (bpmDiversity * 0.4);
+
+    // Categorize
+    let category;
+    if (overallDiversity >= 80) category = 'Eclectic Explorer';
+    else if (overallDiversity >= 60) category = 'Selective Curator';
+    else if (overallDiversity >= 40) category = 'Focused Specialist';
+    else category = 'Genre Purist';
+
+    return {
+      overall: Math.round(overallDiversity),
+      genre: Math.round(genreDiversity),
+      bpm: Math.round(bpmDiversity),
+      category
+    };
+  }
+
+  /**
+   * Calculate Shannon entropy for weighted distribution
+   */
+  calculateWeightedEntropy(probabilities) {
+    return probabilities.reduce((entropy, p) => {
+      if (p > 0) {
+        return entropy - (p * Math.log2(p));
+      }
+      return entropy;
+    }, 0);
   }
 
   /**

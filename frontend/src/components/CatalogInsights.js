@@ -214,6 +214,79 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 {aggregateStats.totalPlayCount || 0}
               </p>
             </div>
+
+            {aggregateStats.diversityScore !== undefined && (
+              <div>
+                <p className="text-body-xs text-brand-secondary mb-2">Library Diversity</p>
+                <p className="text-display-sm text-brand-text">
+                  {aggregateStats.diversityScore}%
+                </p>
+                <p className="text-body-xs text-brand-secondary mt-1">
+                  {aggregateStats.diversityCategory}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Library Diversity */}
+      {aggregateStats && aggregateStats.diversityScore !== undefined && (
+        <div className="card">
+          <h4 className="uppercase-label text-brand-secondary mb-4">Library Diversity</h4>
+
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-body-sm text-brand-text">Overall Diversity</p>
+              <p className="text-display-sm text-brand-text">{aggregateStats.diversityScore}%</p>
+            </div>
+            <div className="h-3 bg-brand-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                style={{ width: `${aggregateStats.diversityScore}%` }}
+              />
+            </div>
+            <p className="text-body-xs text-brand-secondary mt-2 italic">
+              {aggregateStats.diversityCategory}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <p className="text-body-xs text-brand-secondary">Genre Diversity</p>
+                <p className="text-body-xs text-brand-text">{aggregateStats.genreDiversity}%</p>
+              </div>
+              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500"
+                  style={{ width: `${aggregateStats.genreDiversity}%` }}
+                />
+              </div>
+              <p className="text-body-xs text-brand-secondary mt-1">
+                {aggregateStats.genreDiversity > 70 ? 'Eclectic across genres' :
+                 aggregateStats.genreDiversity > 50 ? 'Balanced genre exploration' :
+                 'Focused on core genres'}
+              </p>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <p className="text-body-xs text-brand-secondary">BPM Diversity</p>
+                <p className="text-body-xs text-brand-text">{aggregateStats.bpmDiversity}%</p>
+              </div>
+              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500"
+                  style={{ width: `${aggregateStats.bpmDiversity}%` }}
+                />
+              </div>
+              <p className="text-body-xs text-brand-secondary mt-1">
+                {aggregateStats.bpmDiversity > 70 ? 'Wide tempo variety' :
+                 aggregateStats.bpmDiversity > 50 ? 'Moderate tempo range' :
+                 'Focused tempo preference'}
+              </p>
+            </div>
           </div>
         </div>
       )}
