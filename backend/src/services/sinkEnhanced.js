@@ -25,6 +25,8 @@ class SinkEnhancedService {
       return {
         // Basic features
         bpm: analysis.bpm,
+        effectiveBpm: analysis.effective_bpm || analysis.bpm,
+        isHalftime: analysis.is_halftime || false,
         key: analysis.key,
         energy: analysis.energy,
         valence: analysis.valence,

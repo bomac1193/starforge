@@ -10,6 +10,54 @@ import numpy as np
 import librosa
 from scipy.signal import find_peaks
 
+def detect_halftime(y, sr, tempo, beat_frames):
+    """
+    Detect half-time feel (high BPM but feels slower)
+    Common in: R&B, slow jams, chill trap, lo-fi hip hop
+
+    Example: 178 BPM half-time = feels like 89 BPM
+    """
+    # Only check if BPM is high enough to possibly be half-time
+    if tempo < 140:
+        return False, tempo
+
+    # Calculate onset strength (how pronounced the beats are)
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+    # Count actual onsets (detected beats)
+    onset_frames = librosa.onset.onset_detect(y=y, sr=sr, units='frames')
+
+    # Expected beats per second at detected tempo
+    expected_beats_per_sec = tempo / 60.0
+
+    # Actual beats per second
+    duration = librosa.get_duration(y=y, sr=sr)
+    actual_beats_per_sec = len(onset_frames) / duration if duration > 0 else 0
+
+    # If actual beat density is much lower than expected, likely half-time
+    beat_density_ratio = actual_beats_per_sec / expected_beats_per_sec if expected_beats_per_sec > 0 else 1.0
+
+    # Calculate average onset strength (how strong the beats are)
+    avg_onset_strength = np.mean(onset_env)
+
+    # Half-time indicators:
+    # 1. Beat density is ~50% of expected (beats on 2 and 4 instead of every beat)
+    # 2. Lower onset strength than typical high-BPM tracks
+    # 3. BPM is in typical half-time range (140-180)
+
+    is_halftime = (
+        tempo >= 140 and
+        tempo <= 180 and
+        beat_density_ratio < 0.65 and  # Significantly fewer beats than expected
+        avg_onset_strength < 1.5  # Lower beat intensity than typical D&B/jungle
+    )
+
+    if is_halftime:
+        effective_bpm = tempo / 2
+        return True, effective_bpm
+    else:
+        return False, tempo
+
 def analyze_audio(audio_path, include_quality=False, detect_highlights=False, num_highlights=3):
     """
     Analyze audio file with comprehensive feature extraction
@@ -22,6 +70,9 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         # Basic features
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
         tempo_confidence = calculate_tempo_confidence(y, sr, tempo)
+
+        # Half-time detection (critical for R&B, slow jams, chill trap)
+        is_halftime, effective_bpm = detect_halftime(y, sr, tempo, beat_frames)
 
         # Chromagram for key detection
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
@@ -62,6 +113,13 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         else:
             energy = 0
 
+        # 7. Adjust energy for half-time (feels slower/calmer despite high BPM)
+        if is_halftime:
+            # Half-time tracks feel more chill/ambient despite high detected BPM
+            # Reduce energy score by 30-50% depending on how pronounced the half-time feel is
+            halftime_reduction = 0.6  # Multiply by 0.6 = 40% reduction
+            energy = energy * halftime_reduction
+
         # Loudness from active sections
         loudness_db = librosa.amplitude_to_db(np.mean(active_rms))
 
@@ -73,7 +131,9 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
 
         result = {
             'duration': float(duration),
-            'bpm': float(tempo),
+            'bpm': float(np.asarray(tempo).item()) if hasattr(tempo, '__iter__') else float(tempo),
+            'effective_bpm': float(np.asarray(effective_bpm).item()) if hasattr(effective_bpm, '__iter__') else float(effective_bpm),
+            'is_halftime': bool(is_halftime),
             'key': key,
             'energy': float(energy),
             'valence': float(valence),

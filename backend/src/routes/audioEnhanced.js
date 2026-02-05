@@ -25,6 +25,8 @@ db.exec(`
 
     -- Analysis results
     bpm REAL,
+    effective_bpm REAL,
+    is_halftime BOOLEAN DEFAULT 0,
     key TEXT,
     energy REAL,
     valence REAL,
@@ -177,15 +179,17 @@ router.post('/upload-and-analyze', enforceUsageLimit, upload.array('audio', 100)
         db.prepare(`
           INSERT INTO audio_tracks (
             id, filename, file_path, duration_seconds,
-            bpm, key, energy, valence, loudness, silence_ratio, tempo_confidence,
+            bpm, effective_bpm, is_halftime, key, energy, valence, loudness, silence_ratio, tempo_confidence,
             quality_score, quality_breakdown, source, musical_context, user_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           file.originalname,
           file.path,
           analysis.duration,
           analysis.bpm,
+          analysis.effectiveBpm || analysis.bpm,
+          analysis.isHalftime ? 1 : 0,
           analysis.key,
           analysis.energy,
           analysis.valence,
