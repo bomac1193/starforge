@@ -152,8 +152,8 @@ router.post('/upload-and-analyze', upload.single('audio'), async (req, res) => {
       INSERT INTO audio_tracks (
         id, filename, file_path, duration_seconds,
         bpm, key, energy, valence, loudness, silence_ratio, tempo_confidence,
-        quality_score, quality_breakdown, source
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        quality_score, quality_breakdown, source, musical_context
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       trackId,
       file.originalname,
@@ -168,7 +168,8 @@ router.post('/upload-and-analyze', upload.single('audio'), async (req, res) => {
       analysis.tempoConfidence,
       analysis.qualityScore,
       JSON.stringify(analysis.qualityBreakdown),
-      'upload'
+      'upload',
+      'my_music'
     );
 
     // Store highlights
@@ -303,8 +304,8 @@ router.post('/rekordbox/import-xml', uploadXML.single('xml'), async (req, res) =
             id, filename, file_path, duration_seconds,
             bpm, key, star_rating,
             rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
-            rekordbox_color, rekordbox_comments, source
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            rekordbox_color, rekordbox_comments, source, musical_context
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           track.title,
@@ -318,7 +319,8 @@ router.post('/rekordbox/import-xml', uploadXML.single('xml'), async (req, res) =
           track.starRating,
           track.color,
           track.comments,
-          'rekordbox'
+          'rekordbox',
+          'dj_collection'
         );
 
         successCount++;
