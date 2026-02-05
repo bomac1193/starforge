@@ -4,6 +4,7 @@ import AudioAnalysisCompact from './AudioAnalysisCompact';
 import AudioDNAPanel from './AudioDNAPanel';
 import ContextComparisonView from './ContextComparisonView';
 import TasteCoherenceView from './TasteCoherenceView';
+import InfluenceGenealogyPanel from './InfluenceGenealogyPanel';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -258,6 +259,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         {/* Taste Coherence Score */}
         <div className="mt-6">
           <TasteCoherenceView userId="default_user" />
+        </div>
+
+        {/* Influence Genealogy - Elite Feature */}
+        <div className="mt-6">
+          <InfluenceGenealogyPanel userId="default_user" />
         </div>
       </div>
 
