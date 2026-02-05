@@ -334,27 +334,299 @@ User Data → Sonic Palette Extraction → Genre Matching → Lineage Tracing
 | Rarity Scoring | 📋 Planned | Elite |
 | Scene Mapping | 📋 Planned | Elite |
 
-### 🎯 Next Steps
+### 🎯 Next Steps (VALUE-PRIORITIZED ROADMAP)
 
 **✅ Phase 1 Complete!** (2026-02-05)
 - All 7 tasks completed (100%)
 - Stripe payment integration ready
 - Feature gating middleware active
-- Influence Genealogy feature live (Elite tier)
-- Ready for production deployment
+- Influence Genealogy backend complete
+- Library & Catalog Analysis system built
+- Ready for UI integration
+
+**Current State:**
+- ✅ Backend: Complete (API working, tested with 99 tracks)
+- ⏳ Frontend: Components built but not integrated
+- ⏳ Authentication: Not implemented (using default_user)
+- ⏳ Cloud: Local SQLite (needs migration)
 
 ---
 
-### Immediate Actions (This Week)
+## PRIORITY ORDER: Differentiation → Monetization → Infrastructure
 
-**1. Initialize Genre Database** ⚡ REQUIRED
-```bash
-cd /home/sphinxy/starforge/backend/src/services
-node seedGenres.js
+### 🔥 TIER 1: DIFFERENTIATION (This Week - 6 hours)
+**Show the unique value that no competitor has**
+
+#### **Task 1.1: Integrate Influence Genealogy UI** (2 hours) ⭐️ HIGHEST VALUE
+**Why First:** Elite tier "wow" feature - this is your unique differentiator
+- Add LibraryPage to App.js routing
+- Test with existing 99 tracks
+- Verify tree visualization displays
+- Test Elite tier gating
+- **Value**: Shows cultural intelligence, Instagram-worthy export
+- **Effort**: 2 hours
+- **Impact**: Elite tier sign-ups ($50/mo)
+
+#### **Task 1.2: Cross-Modal Coherence Display** (2 hours) ⭐️ UNIQUE MOAT
+**Why Second:** Nobody else has Visual DNA + Audio DNA alignment
+- Show visual-audio coherence score in UI
+- Display "Your visuals and audio are 73% aligned"
+- Add to TwinGenesisPanelChic or CatalogInsights
+- **Value**: Unique selling point, defensible moat
+- **Effort**: 2 hours
+- **Impact**: Pro tier conversions ($15/mo)
+
+#### **Task 1.3: Context Comparison Visible** (2 hours) 💎 PRO DIFFERENTIATOR
+**Why Third:** Shows professional vs personal taste split
+- Display DJ library vs uploaded music divergence
+- Chart showing "You play 15 BPM faster when DJing"
+- **Value**: Pro tier feature showcase
+- **Effort**: 2 hours
+- **Impact**: Validates Pro tier value
+
+**Deliverable:** Users can see ALL unique features that differentiate you
+
+---
+
+### 💰 TIER 2: MONETIZATION (Week 2 - 4 hours)
+**Make it easy to pay you**
+
+#### **Task 2.1: Integrate Pricing Page** (1 hour)
+- Add PricingPage.js to navigation
+- Link from upgrade prompts
+- Test Stripe checkout flow
+- **Value**: Clear path to payment
+- **Effort**: 1 hour
+
+#### **Task 2.2: Onboarding Flow** (2 hours)
+- "Start Here" wizard for new users
+- Guide: Upload tracks → See analysis → Upgrade
+- Show tier comparison at key moments
+- **Value**: Higher conversion rates
+- **Effort**: 2 hours
+
+#### **Task 2.3: Usage Limits Enforcement** (1 hour)
+- Show "47/50 tracks remaining" prominently
+- Block uploads at 50 tracks for Personal tier
+- Upgrade prompt on limit hit
+- **Value**: Create urgency to upgrade
+- **Effort**: 1 hour
+
+**Deliverable:** Clear monetization funnel from free → paid
+
+---
+
+### 🏗️ TIER 3: INFRASTRUCTURE (Week 3-4 - 2 days)
+**Enable scale and multi-user**
+
+#### **Task 3.1: Authentication System** (1 day)
+**Choose ONE:**
+
+**Option A: Supabase (Recommended - 6 hours)**
+- Set up Supabase account + project
+- Migrate SQLite → PostgreSQL schema
+- Implement auth UI (login/signup)
+- Update backend to use Supabase
+- **Pros**: Fast, includes file storage, built-in auth
+- **Effort**: 6 hours
+
+**Option B: Traditional Auth (1.5 days)**
+- Set up PostgreSQL on Railway/Render
+- Implement Passport.js + JWT
+- Build login/signup UI
+- Add auth middleware
+- **Pros**: Full control, easier to migrate later
+- **Effort**: 1.5 days
+
+#### **Task 3.2: Cloud Migration** (4 hours)
+- Migrate database to cloud (PostgreSQL)
+- Update file uploads to S3/Cloudflare R2
+- Add user table + foreign keys
+- Filter all queries by authenticated user_id
+- **Value**: Multi-user support, data persistence
+- **Effort**: 4 hours
+
+#### **Task 3.3: Stripe User Integration** (2 hours)
+- Tie Stripe subscriptions to real user accounts
+- Update webhook to use authenticated user_id
+- Test signup → subscribe → analyze flow
+- **Value**: Real monetization, not just default_user
+- **Effort**: 2 hours
+
+**Deliverable:** Production-ready multi-user SaaS
+
+---
+
+### 🚀 TIER 4: POLISH & LAUNCH (Week 5 - 1 week)
+
+#### **Task 4.1: Beta Testing** (3 days)
+- Recruit 10-20 beta users
+- Collect feedback on features
+- Fix critical bugs
+- Monitor which features get used most
+
+#### **Task 4.2: Production Deployment** (2 days)
+- Deploy to Railway/Vercel/Render
+- Set up domain + SSL
+- Switch Stripe to live mode
+- Production monitoring
+
+#### **Task 4.3: Marketing Launch** (2 days)
+- Reddit post (r/DJs)
+- Twitter announcement
+- Product Hunt launch
+- Content: "Influence Genealogy" as hook
+
+---
+
+## WHY THIS ORDER?
+
+**1. Differentiation First (Week 1)**
+- Show what makes you UNIQUE
+- Influence Genealogy = Elite tier wow factor
+- Cross-modal coherence = nobody else has this
+- Without these visible, you're just another analytics tool
+
+**2. Monetization Second (Week 2)**
+- Make it easy to pay you
+- Clear pricing, upgrade prompts, usage limits
+- Test if people will actually pay BEFORE building infrastructure
+
+**3. Infrastructure Third (Week 3-4)**
+- Auth/cloud needed for scale, but not for validation
+- Can test with default_user first
+- If nobody pays, you saved 2 days of infrastructure work
+
+**4. Launch Fourth (Week 5)**
+- Only launch when differentiation is clear
+- Beta test to find what resonates
+
+---
+
+### Immediate Actions (TODAY - 30 min)
+
+**✅ DONE:**
+- [x] Genre database seeded (27 genres)
+- [x] Backend APIs working
+- [x] Library system built
+- [x] Catalog analysis tested
+
+**🔥 DO NOW:**
+
+**1. Integrate LibraryPage to App.js** (30 min)
+```jsx
+// Add to App.js routing
+import LibraryPage from './components/LibraryPage';
+
+// Add route:
+<Route path="/library" component={LibraryPage} />
+// Or just render directly for testing:
+<LibraryPage />
 ```
-- Populates 27 genres with lineage relationships
-- Required for Influence Genealogy to work
-- One-time setup, 1 minute
+- Access at: http://localhost:3050/library
+- Should see 3 tabs: Library, Catalog Analysis, Influence Genealogy
+- Verify Influence Genealogy tree displays with your 99 tracks
+
+**RESULT:** You can NOW see all your work in beautiful UI!
+
+---
+
+### Reference: Completed Tasks
+
+**Reference: Already Complete**
+- [x] Genre database seeded (27 genres)
+- [x] Library system (track table, pagination, search)
+- [x] Catalog analysis (taste coherence, distributions)
+- [x] Influence Genealogy backend (matching algorithm)
+- [x] Influence Genealogy tree visualization component
+- [x] Smart caching system (hash-based invalidation)
+- [x] Stripe integration (backend ready)
+- [x] Feature gating middleware
+
+---
+
+## Quick Reference: What's Built vs What's Next
+
+### ✅ BUILT (Working in Backend)
+| Feature | Status | Tested | Visible in UI |
+|---------|--------|--------|---------------|
+| Library System | ✅ Complete | ✅ Yes | ⏳ No |
+| Catalog Analysis | ✅ Complete | ✅ Yes | ⏳ No |
+| Taste Coherence | ✅ Complete | ✅ Yes | ⏳ No |
+| Influence Genealogy | ✅ Complete | ✅ Yes | ⏳ No |
+| Context Comparison | ✅ Complete | ✅ Yes | ⏳ No |
+| Cross-Modal Coherence | ✅ Backend | ❌ Not tested | ⏳ No |
+| Stripe Integration | ✅ Complete | ⏳ Test mode | ⏳ No |
+| Feature Gating | ✅ Complete | ✅ Yes | ⏳ No |
+
+### ⏳ NEXT (Need UI Integration - Week 1)
+- [ ] Add LibraryPage to routing (30 min)
+- [ ] Test Influence Genealogy in browser (15 min)
+- [ ] Show Cross-Modal Coherence score (2 hours)
+- [ ] Display Context Comparison (2 hours)
+- [ ] Integrate Pricing Page (1 hour)
+
+### 🔮 LATER (Infrastructure - Week 3-4)
+- [ ] Authentication system (Supabase or traditional)
+- [ ] Cloud database migration (PostgreSQL)
+- [ ] Multi-user support
+- [ ] File storage (S3/Cloudflare R2)
+- [ ] Production deployment
+
+---
+
+## Value Hierarchy: What Users Pay For
+
+**Personal Tier (Free):**
+- 50 track limit ✅ Built
+- Basic sonic palette ✅ Built
+- Visual DNA connection ✅ Built
+- **Goal**: Show value → drive upgrades
+
+**Pro Tier ($15/mo):**
+- Unlimited tracks ✅ Built
+- DJ library import ✅ Built
+- Context Comparison ✅ Built (not in UI)
+- Taste Coherence ✅ Built (not in UI)
+- Cross-Modal Coherence ✅ Backend ready
+- **Goal**: Core revenue from professionals
+
+**Elite Tier ($50/mo):**
+- Influence Genealogy ✅ Built (not in UI) ⭐️ KEY DIFFERENTIATOR
+- Cultural context ✅ Built
+- Genre lineage tree ✅ Built
+- Export PNG for sharing ✅ Built
+- **Goal**: High-margin from tastemakers
+
+---
+
+## Strategic Priority Summary
+
+**Week 1: Make Differentiation Visible**
+→ Integrate UI components (6 hours)
+→ Show Influence Genealogy, Cross-Modal Coherence, Context Comparison
+→ **WHY**: Prove unique value before building infrastructure
+
+**Week 2: Enable Monetization**
+→ Pricing page integration (4 hours)
+→ Onboarding flow, usage limits, upgrade prompts
+→ **WHY**: Test if people will pay BEFORE auth/cloud work
+
+**Week 3-4: Build Infrastructure**
+→ Authentication (1 day)
+→ Cloud migration (4 hours)
+→ Multi-user support
+→ **WHY**: Only needed once value + monetization proven
+
+**Week 5: Launch**
+→ Beta testing (3 days)
+→ Production deployment (2 days)
+→ Marketing push
+→ **WHY**: Launch when differentiation is clear
+
+---
+
+## Authentication Details (For Week 3-4)
 
 **2. Configure Stripe for Payments** 💳
 - Follow guide: `STRIPE_SETUP.md`
