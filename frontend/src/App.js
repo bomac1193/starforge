@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
-import TwinGenesisPanelEnhanced from './components/TwinGenesisPanelEnhanced';
+import TwinGenesisPanelWithProgress from './components/TwinGenesisPanelWithProgress';
 import Glowmeter from './components/Glowmeter';
 import RitualEngine from './components/RitualEngine';
 import Glowline from './components/Glowline';
@@ -81,7 +81,7 @@ function App() {
         {/* View Content */}
         <div className="animate-fadeIn">
           {activeView === 'genesis' && (
-            <TwinGenesisPanelEnhanced
+            <TwinGenesisPanelWithProgress
               onTwinGenerated={handleTwinGenerated}
               onGlowChange={setGlowLevel}
             />
