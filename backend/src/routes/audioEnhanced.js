@@ -53,7 +53,19 @@ db.exec(`
     rekordbox_play_count INTEGER,
     rekordbox_star_rating INTEGER,
     rekordbox_color TEXT,
-    rekordbox_comments TEXT
+    rekordbox_comments TEXT,
+    rekordbox_title TEXT,
+    rekordbox_artist TEXT,
+    rekordbox_genre TEXT,
+
+    -- Spotify enrichment
+    spotify_id TEXT,
+    spotify_energy REAL,
+    spotify_danceability REAL,
+    spotify_valence REAL,
+    spotify_loudness REAL,
+    spotify_key TEXT,
+    spotify_enriched_at TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS audio_highlights (
@@ -332,8 +344,10 @@ router.post('/rekordbox/import-xml', requireFeature('dj_library_import'), upload
             id, filename, file_path, duration_seconds,
             bpm, key, star_rating, genre,
             rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
-            rekordbox_color, rekordbox_comments, source, musical_context
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            rekordbox_color, rekordbox_comments,
+            rekordbox_title, rekordbox_artist, rekordbox_genre,
+            source, musical_context
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           track.title,
@@ -348,6 +362,9 @@ router.post('/rekordbox/import-xml', requireFeature('dj_library_import'), upload
           track.starRating,
           track.color,
           track.comments,
+          track.title,
+          track.artist,
+          track.genre,
           'rekordbox',
           'dj_collection'
         );
@@ -598,11 +615,13 @@ router.post('/rekordbox/scan-local', requireFeature('dj_library_import'), async 
         db.prepare(`
           INSERT OR REPLACE INTO audio_tracks (
             id, filename, file_path, duration_seconds,
-            bpm, key, star_rating, play_count,
+            bpm, key, star_rating, play_count, genre,
             rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
-            rekordbox_color, rekordbox_comments, source, musical_context,
+            rekordbox_color, rekordbox_comments,
+            rekordbox_title, rekordbox_artist, rekordbox_genre,
+            source, musical_context,
             last_played_at, uploaded_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           track.title || 'Unknown',
@@ -612,11 +631,15 @@ router.post('/rekordbox/scan-local', requireFeature('dj_library_import'), async 
           track.key,
           track.star_rating || 0,
           track.play_count || 0,
+          track.genre || null,
           track.rekordbox_id,
           track.play_count || 0,
           track.star_rating || 0,
           track.color,
           track.comments,
+          track.title,
+          track.artist,
+          track.genre,
           'rekordbox_database',
           'dj_collection',
           track.last_played,
@@ -763,11 +786,13 @@ router.post('/rekordbox/scan-usb', requireFeature('dj_library_import'), async (r
         db.prepare(`
           INSERT OR REPLACE INTO audio_tracks (
             id, filename, file_path, duration_seconds,
-            bpm, key, star_rating, play_count,
+            bpm, key, star_rating, play_count, genre,
             rekordbox_id, rekordbox_play_count, rekordbox_star_rating,
-            rekordbox_color, rekordbox_comments, source, musical_context,
+            rekordbox_color, rekordbox_comments,
+            rekordbox_title, rekordbox_artist, rekordbox_genre,
+            source, musical_context,
             last_played_at, uploaded_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           trackId,
           track.title || 'Unknown',
@@ -777,11 +802,15 @@ router.post('/rekordbox/scan-usb', requireFeature('dj_library_import'), async (r
           track.key,
           track.star_rating || 0,
           track.play_count || 0,
+          track.genre || null,
           track.rekordbox_id,
           track.play_count || 0,
           track.star_rating || 0,
           track.color,
           track.comments,
+          track.title,
+          track.artist,
+          track.genre,
           'rekordbox_usb',
           'dj_collection',
           track.last_played,
@@ -1165,6 +1194,180 @@ router.get('/taste/coherence', requireFeature('taste_coherence'), (req, res) => 
     res.status(500).json({
       success: false,
       error: error.message
+    });
+  }
+});
+
+// ========================================
+// SPOTIFY ENRICHMENT
+// ========================================
+
+/**
+ * GET /api/audio/spotify/enrichment-status
+ * Check how many tracks need Spotify enrichment
+ */
+router.get('/spotify/enrichment-status', (req, res) => {
+  try {
+    const djTracks = db.prepare(`
+      SELECT COUNT(*) as total FROM audio_tracks
+      WHERE source LIKE '%rekordbox%' OR source = 'serato'
+    `).get();
+
+    const enriched = db.prepare(`
+      SELECT COUNT(*) as total FROM audio_tracks
+      WHERE (source LIKE '%rekordbox%' OR source = 'serato')
+        AND spotify_id IS NOT NULL
+    `).get();
+
+    const needEnrichment = db.prepare(`
+      SELECT COUNT(*) as total FROM audio_tracks
+      WHERE (source LIKE '%rekordbox%' OR source = 'serato')
+        AND (spotify_energy IS NULL OR spotify_energy = 0)
+    `).get();
+
+    res.json({
+      success: true,
+      status: {
+        totalDJTracks: djTracks.total,
+        enriched: enriched.total,
+        needEnrichment: needEnrichment.total,
+        enrichmentPercentage: djTracks.total > 0
+          ? Math.round((enriched.total / djTracks.total) * 100)
+          : 0
+      }
+    });
+  } catch (error) {
+    console.error('Spotify enrichment status error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/audio/spotify/enrich
+ * Enrich DJ library tracks with Spotify audio features
+ * Requires SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env
+ */
+router.post('/spotify/enrich', async (req, res) => {
+  try {
+    const spotifyService = require('../services/spotifyAudioFeatures');
+    const { limit = 100 } = req.body;
+
+    // Get DJ library tracks without Spotify data
+    const tracks = db.prepare(`
+      SELECT id, filename, rekordbox_title, rekordbox_artist, bpm, energy
+      FROM audio_tracks
+      WHERE (source LIKE '%rekordbox%' OR source = 'serato')
+        AND (spotify_energy IS NULL OR spotify_energy = 0)
+      LIMIT ?
+    `).all(limit);
+
+    if (tracks.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No tracks need enrichment. All DJ library tracks already have Spotify data!',
+        enriched: 0,
+        notFound: 0,
+        errors: 0
+      });
+    }
+
+    console.log(`Enriching ${tracks.length} DJ library tracks with Spotify API...`);
+
+    let enriched = 0;
+    let notFound = 0;
+    let errors = 0;
+    const enrichmentResults = [];
+
+    // Process tracks
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      const title = track.rekordbox_title || track.filename.replace(/\.(mp3|m4a|wav)$/i, '');
+      const artist = track.rekordbox_artist;
+
+      try {
+        const features = await spotifyService.getAudioFeaturesBySearch(title, artist);
+
+        if (features) {
+          // Update track with Spotify data
+          db.prepare(`
+            UPDATE audio_tracks
+            SET spotify_id = ?,
+                spotify_energy = ?,
+                spotify_danceability = ?,
+                spotify_valence = ?,
+                spotify_loudness = ?,
+                spotify_key = ?,
+                energy = ?,
+                valence = ?,
+                key = ?,
+                spotify_enriched_at = ?
+            WHERE id = ?
+          `).run(
+            features.spotifyId,
+            features.energy,
+            features.danceability,
+            features.valence,
+            features.loudness,
+            features.key,
+            features.energy, // Update main energy field
+            features.valence, // Update main valence field
+            features.key, // Update main key field
+            new Date().toISOString(),
+            track.id
+          );
+
+          enriched++;
+          enrichmentResults.push({
+            title,
+            artist,
+            status: 'enriched',
+            energy: features.energy
+          });
+
+          console.log(`[${i + 1}/${tracks.length}] Enriched: ${title} (energy: ${features.energy.toFixed(3)})`);
+        } else {
+          notFound++;
+          enrichmentResults.push({
+            title,
+            artist,
+            status: 'not_found'
+          });
+          console.log(`[${i + 1}/${tracks.length}] Not found on Spotify: ${title}`);
+        }
+
+        // Rate limiting (100ms delay)
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error) {
+        errors++;
+        enrichmentResults.push({
+          title,
+          artist,
+          status: 'error',
+          error: error.message
+        });
+        console.error(`[${i + 1}/${tracks.length}] Error: ${error.message}`);
+      }
+    }
+
+    console.log(`\nEnrichment complete: ${enriched} enriched, ${notFound} not found, ${errors} errors`);
+
+    res.json({
+      success: true,
+      processed: tracks.length,
+      enriched,
+      notFound,
+      errors,
+      enrichmentPercentage: Math.round((enriched / tracks.length) * 100),
+      results: enrichmentResults.slice(0, 10), // Show first 10
+      message: `Enriched ${enriched} tracks with Spotify audio features`
+    });
+  } catch (error) {
+    console.error('Spotify enrichment error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      hint: 'Make sure SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are set in your .env file'
     });
   }
 });

@@ -32,10 +32,38 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
         zero_crossing_rate = librosa.feature.zero_crossing_rate(y)[0]
 
-        # RMS energy for loudness and energy
-        rms = librosa.feature.rms(y=y)[0]
-        loudness_db = librosa.amplitude_to_db(np.mean(rms))
-        energy = np.mean(rms)
+        # IMPROVED ENERGY CALCULATION
+        # 1. RMS energy per frame
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
+
+        # 2. Exclude quiet sections (below threshold)
+        rms_db = librosa.amplitude_to_db(rms, ref=np.max)
+        threshold_db = np.percentile(rms_db, 25)  # Ignore quietest 25%
+        mask = rms_db > threshold_db
+
+        if np.any(mask):
+            active_rms = rms[mask]
+        else:
+            active_rms = rms
+
+        # 3. Calculate energy from active sections only
+        improved_energy = np.mean(active_rms)
+
+        # 4. Calculate spectral flux (perceived energy)
+        spectral_flux = librosa.onset.onset_strength(y=y, sr=sr)
+        spectral_energy = np.mean(spectral_flux) / 10.0
+
+        # 5. Combine RMS and spectral flux (weighted)
+        combined_energy = (improved_energy * 0.6) + (spectral_energy * 0.4)
+
+        # 6. Apply loudness normalization (log scaling for perceptual loudness)
+        if combined_energy > 0:
+            energy = min(1.0, np.log10(combined_energy + 0.01) / np.log10(0.51) + 1)
+        else:
+            energy = 0
+
+        # Loudness from active sections
+        loudness_db = librosa.amplitude_to_db(np.mean(active_rms))
 
         # Valence estimation (rough approximation from spectral features)
         valence = estimate_valence(spectral_centroids, spectral_rolloff)
