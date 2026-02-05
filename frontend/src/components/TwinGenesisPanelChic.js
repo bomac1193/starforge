@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import AudioAnalysisCompact from './AudioAnalysisCompact';
 import AudioDNAPanel from './AudioDNAPanel';
+import CrossModalCoherence from './CrossModalCoherence';
 import ContextComparisonView from './ContextComparisonView';
 import TasteCoherenceView from './TasteCoherenceView';
 import InfluenceGenealogyPanel from './InfluenceGenealogyPanel';
@@ -250,6 +251,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
           rekordboxData={rekordboxData}
           clarosaData={clarosaData}
         />
+
+        {/* Cross-Modal Coherence - Visual + Audio Alignment */}
+        <div className="mt-6">
+          <CrossModalCoherence userId="default_user" />
+        </div>
 
         {/* Context Comparison - DJ vs Personal Music */}
         <div className="mt-6">
