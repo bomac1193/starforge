@@ -13,10 +13,11 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
   const [tasteCoherence, setTasteCoherence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analysisMode, setAnalysisMode] = useState('hybrid'); // 'hybrid' | 'dj' | 'original'
 
   useEffect(() => {
     fetchAllData();
-  }, [userId]);
+  }, [userId, analysisMode]);
 
   const fetchAllData = async () => {
     try {
@@ -24,7 +25,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       setError(null);
 
       // Fetch Audio DNA (influence genealogy)
-      const audioResponse = await axios.get(`/api/deep/audio/influence-genealogy?user_id=${userId}&mode=hybrid`);
+      const audioResponse = await axios.get(`/api/deep/audio/influence-genealogy?user_id=${userId}&mode=${analysisMode}`);
       if (audioResponse.data.success) {
         setAudioDNA(audioResponse.data.genealogy);
       }
@@ -127,7 +128,43 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       <div className="grid grid-cols-2 gap-8">
         {/* Audio DNA Card */}
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">AUDIO DNA</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-display-sm text-brand-text">AUDIO DNA</h3>
+
+            {/* Mode Selector */}
+            <div className="flex gap-0 border-b border-brand-border">
+              <button
+                onClick={() => setAnalysisMode('original')}
+                className={`px-3 py-1 text-xs uppercase tracking-wider transition-all ${
+                  analysisMode === 'original'
+                    ? 'text-brand-text border-b-2 border-brand-text'
+                    : 'text-brand-secondary hover:text-brand-text'
+                }`}
+              >
+                MY MUSIC
+              </button>
+              <button
+                onClick={() => setAnalysisMode('dj')}
+                className={`px-3 py-1 text-xs uppercase tracking-wider transition-all ${
+                  analysisMode === 'dj'
+                    ? 'text-brand-text border-b-2 border-brand-text'
+                    : 'text-brand-secondary hover:text-brand-text'
+                }`}
+              >
+                DJ LIBRARY
+              </button>
+              <button
+                onClick={() => setAnalysisMode('hybrid')}
+                className={`px-3 py-1 text-xs uppercase tracking-wider transition-all ${
+                  analysisMode === 'hybrid'
+                    ? 'text-brand-text border-b-2 border-brand-text'
+                    : 'text-brand-secondary hover:text-brand-text'
+                }`}
+              >
+                HYBRID
+              </button>
+            </div>
+          </div>
 
           {audioDNA ? (
             <div className="space-y-4">
@@ -261,9 +298,19 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
               )}
             </div>
           ) : (
-            <p className="text-body-sm text-brand-secondary italic">
-              Connect CLAROSA to analyze your visual DNA
-            </p>
+            <div className="space-y-4">
+              <p className="text-body-sm text-brand-secondary">
+                Connect CLAROSA to analyze your photo aesthetics, color palettes, and visual themes.
+              </p>
+              <a
+                href="https://clarosa.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-4 py-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-brand-bg transition-all text-xs uppercase tracking-wider"
+              >
+                CONNECT CLAROSA
+              </a>
+            </div>
           )}
         </div>
       </div>
