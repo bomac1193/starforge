@@ -134,13 +134,50 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
           <p className="uppercase-label text-brand-secondary mb-4">ANALYSIS</p>
 
           <div className="space-y-4">
-            {narrative.split('\n\n').filter(para => para.trim()).map((paragraph, i) => (
-              <div key={i} className="border border-brand-border p-4">
-                <p className="text-body-sm text-brand-text leading-relaxed">
-                  {paragraph.trim()}
-                </p>
-              </div>
-            ))}
+            {narrative.split('\n\n').filter(para => para.trim()).map((paragraph, i) => {
+              const trimmedPara = paragraph.trim();
+
+              // Check if this paragraph is a numbered list (contains "1. " at start)
+              const isNumberedList = /^\d+\./.test(trimmedPara);
+
+              if (isNumberedList) {
+                // Split into individual items
+                const items = trimmedPara.split(/\n(?=\d+\.)/).filter(item => item.trim());
+
+                // Group items by 3
+                const groups = [];
+                for (let j = 0; j < items.length; j += 3) {
+                  groups.push(items.slice(j, j + 3));
+                }
+
+                return (
+                  <div key={i} className="space-y-6">
+                    {groups.map((group, groupIdx) => (
+                      <div key={groupIdx} className="border border-brand-border p-4">
+                        <div className="space-y-3">
+                          {group.map((item, itemIdx) => (
+                            <div key={itemIdx} className="border border-brand-border p-3">
+                              <p className="text-body-sm text-brand-text leading-relaxed">
+                                {item.trim()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              // Regular paragraph
+              return (
+                <div key={i} className="border border-brand-border p-4">
+                  <p className="text-body-sm text-brand-text leading-relaxed">
+                    {trimmedPara}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
