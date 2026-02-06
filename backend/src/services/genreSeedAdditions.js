@@ -222,15 +222,31 @@ const additionalGenres = [
     slug: 'afrobeat',
     parentId: null,
     eraStart: 1970,
-    eraEnd: null,
+    eraEnd: 1997,
     decade: '1970s',
     bpmMin: 90,
     bpmMax: 120,
     energyMin: 0.6,
     energyMax: 0.8,
-    description: 'Jazz-funk fusion with African rhythms',
+    description: 'Jazz-funk fusion with African rhythms (Fela Kuti era)',
     originLocation: 'Nigeria',
-    culturalContext: 'Fela Kuti - political consciousness, polyrhythmic grooves'
+    culturalContext: 'Fela Kuti - political consciousness, polyrhythmic grooves, live instrumentation - DISTINCT from modern Afrobeats (2000s+ Nigerian pop)'
+  },
+
+  {
+    name: 'Afrobeats',
+    slug: 'afrobeats',
+    parentSlug: 'afrobeat',
+    eraStart: 2005,
+    eraEnd: null,
+    decade: '2000s',
+    bpmMin: 100,
+    bpmMax: 130,
+    energyMin: 0.65,
+    energyMax: 0.85,
+    description: 'Modern Nigerian pop music (NOT Fela Kuti Afrobeat)',
+    originLocation: 'Nigeria',
+    culturalContext: 'Modern West African pop - Wizkid, Burna Boy, Davido - fusion of highlife, hip hop, dancehall, R&B - DISTINCT from 1970s Afrobeat (Fela Kuti)'
   },
 
   {
