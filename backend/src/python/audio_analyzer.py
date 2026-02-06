@@ -11,6 +11,81 @@ import librosa
 from scipy.signal import find_peaks
 import pyloudnorm as pyln
 
+def validate_bpm_with_multiples(tempo, y, sr, filename=''):
+    """
+    Check if detected BPM makes sense or if a multiple/division is more accurate
+    Common issues:
+    - Drum & Bass detected as half (86 instead of 174)
+    - Dubstep detected as 1.2x or 1.5x (147 instead of 124)
+    - Slow tracks detected as double (180 instead of 90)
+    """
+    # Try to extract BPM from filename (many producers include it)
+    import re
+    filename_bpm = None
+    bpm_pattern = r'\b(\d{2,3})\s*(?:bpm|BPM)?\b'
+    matches = re.findall(bpm_pattern, filename)
+    if matches:
+        for match in matches:
+            potential_bpm = int(match)
+            if 60 <= potential_bpm <= 200:  # Reasonable BPM range
+                filename_bpm = potential_bpm
+                break
+
+    # If filename has BPM, trust it (unless very different from detection)
+    if filename_bpm:
+        if abs(tempo - filename_bpm) / filename_bpm < 0.15:  # Within 15%
+            return filename_bpm
+        # Check if tempo is a multiple/division of filename BPM
+        for mult in [2.0, 0.5, 1.5, 0.67]:  # 2x, 0.5x, 1.5x, 2/3x
+            if abs(tempo - (filename_bpm * mult)) / (filename_bpm * mult) < 0.15:
+                return filename_bpm
+
+    # Check common problem ranges
+    candidates = [tempo]
+
+    # If detected BPM is suspiciously low (<100), check 2x
+    if tempo < 100:
+        candidates.append(tempo * 2)
+
+    # If detected BPM is in D&B range but might be halved (80-95)
+    if 80 <= tempo <= 95:
+        candidates.append(tempo * 2)  # Check drum & bass tempo (160-190)
+
+    # If detected BPM is in awkward range (145-155), check 0.8x or 1.2x
+    # (might be dubstep detected wrong)
+    if 145 <= tempo <= 155:
+        candidates.append(tempo / 1.2)  # ~124 dubstep
+        candidates.append(tempo * 0.8)
+
+    # If detected BPM is very high (>170), check 0.5x
+    if tempo > 170:
+        candidates.append(tempo / 2)
+
+    # Calculate onset strength for each candidate to see which fits best
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    best_tempo = tempo
+    best_score = 0
+
+    for candidate in candidates:
+        # Calculate how well this BPM matches the onset patterns
+        # Use tempogram to see energy at this BPM
+        if candidate > 0:
+            try:
+                tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr)
+                tempo_freqs = librosa.core.tempo_frequencies(len(tempogram), sr=sr)
+
+                # Find closest frequency to candidate BPM
+                idx = np.argmin(np.abs(tempo_freqs - candidate))
+                score = np.mean(tempogram[idx])
+
+                if score > best_score:
+                    best_score = score
+                    best_tempo = candidate
+            except:
+                pass
+
+    return best_tempo
+
 def detect_halftime(y, sr, tempo, beat_frames):
     """
     Detect half-time feel (high BPM but feels slower)
@@ -82,6 +157,10 @@ def analyze_audio(audio_path, include_quality=False, detect_highlights=False, nu
 
         # Basic features
         tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+
+        # IMPROVED: Validate BPM and check multiples (fixes D&B detected as half, etc.)
+        tempo = validate_bpm_with_multiples(tempo, y, sr, audio_path)
+
         tempo_confidence = calculate_tempo_confidence(y, sr, tempo)
 
         # Half-time detection (critical for R&B, slow jams, chill trap)

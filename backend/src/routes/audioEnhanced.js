@@ -161,11 +161,35 @@ router.post('/upload-and-analyze', enforceUsageLimit, upload.array('audio', 100)
     const userId = req.body.user_id || 'default_user';
     const results = [];
     const errors = [];
+    const skipped = [];
 
     // Process each file
     for (const file of files) {
       try {
-        // Increment usage count
+        // CHECK FOR DUPLICATES: See if this filename already exists
+        const existing = db.prepare(`
+          SELECT id, filename, uploaded_at FROM audio_tracks
+          WHERE user_id = ? AND filename = ?
+          LIMIT 1
+        `).get(userId, file.originalname);
+
+        if (existing) {
+          // Duplicate found - skip this file
+          skipped.push({
+            filename: file.originalname,
+            existingId: existing.id,
+            uploadedAt: existing.uploaded_at
+          });
+
+          // Delete the uploaded file since we're not using it
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+
+          continue; // Skip to next file
+        }
+
+        // Increment usage count (only for new uploads)
         incrementUsage(userId, 1);
 
         // Analyze with quality scoring and highlights
@@ -240,8 +264,10 @@ router.post('/upload-and-analyze', enforceUsageLimit, upload.array('audio', 100)
       success: true,
       uploaded: results.length,
       failed: errors.length,
+      skipped: skipped.length,
       tracks: results,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
+      duplicates: skipped.length > 0 ? skipped : undefined
     });
   } catch (error) {
     console.error('Upload and analyze error:', error);

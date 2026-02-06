@@ -120,13 +120,23 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport, onUploadS
       if (response.data.success) {
         const uploadedCount = response.data.uploaded;
         const failedCount = response.data.failed || 0;
+        const skippedCount = response.data.skipped || 0;
 
         setAnalyzedTracks(response.data.tracks);
 
         // Show success message
-        const successMessage = failedCount > 0
-          ? `${uploadedCount} tracks added • ${failedCount} failed`
-          : `${uploadedCount} new ${uploadedCount === 1 ? 'track' : 'tracks'} added`;
+        let successMessage = '';
+        if (uploadedCount > 0 && skippedCount > 0) {
+          successMessage = `${uploadedCount} new tracks added • ${skippedCount} duplicates skipped`;
+        } else if (uploadedCount > 0 && failedCount > 0) {
+          successMessage = `${uploadedCount} tracks added • ${failedCount} failed`;
+        } else if (uploadedCount > 0) {
+          successMessage = `${uploadedCount} new ${uploadedCount === 1 ? 'track' : 'tracks'} added`;
+        } else if (skippedCount > 0) {
+          successMessage = `${skippedCount} ${skippedCount === 1 ? 'file' : 'files'} already in library`;
+        } else {
+          successMessage = 'No new tracks added';
+        }
 
         setUploadSuccess({ count: uploadedCount, message: successMessage });
 
