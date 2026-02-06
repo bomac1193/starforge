@@ -22,25 +22,25 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
       {/* Multiple Influences - Percentage Breakdown */}
       {influences && influences.length > 0 && (
         <div className="border border-brand-border p-6">
-          <p className="uppercase-label text-brand-secondary mb-4">Your Taste Spectrum</p>
+          <p className="uppercase-label text-brand-secondary mb-4">YOUR TASTE SPECTRUM</p>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {influences.map((influence, i) => (
-              <div key={i} className="border-l-2 border-brand-primary pl-4">
-                <div className="flex justify-between items-baseline mb-1">
+              <div key={i} className="border border-brand-text p-4">
+                <div className="flex justify-between items-baseline mb-2">
                   <h4 className="text-display-sm text-brand-text">
                     {influence.genre.name}
                   </h4>
-                  <span className="text-body-sm text-brand-primary font-medium">
+                  <span className="text-body-sm text-brand-text font-medium">
                     {influence.percentage}%
                   </span>
                 </div>
 
-                <p className="text-body-xs text-brand-secondary mb-2 leading-relaxed">
+                <p className="text-body-xs text-brand-secondary mb-3 leading-relaxed">
                   {influence.genre.cultural_context}
                 </p>
 
-                <div className="flex gap-4 text-body-xs text-brand-muted">
+                <div className="flex flex-wrap gap-3 text-body-xs text-brand-secondary">
                   {influence.avgBpm && (
                     <span>{influence.avgBpm} BPM</span>
                   )}
@@ -74,7 +74,7 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
       {/* Lineage - Vertical Timeline */}
       {lineage && lineage.length > 0 && (
         <div className="border border-brand-border p-6">
-          <p className="uppercase-label text-brand-secondary mb-4">Primary Lineage</p>
+          <p className="uppercase-label text-brand-secondary mb-4">PRIMARY LINEAGE</p>
 
           <div className="max-w-2xl mx-auto">
             {lineage.map((genre, i) => (
@@ -86,8 +86,8 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
 
                 <div className="flex items-start gap-4 pb-6">
                   {/* Era indicator */}
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-brand-primary bg-brand-bg flex items-center justify-center z-10">
-                    <div className="w-2 h-2 rounded-full bg-brand-primary" />
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-brand-text bg-brand-bg flex items-center justify-center z-10">
+                    <div className="w-2 h-2 rounded-full bg-brand-text" />
                   </div>
 
                   {/* Content */}
@@ -96,7 +96,7 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                       <h4 className="text-display-sm text-brand-text">
                         {genre.name}
                       </h4>
-                      <span className="text-body-xs text-brand-muted">
+                      <span className="text-body-xs text-brand-secondary">
                         {genre.decade}
                       </span>
                     </div>
@@ -106,7 +106,7 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                     </p>
 
                     {genre.origin_location && (
-                      <p className="text-body-xs text-brand-muted mt-1">
+                      <p className="text-body-xs text-brand-secondary mt-1">
                         {genre.origin_location}
                       </p>
                     )}
@@ -121,7 +121,7 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
       {/* Narrative */}
       {narrative && (
         <div className="border border-brand-border p-6">
-          <p className="uppercase-label text-brand-secondary mb-3">Analysis</p>
+          <p className="uppercase-label text-brand-secondary mb-3">ANALYSIS</p>
           <p className="text-body-sm text-brand-text leading-relaxed whitespace-pre-line">
             {narrative}
           </p>
