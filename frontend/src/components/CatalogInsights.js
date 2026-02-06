@@ -49,7 +49,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
   if (loading) {
     return (
       <div className="p-8 text-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mb-3"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-text mb-3"></div>
         <p className="text-body-sm text-brand-secondary">Analyzing your catalog...</p>
       </div>
     );
@@ -95,7 +95,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               onClick={() => setCatalogMode('hybrid')}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
                 catalogMode === 'hybrid'
-                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  ? 'text-brand-text border-b-2 border-brand-text'
                   : 'text-brand-secondary hover:text-brand-text'
               }`}
             >
@@ -105,7 +105,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               onClick={() => setCatalogMode('dj')}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
                 catalogMode === 'dj'
-                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  ? 'text-brand-text border-b-2 border-brand-text'
                   : 'text-brand-secondary hover:text-brand-text'
               }`}
             >
@@ -115,7 +115,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               onClick={() => setCatalogMode('original')}
               className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
                 catalogMode === 'original'
-                  ? 'text-brand-primary border-b-2 border-brand-primary'
+                  ? 'text-brand-text border-b-2 border-brand-text'
                   : 'text-brand-secondary hover:text-brand-text'
               }`}
             >
@@ -161,8 +161,8 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 {aggregateStats.minBpm?.toFixed(0)} - {aggregateStats.maxBpm?.toFixed(0)}
               </p>
               {aggregateStats.preferredBpmMin && aggregateStats.preferredBpmMax && (
-                <p className="text-body-xs text-brand-accent mt-1">
-                  ⭐ Preference: {aggregateStats.preferredBpmMin} - {aggregateStats.preferredBpmMax}
+                <p className="text-body-xs text-brand-secondary mt-1">
+                  Preference: {aggregateStats.preferredBpmMin} - {aggregateStats.preferredBpmMax}
                   {aggregateStats.preferredBpmCoverage && ` (${aggregateStats.preferredBpmCoverage}%)`}
                 </p>
               )}
@@ -176,9 +176,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               <p className="text-display-sm text-brand-text">
                 {(aggregateStats.avgEnergy * 100)?.toFixed(0)}%
               </p>
-              <div className="mt-2 h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="mt-2 h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-brand-primary"
+                  className="h-full bg-brand-text"
                   style={{ width: `${aggregateStats.avgEnergy * 100}%` }}
                 />
               </div>
@@ -240,9 +240,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               <p className="text-body-sm text-brand-text">Overall Diversity</p>
               <p className="text-display-sm text-brand-text">{aggregateStats.diversityScore}%</p>
             </div>
-            <div className="h-3 bg-brand-border rounded-full overflow-hidden">
+            <div className="h-3 bg-brand-border overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                className="h-full bg-brand-text"
                 style={{ width: `${aggregateStats.diversityScore}%` }}
               />
             </div>
@@ -257,9 +257,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 <p className="text-body-xs text-brand-secondary">Genre Diversity</p>
                 <p className="text-body-xs text-brand-text">{aggregateStats.genreDiversity}%</p>
               </div>
-              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-purple-500"
+                  className="h-full bg-brand-text"
                   style={{ width: `${aggregateStats.genreDiversity}%` }}
                 />
               </div>
@@ -275,9 +275,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 <p className="text-body-xs text-brand-secondary">BPM Diversity</p>
                 <p className="text-body-xs text-brand-text">{aggregateStats.bpmDiversity}%</p>
               </div>
-              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-blue-500"
+                  className="h-full bg-brand-text"
                   style={{ width: `${aggregateStats.bpmDiversity}%` }}
                 />
               </div>
@@ -301,9 +301,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               <p className="text-body-sm text-brand-text">Overall Coherence</p>
               <p className="text-display-sm text-brand-text">{(tasteCoherence.overall * 100).toFixed(0)}%</p>
             </div>
-            <div className="h-3 bg-brand-border rounded-full overflow-hidden">
+            <div className="h-3 bg-brand-border overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-purple-500 to-brand-primary"
+                className="h-full bg-brand-text"
                 style={{ width: `${tasteCoherence.overall * 100}%` }}
               />
             </div>
@@ -318,9 +318,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 <p className="text-body-xs text-brand-secondary">BPM Consistency</p>
                 <p className="text-body-xs text-brand-text">{(tasteCoherence.bpmConsistency * 100).toFixed(0)}%</p>
               </div>
-              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-brand-accent"
+                  className="h-full bg-brand-text"
                   style={{ width: `${tasteCoherence.bpmConsistency * 100}%` }}
                 />
               </div>
@@ -331,9 +331,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 <p className="text-body-xs text-brand-secondary">Energy Consistency</p>
                 <p className="text-body-xs text-brand-text">{(tasteCoherence.energyConsistency * 100).toFixed(0)}%</p>
               </div>
-              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-brand-accent"
+                  className="h-full bg-brand-text"
                   style={{ width: `${tasteCoherence.energyConsistency * 100}%` }}
                 />
               </div>
@@ -344,9 +344,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                 <p className="text-body-xs text-brand-secondary">Key Coherence</p>
                 <p className="text-body-xs text-brand-text">{(tasteCoherence.keyCoherence * 100).toFixed(0)}%</p>
               </div>
-              <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+              <div className="h-2 bg-brand-border overflow-hidden">
                 <div
-                  className="h-full bg-brand-accent"
+                  className="h-full bg-brand-text"
                   style={{ width: `${tasteCoherence.keyCoherence * 100}%` }}
                 />
               </div>
@@ -369,9 +369,9 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
                     {genre.count} tracks ({genre.percentage}%)
                   </p>
                 </div>
-                <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                <div className="h-2 bg-brand-border overflow-hidden">
                   <div
-                    className="h-full bg-purple-500"
+                    className="h-full bg-brand-text"
                     style={{ width: `${genre.percentage}%` }}
                   />
                 </div>
@@ -406,7 +406,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
               {distributions.bpm.histogram.map((bin, i) => (
                 <div key={i} className="flex-1 flex flex-col justify-end">
                   <div
-                    className="bg-purple-500/50 hover:bg-purple-500 transition-colors"
+                    className="bg-brand-text/50 hover:bg-brand-text transition-colors"
                     style={{ height: `${(bin.count / Math.max(...distributions.bpm.histogram.map(b => b.count))) * 100}%` }}
                     title={`${bin.range}: ${bin.count} tracks`}
                   />
