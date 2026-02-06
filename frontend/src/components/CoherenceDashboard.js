@@ -10,6 +10,8 @@ import CrossModalCoherence from './CrossModalCoherence';
 const CoherenceDashboard = ({ userId = 'default_user' }) => {
   const [audioDNA, setAudioDNA] = useState(null);
   const [visualDNA, setVisualDNA] = useState(null);
+  const [clarosaData, setClarosaData] = useState(null);
+  const [connectingClarosa, setConnectingClarosa] = useState(false);
   const [tasteCoherence, setTasteCoherence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,7 +19,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
 
   useEffect(() => {
     fetchAllData();
-  }, [userId, analysisMode]);
+  }, [userId, analysisMode, clarosaData]);
 
   const fetchAllData = async () => {
     try {
@@ -36,10 +38,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         setTasteCoherence(coherenceResponse.data);
       }
 
-      // Fetch Visual DNA (CLAROSA)
-      const visualResponse = await axios.get(`/api/deep/visual/dna?user_id=${userId}`);
-      if (visualResponse.data.success && visualResponse.data.visualDna) {
-        setVisualDNA(visualResponse.data.visualDna);
+      // Fetch Visual DNA (CLAROSA) - only if already connected
+      if (clarosaData && !clarosaData.error) {
+        setVisualDNA(clarosaData.visualDNA);
       }
 
     } catch (error) {
@@ -47,6 +48,42 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       setError(error.response?.data?.error || error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnectClarosa = async () => {
+    setConnectingClarosa(true);
+
+    try {
+      const profileRes = await axios.get('/api/deep/clarosa/profile');
+      // Fetch ALL photos (not just top 20)
+      const photosRes = await axios.get('/api/deep/clarosa/top-photos', {
+        params: {
+          limit: 500,  // High limit to get all photos
+          minScore: 0  // Include all scores, not just top-rated
+        }
+      });
+      const dnaRes = await axios.get('/api/deep/clarosa/visual-dna');
+
+      const connectedData = {
+        profile: profileRes.data.profile,
+        photos: photosRes.data.photos,
+        visualDNA: dnaRes.data.visualDNA
+      };
+
+      setClarosaData(connectedData);
+      setVisualDNA(connectedData.visualDNA);
+    } catch (error) {
+      console.error('Failed to connect to CLAROSA:', error);
+      setClarosaData({
+        error: true,
+        visualDNA: {
+          styleDescription: 'Connection failed',
+          confidence: 0
+        }
+      });
+    } finally {
+      setConnectingClarosa(false);
     }
   };
 
@@ -253,34 +290,58 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         <div className="border border-brand-border p-6">
           <h3 className="text-display-sm text-brand-text mb-4">VISUAL DNA</h3>
 
-          {visualDNA ? (
+          {!clarosaData || clarosaData.error ? (
             <div className="space-y-4">
-              {/* Dominant Colors */}
-              {visualDNA.palette && (
-                <div>
+              <p className="text-body-sm text-brand-secondary mb-6">
+                Direct access to your CLAROSA photo collection
+              </p>
+              <button
+                onClick={handleConnectClarosa}
+                disabled={connectingClarosa}
+                className="btn-primary w-full"
+              >
+                {connectingClarosa ? 'Connecting...' : 'Connect CLAROSA'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Style Description */}
+              {clarosaData.visualDNA?.styleDescription && (
+                <p className="text-body text-brand-text mb-4">
+                  {clarosaData.visualDNA.styleDescription}
+                </p>
+              )}
+
+              {/* Color Palette */}
+              {clarosaData.visualDNA?.colorPalette && clarosaData.visualDNA.colorPalette.length > 0 && (
+                <div className="mb-4">
                   <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
-                  <div className="flex gap-2 mb-3">
-                    {visualDNA.palette.slice(0, 6).map((color, i) => (
-                      <div
-                        key={i}
-                        className="w-12 h-12 rounded border border-brand-border"
-                        style={{ backgroundColor: color.hex }}
-                        title={`${color.name} (${color.prominence}%)`}
-                      />
+                  <div className="flex gap-2">
+                    {clarosaData.visualDNA.colorPalette.map((color, idx) => (
+                      <div key={idx} className="flex-1">
+                        <div
+                          className="h-12 border border-brand-border"
+                          style={{ backgroundColor: color.hex }}
+                          title={`${color.name} (${color.hex})`}
+                        />
+                        <p className="text-body-sm text-brand-secondary mt-1 text-center">
+                          {color.hex}
+                        </p>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
 
               {/* Themes */}
-              {visualDNA.themes && visualDNA.themes.length > 0 && (
+              {visualDNA?.themes && visualDNA.themes.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-brand-border">
                   <p className="uppercase-label text-brand-secondary mb-2">Visual Themes</p>
                   <div className="flex flex-wrap gap-2">
                     {visualDNA.themes.slice(0, 8).map((theme, i) => (
                       <span
                         key={i}
-                        className="px-3 py-1 bg-brand-border text-brand-text text-body-xs rounded-full"
+                        className="px-3 py-1 bg-brand-border text-brand-text text-body-xs"
                       >
                         {theme}
                       </span>
@@ -289,27 +350,11 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
                 </div>
               )}
 
-              {/* Style Characteristics */}
-              {visualDNA.styleDescription && (
-                <div className="mt-4 pt-4 border-t border-brand-border">
-                  <p className="uppercase-label text-brand-secondary mb-2">Style</p>
-                  <p className="text-body-sm text-brand-text">{visualDNA.styleDescription}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-body-sm text-brand-secondary">
-                Connect CLAROSA to analyze your photo aesthetics, color palettes, and visual themes.
-              </p>
-              <a
-                href="https://clarosa.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-4 py-2 border border-brand-text text-brand-text hover:bg-brand-text hover:text-brand-bg transition-all text-xs uppercase tracking-wider"
-              >
-                CONNECT CLAROSA
-              </a>
+              {/* Stats */}
+              <div className="text-body-sm text-brand-secondary pt-4 border-t border-brand-border">
+                {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
+                {clarosaData.profile?.stats?.highlight_count || 0} highlights
+              </div>
             </div>
           )}
         </div>
