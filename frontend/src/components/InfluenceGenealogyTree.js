@@ -156,10 +156,10 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                   <div key={i} className="space-y-8">
                     {tiers.map((tier, tierIdx) => (
                       tier.items.length > 0 && (
-                        <div key={tierIdx} className="border border-brand-text p-6">
+                        <div key={tierIdx} className="border border-brand-border p-6">
                           <p className="uppercase-label text-brand-secondary mb-4">{tier.label}</p>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                             {(() => {
                               // Distribute tier items into columns vertically
                               const itemsPerCol = Math.ceil(tier.items.length / 3);
@@ -171,9 +171,9 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
 
                               return columns.map((column, colIdx) => (
                                 column.length > 0 && (
-                                  <div key={colIdx} className="space-y-3">
+                                  <div key={colIdx} className="grid gap-3">
                                     {column.map((item, itemIdx) => (
-                                      <div key={itemIdx} className="border border-brand-border p-3">
+                                      <div key={itemIdx} className="border border-brand-border p-3 h-full">
                                         <p className="text-body-sm text-brand-text leading-relaxed">
                                           {item.trim()}
                                         </p>
