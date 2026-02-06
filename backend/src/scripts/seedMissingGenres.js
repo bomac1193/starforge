@@ -18,8 +18,11 @@ seedAdditionalGenres()
     console.log('  • Black American Club: Baltimore Club, Jersey Club, Footwork');
     console.log('  • LGBTQ+: Ballroom (voguing culture)');
     console.log('  • Caribbean: Reggae, Dub, Dancehall, Soca, Zouk');
-    console.log('  • African: Afrobeat, Amapiano');
+    console.log('  • African: Afrobeat, Afro House, Amapiano (distinct from Chicago House)');
     console.log('  • UK Black British: Jungle, UK Garage (UKG), Grime');
+    console.log('\nDistinct lineages:');
+    console.log('  • Disco → Chicago House (Black American)');
+    console.log('  • Afrobeat → Afro House → Amapiano (African)');
     console.log('\nInfluence genealogy will now show accurate cultural lineages!');
     process.exit(0);
   })

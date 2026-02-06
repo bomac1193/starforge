@@ -77,7 +77,7 @@ const additionalGenres = [
     energyMax: 0.85,
     description: 'Four-on-the-floor electronic dance music',
     originLocation: 'Chicago, USA',
-    culturalContext: 'Black gay club culture - Frankie Knuckles (Warehouse), Ron Hardy (Music Box) - birth of house music'
+    culturalContext: 'Black American gay club culture - Frankie Knuckles (Warehouse), Ron Hardy (Music Box) - birth of house music in USA, DISTINCT from Afro House (African origins)'
   },
 
   {
@@ -234,9 +234,25 @@ const additionalGenres = [
   },
 
   {
+    name: 'Afro House',
+    slug: 'afro-house',
+    parentSlug: 'afrobeat',
+    eraStart: 2000,
+    eraEnd: null,
+    decade: '2000s',
+    bpmMin: 115,
+    bpmMax: 125,
+    energyMin: 0.6,
+    energyMax: 0.8,
+    description: 'House music with African percussion and rhythms',
+    originLocation: 'South Africa / West Africa',
+    culturalContext: 'African - NOT from Chicago house, evolved independently from Afrobeat with electronic production, tribal drums, African vocal samples'
+  },
+
+  {
     name: 'Amapiano',
     slug: 'amapiano',
-    parentSlug: 'afrobeat',
+    parentSlug: 'afro-house',
     eraStart: 2012,
     eraEnd: null,
     decade: '2010s',
@@ -246,7 +262,7 @@ const additionalGenres = [
     energyMax: 0.8,
     description: 'South African house with jazz and kwaito elements',
     originLocation: 'Johannesburg, South Africa',
-    culturalContext: 'Township culture - fusion of house, jazz, kwaito, log drum signature'
+    culturalContext: 'Township culture - fusion of Afro house, jazz, kwaito, log drum signature, slower tempo than typical house'
   },
 
   // ==========================================
