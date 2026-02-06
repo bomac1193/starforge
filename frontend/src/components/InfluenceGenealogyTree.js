@@ -173,7 +173,7 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                                 column.length > 0 && (
                                   <div key={colIdx} className="flex flex-col gap-3">
                                     {column.map((item, itemIdx) => (
-                                      <div key={itemIdx} className="border border-brand-border p-3 min-h-32 flex items-start">
+                                      <div key={itemIdx} className="border border-brand-border p-3 min-h-24 flex items-start">
                                         <p className="text-body-sm text-brand-text leading-relaxed">
                                           {item.trim()}
                                         </p>
