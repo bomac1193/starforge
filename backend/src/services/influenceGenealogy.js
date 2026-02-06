@@ -200,6 +200,34 @@ class InfluenceGenealogyService {
     // Use effective_bpm (half-time adjusted) if available, otherwise use raw bpm
     const bpmForMatching = track.effective_bpm || track.bpm;
 
+    // CONFLICTING GENRE EXCLUSIONS
+    // For ambiguous BPM ranges (140 BPM overlap zone), exclude tracks with conflicting genre tags
+    if (track.genre) {
+      const trackGenre = track.genre.toLowerCase().trim();
+      const genreSlug = genre.slug;
+
+      // Jersey Club exclusions: Don't match if tagged as Techno, Grime, Dubstep, Trap, Garage
+      if (genreSlug === 'jersey-club') {
+        const conflictingTags = ['techno', 'grime', 'dubstep', 'trap', 'garage', 'dnb', 'drum', 'bass'];
+        if (conflictingTags.some(tag => trackGenre.includes(tag))) {
+          return 0; // Skip match entirely
+        }
+      }
+
+      // Similar exclusions for other narrow-range genres at 140 BPM
+      if (genreSlug === 'grime') {
+        if (['jersey', 'club', 'baltimore'].some(tag => trackGenre.includes(tag))) {
+          return 0;
+        }
+      }
+
+      if (genreSlug === 'dubstep') {
+        if (['jersey', 'baltimore', 'grime'].some(tag => trackGenre.includes(tag))) {
+          return 0;
+        }
+      }
+    }
+
     // Genre tag match (if Rekordbox has genre metadata)
     let genreTagBonus = 0;
     if (track.genre) {
@@ -247,15 +275,39 @@ class InfluenceGenealogyService {
       bpmScore = Math.max(0, 0.5 - (bpmDistance / 40));
     }
 
-    // Energy match (if available)
-    if (track.energy !== null && track.energy !== undefined) {
+    // Energy match (prioritize Spotify energy if available)
+    const energyValue = track.spotify_energy || track.energy;
+
+    if (energyValue !== null && energyValue !== undefined) {
       const genreEnergyMid = (genre.energy_min + genre.energy_max) / 2;
-      const energyDistance = Math.abs(track.energy - genreEnergyMid);
+      const energyDistance = Math.abs(energyValue - genreEnergyMid);
       const energyScore = Math.max(0, 1 - (energyDistance * 2));
-      return (bpmScore * 0.5 + energyScore * 0.3) * 100 + genreTagBonus;
+
+      // Higher energy weight (40% instead of 30%) for more accurate matching
+      const totalScore = (bpmScore * 0.5 + energyScore * 0.4) * 100 + genreTagBonus;
+
+      // ADDITIONAL FILTER for 140 BPM overlap zone:
+      // If genre is Jersey Club/Grime/Dubstep and track is at 140 BPM,
+      // require genre tag support OR strong energy match
+      const isOverlapZone = bpmForMatching >= 138 && bpmForMatching <= 143;
+      if (isOverlapZone && ['jersey-club', 'grime', 'dubstep'].includes(genre.slug)) {
+        if (genreTagBonus === 0 && energyScore < 0.7) {
+          return totalScore * 0.3; // Heavily penalize ambiguous matches
+        }
+      }
+
+      return totalScore;
     }
 
-    // No energy data - use BPM + genre tag
+    // No energy data - use BPM + genre tag only
+    // For 140 BPM overlap zone without energy, require strong genre tag support
+    const isOverlapZone = bpmForMatching >= 138 && bpmForMatching <= 143;
+    if (isOverlapZone && ['jersey-club', 'grime', 'dubstep'].includes(genre.slug)) {
+      if (genreTagBonus < 25) {
+        return (bpmScore * 100 + genreTagBonus) * 0.2; // Heavy penalty without tag support
+      }
+    }
+
     return (bpmScore * 100) + genreTagBonus;
   }
 

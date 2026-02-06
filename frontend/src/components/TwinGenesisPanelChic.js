@@ -25,10 +25,12 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
   const [connectingClarosa, setConnectingClarosa] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState('personal');
   const [usageInfo, setUsageInfo] = useState(null);
+  const [totalTracks, setTotalTracks] = useState(null);
 
-  // Fetch subscription status on mount
+  // Fetch subscription status and track count on mount
   useEffect(() => {
     fetchSubscriptionStatus();
+    fetchTotalTracks();
   }, []);
 
   const fetchSubscriptionStatus = async () => {
@@ -41,6 +43,24 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     } catch (error) {
       console.error('Failed to fetch subscription status:', error);
     }
+  };
+
+  const fetchTotalTracks = async () => {
+    try {
+      const response = await axios.get('/api/library/stats', {
+        params: { user_id: 'default_user' }
+      });
+      if (response.data.success) {
+        setTotalTracks(response.data.stats.totalTracks);
+      }
+    } catch (error) {
+      console.error('Failed to fetch track count:', error);
+    }
+  };
+
+  const handleUploadSuccess = (uploadedCount) => {
+    // Update total tracks count
+    setTotalTracks(prev => (prev || 0) + uploadedCount);
   };
 
   const handleGlowChange = (e) => {
@@ -149,6 +169,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
               </li>
               <li>
                 <span className="text-brand-text">Audio DNA:</span> Upload tracks or import DJ library
+                {totalTracks !== null && totalTracks > 0 && (
+                  <span className="text-brand-text ml-2">
+                    ({totalTracks} track{totalTracks !== 1 ? 's' : ''} in library)
+                  </span>
+                )}
                 {subscriptionTier === 'personal' && (
                   <span className="text-brand-secondary ml-2">
                     ({usageInfo?.remaining || 50} uploads remaining • <a href="/pricing" className="underline">Upgrade for unlimited</a>)
@@ -289,6 +314,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
       <AudioAnalysisCompact
         onAnalysisComplete={(data) => setAudioData(data)}
         onRekordboxImport={(data) => setRekordboxData(data)}
+        onUploadSuccess={handleUploadSuccess}
       />
 
       {/* Voice & Identity */}

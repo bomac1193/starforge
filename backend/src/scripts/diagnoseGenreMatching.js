@@ -45,6 +45,32 @@ const matches = [];
 tracks.forEach(track => {
   const effectiveBpm = track.effective_bpm || track.bpm;
 
+  // CONFLICTING GENRE EXCLUSIONS (same logic as influenceGenealogy service)
+  if (track.genre) {
+    const trackGenre = track.genre.toLowerCase().trim();
+
+    // Jersey Club exclusions: Don't match if tagged as Techno, Grime, Dubstep, Trap, Garage
+    if (targetGenre === 'jersey-club') {
+      const conflictingTags = ['techno', 'grime', 'dubstep', 'trap', 'garage', 'dnb', 'drum', 'bass'];
+      if (conflictingTags.some(tag => trackGenre.includes(tag))) {
+        return; // Skip this track entirely
+      }
+    }
+
+    // Similar exclusions for other genres
+    if (targetGenre === 'grime') {
+      if (['jersey', 'club', 'baltimore'].some(tag => trackGenre.includes(tag))) {
+        return;
+      }
+    }
+
+    if (targetGenre === 'dubstep') {
+      if (['jersey', 'baltimore', 'grime'].some(tag => trackGenre.includes(tag))) {
+        return;
+      }
+    }
+  }
+
   // Genre tag check
   let genreTagBonus = 0;
   let tagReason = '';
@@ -98,10 +124,29 @@ tracks.forEach(track => {
     energyReason = energyDistance < 0.1 ? 'CLOSE match' : energyDistance < 0.2 ? 'MODERATE match' : 'WEAK match';
   }
 
-  // Total score
-  const totalScore = track.energy !== null
-    ? (bpmScore * 0.5 + energyScore * 0.3) * 100 + genreTagBonus
-    : (bpmScore * 100) + genreTagBonus;
+  // Total score (with overlap zone penalties)
+  let totalScore;
+  const isOverlapZone = effectiveBpm >= 138 && effectiveBpm <= 143;
+
+  if (track.energy !== null) {
+    totalScore = (bpmScore * 0.5 + energyScore * 0.4) * 100 + genreTagBonus;
+
+    // Overlap zone penalty for ambiguous matches
+    if (isOverlapZone && ['jersey-club', 'grime', 'dubstep'].includes(targetGenre)) {
+      if (genreTagBonus === 0 && energyScore < 0.7) {
+        totalScore *= 0.3; // Heavily penalize ambiguous matches
+      }
+    }
+  } else {
+    totalScore = (bpmScore * 100) + genreTagBonus;
+
+    // Heavy penalty for overlap zone without energy data OR genre tag support
+    if (isOverlapZone && ['jersey-club', 'grime', 'dubstep'].includes(targetGenre)) {
+      if (genreTagBonus < 25) {
+        totalScore *= 0.2; // Heavy penalty without tag support
+      }
+    }
+  }
 
   if (totalScore > 30) {
     matches.push({
@@ -125,6 +170,11 @@ matches.sort((a, b) => parseFloat(b.total_score) - parseFloat(a.total_score));
 
 console.log(`\n📊 MATCHES FOUND: ${matches.length} tracks match ${genre.name}\n`);
 
+// Calculate stats for analysis
+const tagMatches = matches.filter(m => m.tag_bonus > 0).length;
+const bpmMatches = matches.filter(m => m.bpm_in_range).length;
+const strongMatches = matches.filter(m => parseFloat(m.total_score) > 60).length;
+
 if (matches.length === 0) {
   console.log('✅ NO FALSE POSITIVES: No tracks matched this genre.');
   console.log('   If this genre shows up in your distribution, there may be a bug.\n');
@@ -142,10 +192,6 @@ if (matches.length === 0) {
 
   // Analysis
   console.log('\n📈 ANALYSIS:\n');
-
-  const tagMatches = matches.filter(m => m.tag_bonus > 0).length;
-  const bpmMatches = matches.filter(m => m.bpm_in_range).length;
-  const strongMatches = matches.filter(m => parseFloat(m.total_score) > 60).length;
 
   console.log(`• ${tagMatches}/${matches.length} matches have genre tag bonuses`);
   console.log(`• ${bpmMatches}/${matches.length} matches are in BPM range`);

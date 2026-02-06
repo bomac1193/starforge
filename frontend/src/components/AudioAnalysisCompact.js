@@ -7,7 +7,7 @@ import axios from 'axios';
  * Combines: Rekordbox import + File upload + Analysis
  * Aesthetic: Minimal, chic, editorial
  */
-const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
+const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport, onUploadSuccess }) => {
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'rekordbox'
   const [audioFiles, setAudioFiles] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -15,6 +15,7 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [rekordboxData, setRekordboxData] = useState(null);
   const [analyzedTracks, setAnalyzedTracks] = useState([]);
+  const [uploadSuccess, setUploadSuccess] = useState(null); // { count: number, message: string }
 
   // Audio file upload
   const onAudioDrop = useCallback((acceptedFiles) => {
@@ -117,11 +118,31 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
       });
 
       if (response.data.success) {
+        const uploadedCount = response.data.uploaded;
+        const failedCount = response.data.failed || 0;
+
         setAnalyzedTracks(response.data.tracks);
+
+        // Show success message
+        const successMessage = failedCount > 0
+          ? `${uploadedCount} tracks added • ${failedCount} failed`
+          : `${uploadedCount} new ${uploadedCount === 1 ? 'track' : 'tracks'} added`;
+
+        setUploadSuccess({ count: uploadedCount, message: successMessage });
+
+        // Clear success message after 5 seconds
+        setTimeout(() => setUploadSuccess(null), 5000);
+
+        // Clear file list after successful upload
+        setAudioFiles([]);
+
+        // Notify parent component to refresh track count
+        if (onUploadSuccess) {
+          onUploadSuccess(uploadedCount);
+        }
 
         if (response.data.errors && response.data.errors.length > 0) {
           console.error('Some files failed:', response.data.errors);
-          alert(`Uploaded ${response.data.uploaded} files successfully. ${response.data.failed} failed.`);
         }
       }
 
@@ -144,6 +165,8 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
       }
     } catch (error) {
       console.error('Analysis failed:', error);
+      setUploadSuccess({ count: 0, message: 'Upload failed. Please try again.' });
+      setTimeout(() => setUploadSuccess(null), 5000);
     } finally {
       setAnalyzing(false);
     }
@@ -244,6 +267,18 @@ const AudioAnalysisCompact = ({ onAnalysisComplete, onRekordboxImport }) => {
           >
             {analyzing ? 'Analyzing...' : 'Analyze Audio'}
           </button>
+
+          {/* Success Message */}
+          {uploadSuccess && (
+            <div className="border border-brand-text bg-brand-bg p-4 mt-4">
+              <p className="text-body text-brand-text font-medium">
+                ✓ {uploadSuccess.message}
+              </p>
+              <p className="text-body-sm text-brand-secondary mt-1">
+                View your tracks in Music Library → My Music
+              </p>
+            </div>
+          )}
 
           {/* Analysis Result */}
           {analysisResult && (
