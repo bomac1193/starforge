@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import './App.css';
+import CoherenceDashboard from './components/CoherenceDashboard';
 import TwinGenesisPanelChic from './components/TwinGenesisPanelChic';
 import LibraryPage from './components/LibraryPage';
 
 function App() {
-  const [activeView, setActiveView] = useState('genesis');
+  const [activeView, setActiveView] = useState('dashboard');
   const [twinData, setTwinData] = useState(null);
 
   const handleTwinGenerated = (data) => {
@@ -28,14 +29,14 @@ function App() {
         {/* Navigation */}
         <nav className="flex gap-6 mb-12 border-b border-brand-border pb-1">
           <button
-            onClick={() => setActiveView('genesis')}
+            onClick={() => setActiveView('dashboard')}
             className={`pb-4 uppercase-label transition-all ${
-              activeView === 'genesis'
+              activeView === 'dashboard'
                 ? 'border-b-2 border-brand-text text-brand-text'
                 : 'text-brand-secondary hover:text-brand-text'
             }`}
           >
-            Twin Genesis
+            Aesthetic DNA
           </button>
           <button
             onClick={() => setActiveView('library')}
@@ -47,18 +48,32 @@ function App() {
           >
             Music Library
           </button>
+          <button
+            onClick={() => setActiveView('genesis')}
+            className={`pb-4 uppercase-label transition-all ${
+              activeView === 'genesis'
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
+            }`}
+          >
+            Twin Genesis
+          </button>
         </nav>
 
         {/* View Content */}
         <div className="animate-fadeIn">
-          {activeView === 'genesis' && (
-            <TwinGenesisPanelChic
-              onTwinGenerated={handleTwinGenerated}
-            />
+          {activeView === 'dashboard' && (
+            <CoherenceDashboard userId="default_user" />
           )}
 
           {activeView === 'library' && (
             <LibraryPage />
+          )}
+
+          {activeView === 'genesis' && (
+            <TwinGenesisPanelChic
+              onTwinGenerated={handleTwinGenerated}
+            />
           )}
         </div>
       </main>
