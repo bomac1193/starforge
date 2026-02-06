@@ -26,10 +26,10 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
 
           <div className="space-y-3">
             {influences.map((influence, i) => (
-              <div key={i} className="border border-brand-text p-4">
+              <div key={i} className="border border-brand-border p-4">
                 <div className="flex items-start gap-4">
                   {/* Rank Number */}
-                  <div className="flex-shrink-0 w-8 h-8 border border-brand-text flex items-center justify-center">
+                  <div className="flex-shrink-0 w-8 h-8 border border-brand-border flex items-center justify-center">
                     <span className="text-body-sm text-brand-text font-medium">{i + 1}</span>
                   </div>
 
