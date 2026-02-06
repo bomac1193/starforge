@@ -144,26 +144,48 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                 // Split into individual items
                 const items = trimmedPara.split(/\n(?=\d+\.)/).filter(item => item.trim());
 
-                // Distribute items into 3 columns vertically
-                const itemsPerColumn = Math.ceil(items.length / 3);
-                const columns = [
-                  items.slice(0, itemsPerColumn),
-                  items.slice(itemsPerColumn, itemsPerColumn * 2),
-                  items.slice(itemsPerColumn * 2)
+                // Group by influence tiers
+                const tierSize = Math.ceil(items.length / 3);
+                const tiers = [
+                  { label: 'PRIMARY INFLUENCES', items: items.slice(0, tierSize) },
+                  { label: 'SECONDARY INFLUENCES', items: items.slice(tierSize, tierSize * 2) },
+                  { label: 'LESSER INFLUENCES', items: items.slice(tierSize * 2) }
                 ];
 
                 return (
-                  <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {columns.map((column, colIdx) => (
-                      <div key={colIdx} className="space-y-3">
-                        {column.map((item, itemIdx) => (
-                          <div key={itemIdx} className="border border-brand-border p-3">
-                            <p className="text-body-sm text-brand-text leading-relaxed">
-                              {item.trim()}
-                            </p>
+                  <div key={i} className="space-y-8">
+                    {tiers.map((tier, tierIdx) => (
+                      tier.items.length > 0 && (
+                        <div key={tierIdx} className="border border-brand-text p-6">
+                          <p className="uppercase-label text-brand-secondary mb-4">{tier.label}</p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {(() => {
+                              // Distribute tier items into columns vertically
+                              const itemsPerCol = Math.ceil(tier.items.length / 3);
+                              const columns = [
+                                tier.items.slice(0, itemsPerCol),
+                                tier.items.slice(itemsPerCol, itemsPerCol * 2),
+                                tier.items.slice(itemsPerCol * 2)
+                              ];
+
+                              return columns.map((column, colIdx) => (
+                                column.length > 0 && (
+                                  <div key={colIdx} className="space-y-3">
+                                    {column.map((item, itemIdx) => (
+                                      <div key={itemIdx} className="border border-brand-border p-3">
+                                        <p className="text-body-sm text-brand-text leading-relaxed">
+                                          {item.trim()}
+                                        </p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              ));
+                            })()}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )
                     ))}
                   </div>
                 );
