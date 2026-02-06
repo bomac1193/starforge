@@ -144,17 +144,19 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                 // Split into individual items
                 const items = trimmedPara.split(/\n(?=\d+\.)/).filter(item => item.trim());
 
-                // Group items by 3
-                const groups = [];
-                for (let j = 0; j < items.length; j += 3) {
-                  groups.push(items.slice(j, j + 3));
-                }
+                // Distribute items into 3 columns vertically
+                const itemsPerColumn = Math.ceil(items.length / 3);
+                const columns = [
+                  items.slice(0, itemsPerColumn),
+                  items.slice(itemsPerColumn, itemsPerColumn * 2),
+                  items.slice(itemsPerColumn * 2)
+                ];
 
                 return (
-                  <div key={i} className="space-y-4">
-                    {groups.map((group, groupIdx) => (
-                      <div key={groupIdx} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {group.map((item, itemIdx) => (
+                  <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {columns.map((column, colIdx) => (
+                      <div key={colIdx} className="space-y-3">
+                        {column.map((item, itemIdx) => (
                           <div key={itemIdx} className="border border-brand-border p-3">
                             <p className="text-body-sm text-brand-text leading-relaxed">
                               {item.trim()}
