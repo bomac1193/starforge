@@ -151,18 +151,16 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
                 }
 
                 return (
-                  <div key={i} className="space-y-6">
+                  <div key={i} className="space-y-4">
                     {groups.map((group, groupIdx) => (
-                      <div key={groupIdx} className="border border-brand-border p-4">
-                        <div className="space-y-3">
-                          {group.map((item, itemIdx) => (
-                            <div key={itemIdx} className="border border-brand-border p-3">
-                              <p className="text-body-sm text-brand-text leading-relaxed">
-                                {item.trim()}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                      <div key={groupIdx} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {group.map((item, itemIdx) => (
+                          <div key={itemIdx} className="border border-brand-border p-3">
+                            <p className="text-body-sm text-brand-text leading-relaxed">
+                              {item.trim()}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
