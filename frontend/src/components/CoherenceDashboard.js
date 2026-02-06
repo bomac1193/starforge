@@ -65,19 +65,19 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
   if (!hasData) {
     return (
       <div className="max-w-2xl mx-auto py-24 text-center">
-        <h2 className="text-display-md text-brand-text mb-4">Your Aesthetic Coherence Engine</h2>
+        <h2 className="text-display-md text-brand-text mb-4">AESTHETIC COHERENCE ENGINE</h2>
         <p className="text-body text-brand-secondary mb-8">
           Upload music and connect CLAROSA to analyze your aesthetic DNA across audio and visual domains.
         </p>
         <div className="grid grid-cols-2 gap-6 text-left">
           <div className="border border-brand-border p-6">
-            <h3 className="text-brand-text font-medium mb-2">🎵 Audio DNA</h3>
+            <h3 className="text-brand-text font-medium mb-2">AUDIO DNA</h3>
             <p className="text-body-sm text-brand-secondary">
               Upload tracks or import Rekordbox library to analyze your sonic palette, taste coherence, and genre lineage.
             </p>
           </div>
           <div className="border border-brand-border p-6">
-            <h3 className="text-brand-text font-medium mb-2">🎨 Visual DNA</h3>
+            <h3 className="text-brand-text font-medium mb-2">VISUAL DNA</h3>
             <p className="text-body-sm text-brand-secondary">
               Connect CLAROSA to analyze your photo aesthetics, color palettes, and visual themes.
             </p>
@@ -90,9 +90,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
   return (
     <div className="space-y-8">
       {/* Hero Section - Overall Coherence */}
-      <div className="border-2 border-brand-primary p-8 bg-gradient-to-br from-purple-950/10 to-transparent">
+      <div className="border border-brand-border p-8">
         <div className="max-w-3xl">
-          <h2 className="text-display-lg text-brand-text mb-3">Your Aesthetic DNA</h2>
+          <h2 className="text-display-lg text-brand-text mb-3">AESTHETIC DNA</h2>
           <p className="text-body text-brand-secondary mb-6">
             Deep analysis of your creative identity across audio and visual domains
           </p>
@@ -127,7 +127,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       <div className="grid grid-cols-2 gap-8">
         {/* Audio DNA Card */}
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">🎵 Audio DNA</h3>
+          <h3 className="text-display-sm text-brand-text mb-4">AUDIO DNA</h3>
 
           {audioDNA ? (
             <div className="space-y-4">
@@ -153,9 +153,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
                           <span className="text-brand-text">{influence.genre.name}</span>
                           <span className="text-brand-secondary">{influence.percentage}%</span>
                         </div>
-                        <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                        <div className="h-2 bg-brand-border overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-purple-500 to-brand-accent transition-all"
+                            className="h-full bg-brand-text transition-all"
                             style={{ width: `${influence.percentage}%` }}
                           />
                         </div>
@@ -214,7 +214,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
 
         {/* Visual DNA Card */}
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">🎨 Visual DNA</h3>
+          <h3 className="text-display-sm text-brand-text mb-4">VISUAL DNA</h3>
 
           {visualDNA ? (
             <div className="space-y-4">
@@ -271,7 +271,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       {/* Taste Coherence Section */}
       {tasteCoherence && tasteCoherence.coherence && (
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">📊 Taste Coherence</h3>
+          <h3 className="text-display-sm text-brand-text mb-4">TASTE COHERENCE</h3>
           <p className="text-body-sm text-brand-secondary mb-4">{tasteCoherence.interpretation?.description}</p>
 
           <div className="grid grid-cols-3 gap-4">
@@ -283,9 +283,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </p>
                   <p className="text-display-sm text-brand-text">{(value * 100).toFixed(0)}%</p>
-                  <div className="h-2 bg-brand-border rounded-full overflow-hidden mt-2">
+                  <div className="h-2 bg-brand-border overflow-hidden mt-2">
                     <div
-                      className="h-full bg-brand-accent"
+                      className="h-full bg-brand-text"
                       style={{ width: `${value * 100}%` }}
                     />
                   </div>
@@ -304,9 +304,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       )}
 
       {/* Call to Action */}
-      <div className="border border-brand-primary p-6 bg-gradient-to-br from-purple-950/5 to-transparent">
+      <div className="border border-brand-border p-6">
         <p className="text-body text-brand-text mb-3">
-          <strong>Your aesthetic DNA is your creative fingerprint.</strong> Use it to maintain coherence across everything you create.
+          Your aesthetic DNA is your creative fingerprint. Use it to maintain coherence across everything you create.
         </p>
         <div className="flex gap-4">
           <button className="btn-primary">

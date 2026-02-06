@@ -69,9 +69,9 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
           <p className="text-body-sm text-brand-text">Overall Coherence</p>
           <p className="text-display-sm text-brand-text">{(overall * 100).toFixed(0)}%</p>
         </div>
-        <div className="h-3 bg-brand-border rounded-full overflow-hidden">
+        <div className="h-3 bg-brand-border overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-purple-500 to-brand-primary transition-all duration-500"
+            className="h-full bg-brand-text transition-all duration-500"
             style={{ width: `${overall * 100}%` }}
           />
         </div>
@@ -88,9 +88,9 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Visual-Audio Warmth</p>
             <p className="text-body-xs text-brand-text">{(audioVisualMatch * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+          <div className="h-2 bg-brand-border overflow-hidden">
             <div
-              className="h-full bg-brand-accent transition-all duration-500"
+              className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${audioVisualMatch * 100}%` }}
             />
           </div>
@@ -102,9 +102,9 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Energy Alignment</p>
             <p className="text-body-xs text-brand-text">{(energyAlignment * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+          <div className="h-2 bg-brand-border overflow-hidden">
             <div
-              className="h-full bg-brand-accent transition-all duration-500"
+              className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${energyAlignment * 100}%` }}
             />
           </div>
@@ -116,9 +116,9 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Palette Diversity Match</p>
             <p className="text-body-xs text-brand-text">{(diversityAlignment * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+          <div className="h-2 bg-brand-border overflow-hidden">
             <div
-              className="h-full bg-brand-accent transition-all duration-500"
+              className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${diversityAlignment * 100}%` }}
             />
           </div>
