@@ -27,43 +27,53 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
           <div className="space-y-3">
             {influences.map((influence, i) => (
               <div key={i} className="border border-brand-text p-4">
-                <div className="flex justify-between items-baseline mb-2">
-                  <h4 className="text-display-sm text-brand-text">
-                    {influence.genre.name}
-                  </h4>
-                  <span className="text-body-sm text-brand-text font-medium">
-                    {influence.percentage}%
-                  </span>
-                </div>
+                <div className="flex items-start gap-4">
+                  {/* Rank Number */}
+                  <div className="flex-shrink-0 w-8 h-8 border border-brand-text flex items-center justify-center">
+                    <span className="text-body-sm text-brand-text font-medium">{i + 1}</span>
+                  </div>
 
-                <p className="text-body-xs text-brand-secondary mb-3 leading-relaxed">
-                  {influence.genre.cultural_context}
-                </p>
+                  {/* Content */}
+                  <div className="flex-1">
+                    <div className="flex justify-between items-baseline mb-2">
+                      <h4 className="text-display-sm text-brand-text">
+                        {influence.genre.name}
+                      </h4>
+                      <span className="text-body-sm text-brand-text font-medium">
+                        {influence.percentage}%
+                      </span>
+                    </div>
 
-                <div className="flex flex-wrap gap-3 text-body-xs text-brand-secondary">
-                  {influence.avgBpm && (
-                    <span>{influence.avgBpm} BPM</span>
-                  )}
-                  {influence.avgEnergy !== null && (
-                    <>
+                    <p className="text-body-xs text-brand-secondary mb-3 leading-relaxed">
+                      {influence.genre.cultural_context}
+                    </p>
+
+                    <div className="flex flex-wrap gap-3 text-body-xs text-brand-secondary">
+                      {influence.avgBpm && (
+                        <span>{influence.avgBpm} BPM</span>
+                      )}
+                      {influence.avgEnergy !== null && (
+                        <>
+                          <span>•</span>
+                          <span>{Math.round(influence.avgEnergy * 100)}% energy</span>
+                        </>
+                      )}
+                      {influence.avgValence !== null && influence.avgValence !== undefined && (
+                        <>
+                          <span>•</span>
+                          <span>{Math.round(influence.avgValence * 100)}% valence</span>
+                        </>
+                      )}
                       <span>•</span>
-                      <span>{Math.round(influence.avgEnergy * 100)}% energy</span>
-                    </>
-                  )}
-                  {influence.avgValence !== null && influence.avgValence !== undefined && (
-                    <>
-                      <span>•</span>
-                      <span>{Math.round(influence.avgValence * 100)}% valence</span>
-                    </>
-                  )}
-                  <span>•</span>
-                  <span>{influence.trackCount} tracks</span>
-                  {influence.genre.origin_location && (
-                    <>
-                      <span>•</span>
-                      <span>{influence.genre.origin_location}</span>
-                    </>
-                  )}
+                      <span>{influence.trackCount} tracks</span>
+                      {influence.genre.origin_location && (
+                        <>
+                          <span>•</span>
+                          <span>{influence.genre.origin_location}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
