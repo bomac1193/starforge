@@ -121,11 +121,16 @@ const InfluenceGenealogyTree = ({ genealogyData }) => {
       {/* Narrative */}
       {narrative && (
         <div className="border border-brand-border p-6">
-          <p className="uppercase-label text-brand-secondary mb-6">ANALYSIS</p>
-          <div className="border border-brand-border p-6 bg-brand-bg">
-            <p className="text-body text-brand-text leading-loose whitespace-pre-line columns-1 md:columns-2 gap-12">
-              {narrative}
-            </p>
+          <p className="uppercase-label text-brand-secondary mb-4">ANALYSIS</p>
+
+          <div className="space-y-4">
+            {narrative.split('\n\n').filter(para => para.trim()).map((paragraph, i) => (
+              <div key={i} className="border border-brand-border p-4">
+                <p className="text-body-sm text-brand-text leading-relaxed">
+                  {paragraph.trim()}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}
