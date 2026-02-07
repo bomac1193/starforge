@@ -12,7 +12,7 @@
 
 @font-face {
   font-family: 'Canela';
-  src: url('/fonts/canela/Canela-Regular-Trial.otf') format('opentype');
+  src: url('%PUBLIC_URL%/fonts/canela/Canela-Regular-Trial.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -20,7 +20,7 @@
 
 @font-face {
   font-family: 'Canela';
-  src: url('/fonts/canela/Canela-Medium-Trial.otf') format('opentype');
+  src: url('%PUBLIC_URL%/fonts/canela/Canela-Medium-Trial.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -33,7 +33,7 @@
 /* Söhne Buch - Body text (400) */
 @font-face {
   font-family: 'Söhne';
-  src: url('/fonts/sohne/Sohne-Buch.otf') format('opentype');
+  src: url('%PUBLIC_URL%/fonts/sohne/Sohne-Buch.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -42,7 +42,7 @@
 /* Söhne Medium - Labels, H5/H6 (500) */
 @font-face {
   font-family: 'Söhne';
-  src: url('/fonts/sohne/Sohne-Medium.otf') format('opentype');
+  src: url('%PUBLIC_URL%/fonts/sohne/Sohne-Medium.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -51,7 +51,7 @@
 /* Söhne Halbfett - H4 (600) */
 @font-face {
   font-family: 'Söhne';
-  src: url('/fonts/sohne/Sohne-Halbfett.otf') format('opentype');
+  src: url('%PUBLIC_URL%/fonts/sohne/Sohne-Halbfett.otf') format('opentype');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
