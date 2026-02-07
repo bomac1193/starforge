@@ -130,7 +130,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       {/* Hero Section - Overall Coherence */}
       <div className="border border-brand-border p-8">
         <div className="max-w-3xl">
-          <h2 className="text-display-lg text-brand-text mb-3">AESTHETIC DNA</h2>
+          <h2 className="text-display-lg text-brand-text mb-3">Aesthetic DNA</h2>
           <p className="text-body text-brand-secondary mb-6">
             Deep analysis of your creative identity across audio and visual domains
           </p>
