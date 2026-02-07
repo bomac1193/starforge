@@ -23,15 +23,15 @@ module.exports = {
       },
       fontFamily: {
         // PRIMARY HEADINGS (H1-H3): Presence, naming, orientation
-        display: ['Fraunces', 'Georgia', 'serif'],
+        display: ['Canela', 'Georgia', 'serif'],
 
         // SECONDARY HEADINGS & BODY: Structural, operational, clear
         sans: ['Söhne', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       fontSize: {
-        // H1-H3: Fraunces (announces, never explains)
-        'display-xl': ['48px', { lineHeight: '56px', fontWeight: '600' }], // H1 - Semibold
-        'display-lg': ['32px', { lineHeight: '40px', fontWeight: '600' }], // H2 - Semibold
+        // H1-H3: Canela (announces, never explains)
+        'display-xl': ['48px', { lineHeight: '56px', fontWeight: '500' }], // H1 - Medium
+        'display-lg': ['32px', { lineHeight: '40px', fontWeight: '500' }], // H2 - Medium
         'display-md': ['24px', { lineHeight: '32px', fontWeight: '400' }], // H3 - Regular
 
         // H4-H6: Söhne (structural labels, not expressive)

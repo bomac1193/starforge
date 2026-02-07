@@ -1,0 +1,58 @@
+/**
+ * STARFORGE FONT DECLARATIONS
+ * ===========================
+ *
+ * PRIMARY HEADINGS: Canela (H1-H3)
+ * SECONDARY & BODY: Söhne (H4-H6, body, UI)
+ */
+
+/* ============================================
+   CANELA - Primary Headings (H1-H3)
+   ============================================ */
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/canela/Canela-Regular-Trial.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Canela';
+  src: url('/fonts/canela/Canela-Medium-Trial.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================
+   SÖHNE - Secondary Headings, Body, UI
+   ============================================ */
+
+/* Söhne Buch - Body text (400) */
+@font-face {
+  font-family: 'Söhne';
+  src: url('/fonts/sohne/Sohne-Buch.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Söhne Medium - Labels, H5/H6 (500) */
+@font-face {
+  font-family: 'Söhne';
+  src: url('/fonts/sohne/Sohne-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Söhne Halbfett - H4 (600) */
+@font-face {
+  font-family: 'Söhne';
+  src: url('/fonts/sohne/Sohne-Halbfett.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

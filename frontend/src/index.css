@@ -2,15 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font declarations */
+@import './styles/fonts.css';
+
 /* Typography system */
 @import './styles/typography.css';
 
 @layer base {
   /* Typography Hierarchy:
-     - Fraunces (H1-H3): Presence, naming, orientation - announces, never explains
+     - Canela (H1-H3): Presence, naming, orientation - announces, never explains
      - Söhne (H4-H6, body, UI): Structural, operational, clear - law, clarity, trust
   */
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&display=swap');
 
   /* Note: Söhne is commercial. Using Helvetica Neue as fallback.
      To add Söhne: place font files in /public/fonts and update @font-face below */
@@ -24,7 +26,7 @@
     font-weight: 400; /* Buch */
   }
 
-  /* PRIMARY HEADINGS (H1-H3): Fraunces - "Where am I?" */
+  /* PRIMARY HEADINGS (H1-H3): Canela - "Where am I?" */
   h1, h2, h3 {
     @apply font-display;
     font-feature-settings: 'liga' 1, 'calt' 1;
@@ -32,17 +34,17 @@
 
   h1 {
     @apply text-display-xl;
-    font-weight: 600; /* Semibold only */
+    font-weight: 500; /* Medium */
   }
 
   h2 {
     @apply text-display-lg;
-    font-weight: 600; /* Semibold only */
+    font-weight: 500; /* Medium */
   }
 
   h3 {
     @apply text-display-md;
-    font-weight: 400; /* Regular only */
+    font-weight: 400; /* Regular */
   }
 
   /* SECONDARY HEADINGS (H4-H6): Söhne - "What is this part?" */

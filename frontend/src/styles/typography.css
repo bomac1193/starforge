@@ -3,7 +3,7 @@
  * ===========================
  *
  * HIERARCHY:
- * 1. Fraunces (H1-H3) - PRIMARY HEADINGS
+ * 1. Canela (H1-H3) - PRIMARY HEADINGS
  *    Role: Presence · Naming · Orientation
  *    Use when text: names a page/section, establishes context, sets tone, should be felt before read
  *    Weights: Regular (400) or Semibold (600) ONLY
@@ -19,37 +19,37 @@
  *    Weight: Buch (400) ONLY
  *
  * MENTAL MODEL:
- * - Fraunces → "Where am I?"
+ * - Canela → "Where am I?"
  * - Söhne Halbfett → "What is this part?"
  * - Söhne Buch → "What does it do?"
  *
  * THE ONE RULE:
- * - If text must be interpreted → Fraunces is FORBIDDEN
+ * - If text must be interpreted → Canela is FORBIDDEN
  * - If text must be obeyed/understood → Söhne ONLY
  */
 
 /* ============================================
-   PRIMARY HEADINGS - Fraunces
+   PRIMARY HEADINGS - Canela
    ============================================ */
 
 .heading-primary-xl {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Canela', Georgia, serif;
   font-size: 48px;
   line-height: 56px;
-  font-weight: 600; /* Semibold */
+  font-weight: 500; /* Medium */
   letter-spacing: normal;
 }
 
 .heading-primary-lg {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Canela', Georgia, serif;
   font-size: 32px;
   line-height: 40px;
-  font-weight: 600; /* Semibold */
+  font-weight: 500; /* Medium */
   letter-spacing: normal;
 }
 
 .heading-primary-md {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Canela', Georgia, serif;
   font-size: 24px;
   line-height: 32px;
   font-weight: 400; /* Regular */
@@ -145,7 +145,7 @@
    ============================================ */
 
 /*
-❌ DON'T use Fraunces for:
+❌ DON'T use Canela for:
    - Feature descriptions
    - Philosophy text
    - Ethical claims
@@ -157,10 +157,10 @@
    - Major section names
    That flattens identity.
 
-❌ DON'T mix Fraunces and Söhne in same heading
+❌ DON'T mix Canela and Söhne in same heading
    Creates uncertainty about authority.
 
 ✅ DO use sentence case for Söhne headings
-✅ DO keep Fraunces headings short (1-6 words)
-✅ DO use Fraunces to announce, never explain
+✅ DO keep Canela headings short (1-6 words)
+✅ DO use Canela to announce, never explain
 */

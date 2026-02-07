@@ -1,11 +1,10 @@
 /* Typography System:
-   - Fraunces: Primary headings (H1-H3) - presence, naming, orientation
+   - Canela: Primary headings (H1-H3) - presence, naming, orientation
    - Söhne: Secondary headings (H4-H6), body, UI - structural, operational
 
-   Rule: If text must be interpreted → Fraunces forbidden
+   Rule: If text must be interpreted → Canela forbidden
          If text must be obeyed/understood → Söhne only
 */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&display=swap');
 
 /* Minimal animations */
 @keyframes fadeIn {
@@ -75,9 +74,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* PRIMARY HEADINGS: Fraunces (announces, never explains) */
+/* PRIMARY HEADINGS: Canela (announces, never explains) */
 h1, h2, h3 {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Canela', Georgia, serif;
 }
 
 /* SECONDARY HEADINGS: Söhne (structural labels, not expressive) */
@@ -87,7 +86,7 @@ h4, h5, h6 {
 
 /* Utility classes */
 .text-display {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Canela', Georgia, serif;
   font-weight: 400; /* Regular or 600 Semibold only */
 }
 

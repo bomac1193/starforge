@@ -2,84 +2,23 @@
 
 ## Current Status
 
-✅ **Fraunces** - Fully implemented via Google Fonts
-⚠️ **Söhne** - Fallback to Helvetica Neue (commercial font, needs to be added)
+✅ **Canela** - Fully implemented with local font files
+✅ **Söhne** - Fully implemented with local font files
 
----
+**Installed Fonts:**
+- Canela Regular (400) & Medium (500) - for H1-H3
+- Söhne Buch (400), Medium (500), Halbfett (600) - for H4-H6, body, UI
 
-## Adding Söhne Font Files
-
-Söhne is a commercial font from [Klim Type Foundry](https://klim.co.nz/retail-fonts/sohne/).
-
-### Required Weights
-
-You need these specific weights:
-
-- **Söhne Buch** (Book/Regular 400) - for body text and UI
-- **Söhne Medium** (500) - for secondary headings (H5, H6)
-- **Söhne Halbfett** (Semibold 600) - for secondary headings (H4)
-
-### Installation Steps
-
-1. **Purchase Söhne** from Klim Type Foundry or obtain license
-2. **Create fonts directory**:
-   ```bash
-   mkdir -p public/fonts/sohne
-   ```
-
-3. **Add font files** to `public/fonts/sohne/`:
-   ```
-   public/fonts/sohne/
-   ├── Sohne-Buch.woff2
-   ├── Sohne-Buch.woff
-   ├── Sohne-Medium.woff2
-   ├── Sohne-Medium.woff
-   ├── Sohne-Halbfett.woff2
-   └── Sohne-Halbfett.woff
-   ```
-
-4. **Add @font-face declarations** in `src/App.css`:
-
-   ```css
-   /* Söhne Font Family */
-   @font-face {
-     font-family: 'Söhne';
-     src: url('/fonts/sohne/Sohne-Buch.woff2') format('woff2'),
-          url('/fonts/sohne/Sohne-Buch.woff') format('woff');
-     font-weight: 400;
-     font-style: normal;
-     font-display: swap;
-   }
-
-   @font-face {
-     font-family: 'Söhne';
-     src: url('/fonts/sohne/Sohne-Medium.woff2') format('woff2'),
-          url('/fonts/sohne/Sohne-Medium.woff') format('woff');
-     font-weight: 500;
-     font-style: normal;
-     font-display: swap;
-   }
-
-   @font-face {
-     font-family: 'Söhne';
-     src: url('/fonts/sohne/Sohne-Halbfett.woff2') format('woff2'),
-          url('/fonts/sohne/Sohne-Halbfett.woff') format('woff');
-     font-weight: 600;
-     font-style: normal;
-     font-display: swap;
-   }
-   ```
-
-5. **Restart development server**:
-   ```bash
-   npm start
-   ```
+**Location:**
+- `/public/fonts/canela/` - Canela font files
+- `/public/fonts/sohne/` - Söhne font files
+- `/src/styles/fonts.css` - @font-face declarations
 
 ---
 
 ## Typography Hierarchy
 
-### 1. Primary Headings (H1-H3) - **Fraunces**
+### 1. Primary Headings (H1-H3) - **Canela**
 
 **Role**: Presence · Naming · Orientation
 
@@ -170,7 +109,7 @@ You need these specific weights:
 
 | Element | Font | Question Answered |
 |---------|------|-------------------|
-| H1-H3 | Fraunces | "Where am I?" |
+| H1-H3 | Canela | "Where am I?" |
 | H4-H6 | Söhne Halbfett/Medium | "What is this part?" |
 | Body/UI | Söhne Buch | "What does it do?" |
 
@@ -178,7 +117,7 @@ You need these specific weights:
 
 ## The One Rule That Ends All Debate
 
-**If the text must be interpreted → Fraunces is FORBIDDEN**
+**If the text must be interpreted → Canela is FORBIDDEN**
 **If the text must be obeyed or understood → Söhne ONLY**
 
 This rule will never fail you.
@@ -187,7 +126,7 @@ This rule will never fail you.
 
 ## Common Mistakes to Avoid
 
-### ❌ DON'T use Fraunces for:
+### ❌ DON'T use Canela for:
 - Feature descriptions
 - Philosophy text
 - Ethical claims
@@ -201,7 +140,7 @@ This rule will never fail you.
 
 *That flattens identity.*
 
-### ❌ DON'T mix Fraunces and Söhne within the same heading
+### ❌ DON'T mix Canela and Söhne within the same heading
 
 *This creates uncertainty about authority.*
 
@@ -212,7 +151,7 @@ This rule will never fail you.
 The system integrates with Tailwind:
 
 ```jsx
-// Primary headings (Fraunces)
+// Primary headings (Canela)
 <h1 className="text-display-xl">...</h1>
 <h2 className="text-display-lg">...</h2>
 <h3 className="text-display-md">...</h3>
@@ -244,8 +183,8 @@ After adding Söhne fonts, verify the setup:
    - Body text: 400 (Buch)
    - H5/H6: 500 (Medium)
    - H4: 600 (Halbfett)
-   - H1/H2: 600 (Fraunces Semibold)
-   - H3: 400 (Fraunces Regular)
+   - H1/H2: 600 (Canela Semibold)
+   - H3: 400 (Canela Regular)
 
 ---
 
