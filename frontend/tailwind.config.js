@@ -22,18 +22,28 @@ module.exports = {
         'dark-border': '#2A2A2A',
       },
       fontFamily: {
-        display: ['Playfair Display', 'Georgia', 'serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        // PRIMARY HEADINGS (H1-H3): Presence, naming, orientation
+        display: ['Fraunces', 'Georgia', 'serif'],
+
+        // SECONDARY HEADINGS & BODY: Structural, operational, clear
+        sans: ['Söhne', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       fontSize: {
-        'display-xl': ['48px', { lineHeight: '56px', fontWeight: '500' }],
-        'display-lg': ['32px', { lineHeight: '40px', fontWeight: '500' }],
-        'display-md': ['24px', { lineHeight: '32px', fontWeight: '400' }],
-        'heading': ['18px', { lineHeight: '28px', fontWeight: '500' }],
-        'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }],
-        'body': ['14px', { lineHeight: '20px', fontWeight: '400' }],
-        'body-sm': ['12px', { lineHeight: '18px', fontWeight: '300' }],
-        'label': ['11px', { lineHeight: '16px', fontWeight: '500', letterSpacing: '0.05em' }],
+        // H1-H3: Fraunces (announces, never explains)
+        'display-xl': ['48px', { lineHeight: '56px', fontWeight: '600' }], // H1 - Semibold
+        'display-lg': ['32px', { lineHeight: '40px', fontWeight: '600' }], // H2 - Semibold
+        'display-md': ['24px', { lineHeight: '32px', fontWeight: '400' }], // H3 - Regular
+
+        // H4-H6: Söhne (structural labels, not expressive)
+        'heading-lg': ['20px', { lineHeight: '28px', fontWeight: '600' }],  // H4 - Halbfett
+        'heading': ['18px', { lineHeight: '26px', fontWeight: '500' }],      // H5 - Medium
+        'heading-sm': ['16px', { lineHeight: '24px', fontWeight: '500' }],   // H6 - Medium
+
+        // Body & UI: Söhne Buch (law, clarity, trust)
+        'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }],      // Buch
+        'body': ['14px', { lineHeight: '20px', fontWeight: '400' }],         // Buch
+        'body-sm': ['12px', { lineHeight: '18px', fontWeight: '400' }],      // Buch
+        'label': ['11px', { lineHeight: '16px', fontWeight: '500', letterSpacing: '0.05em' }], // Medium
       },
       letterSpacing: {
         'wider': '0.05em',

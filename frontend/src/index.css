@@ -2,8 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Typography system */
+@import './styles/typography.css';
+
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap');
+  /* Typography Hierarchy:
+     - Fraunces (H1-H3): Presence, naming, orientation - announces, never explains
+     - Söhne (H4-H6, body, UI): Structural, operational, clear - law, clarity, trust
+  */
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&display=swap');
+
+  /* Note: Söhne is commercial. Using Helvetica Neue as fallback.
+     To add Söhne: place font files in /public/fonts and update @font-face below */
 
   body {
     @apply bg-brand-bg text-brand-text font-sans;
@@ -11,22 +21,48 @@
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-weight: 400; /* Buch */
   }
 
+  /* PRIMARY HEADINGS (H1-H3): Fraunces - "Where am I?" */
   h1, h2, h3 {
     @apply font-display;
+    font-feature-settings: 'liga' 1, 'calt' 1;
   }
 
   h1 {
     @apply text-display-xl;
+    font-weight: 600; /* Semibold only */
   }
 
   h2 {
     @apply text-display-lg;
+    font-weight: 600; /* Semibold only */
   }
 
   h3 {
     @apply text-display-md;
+    font-weight: 400; /* Regular only */
+  }
+
+  /* SECONDARY HEADINGS (H4-H6): Söhne - "What is this part?" */
+  h4, h5, h6 {
+    @apply font-sans;
+  }
+
+  h4 {
+    @apply text-heading-lg;
+    font-weight: 600; /* Halbfett */
+  }
+
+  h5 {
+    @apply text-heading;
+    font-weight: 500; /* Medium */
+  }
+
+  h6 {
+    @apply text-heading-sm;
+    font-weight: 500; /* Medium */
   }
 }
 

@@ -1,0 +1,166 @@
+/**
+ * STARFORGE TYPOGRAPHY SYSTEM
+ * ===========================
+ *
+ * HIERARCHY:
+ * 1. Fraunces (H1-H3) - PRIMARY HEADINGS
+ *    Role: Presence · Naming · Orientation
+ *    Use when text: names a page/section, establishes context, sets tone, should be felt before read
+ *    Weights: Regular (400) or Semibold (600) ONLY
+ *
+ * 2. Söhne Halbfett/Medium (H4-H6) - SECONDARY HEADINGS
+ *    Role: Structural labels, not expressive moments
+ *    Use when text: explains how something works, introduces info blocks, groups content, functions as UI guidance
+ *    Weights: Medium (500) or Halbfett (600)
+ *
+ * 3. Söhne Buch - BODY & UI TEXT
+ *    Role: Law, clarity, and trust
+ *    Use for: paragraphs, explanations, descriptions, legal text, buttons, filters, metadata
+ *    Weight: Buch (400) ONLY
+ *
+ * MENTAL MODEL:
+ * - Fraunces → "Where am I?"
+ * - Söhne Halbfett → "What is this part?"
+ * - Söhne Buch → "What does it do?"
+ *
+ * THE ONE RULE:
+ * - If text must be interpreted → Fraunces is FORBIDDEN
+ * - If text must be obeyed/understood → Söhne ONLY
+ */
+
+/* ============================================
+   PRIMARY HEADINGS - Fraunces
+   ============================================ */
+
+.heading-primary-xl {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 48px;
+  line-height: 56px;
+  font-weight: 600; /* Semibold */
+  letter-spacing: normal;
+}
+
+.heading-primary-lg {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600; /* Semibold */
+  letter-spacing: normal;
+}
+
+.heading-primary-md {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400; /* Regular */
+  letter-spacing: normal;
+}
+
+/* Use for page names, section titles, state announcements */
+.page-title {
+  @apply heading-primary-xl;
+}
+
+.section-title {
+  @apply heading-primary-lg;
+}
+
+.subsection-title {
+  @apply heading-primary-md;
+}
+
+/* ============================================
+   SECONDARY HEADINGS - Söhne
+   ============================================ */
+
+.heading-structural-lg {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600; /* Halbfett */
+  letter-spacing: normal;
+}
+
+.heading-structural {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 500; /* Medium */
+  letter-spacing: normal;
+}
+
+.heading-structural-sm {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500; /* Medium */
+  letter-spacing: normal;
+}
+
+/* Use for how-to sections, agreements, operational guidance */
+.content-heading {
+  @apply heading-structural;
+}
+
+.block-label {
+  @apply heading-structural-sm;
+}
+
+/* ============================================
+   BODY & UI TEXT - Söhne Buch
+   ============================================ */
+
+.body-lg {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400; /* Buch */
+}
+
+.body {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400; /* Buch */
+}
+
+.body-sm {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400; /* Buch */
+}
+
+.ui-label {
+  font-family: 'Söhne', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500; /* Medium */
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   COMMON MISTAKES TO AVOID
+   ============================================ */
+
+/*
+❌ DON'T use Fraunces for:
+   - Feature descriptions
+   - Philosophy text
+   - Ethical claims
+   - Long statements
+   That turns feeling into authority.
+
+❌ DON'T use Söhne Buch for:
+   - Page titles
+   - Major section names
+   That flattens identity.
+
+❌ DON'T mix Fraunces and Söhne in same heading
+   Creates uncertainty about authority.
+
+✅ DO use sentence case for Söhne headings
+✅ DO keep Fraunces headings short (1-6 words)
+✅ DO use Fraunces to announce, never explain
+*/
