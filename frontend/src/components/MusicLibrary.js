@@ -143,7 +143,7 @@ const MusicLibrary = ({ userId = 'default_user', onTrackSelect }) => {
       {/* Library Stats Header */}
       {stats && (
         <div className="card">
-          <h2 className="text-display-lg mb-4">Music Library</h2>
+          <h3 className="text-brand-text font-medium mb-4">Music Library</h3>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div>

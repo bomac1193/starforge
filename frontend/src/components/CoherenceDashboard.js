@@ -109,13 +109,13 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         </p>
         <div className="grid grid-cols-2 gap-6 text-left">
           <div className="border border-brand-border p-6">
-            <h3 className="text-brand-text font-medium mb-2">AUDIO DNA</h3>
+            <h3 className="text-brand-text font-medium mb-2">Audio Dna</h3>
             <p className="text-body-sm text-brand-secondary">
               Upload tracks or import Rekordbox library to analyze your sonic palette, taste coherence, and genre lineage.
             </p>
           </div>
           <div className="border border-brand-border p-6">
-            <h3 className="text-brand-text font-medium mb-2">VISUAL DNA</h3>
+            <h3 className="text-brand-text font-medium mb-2">Visual Dna</h3>
             <p className="text-body-sm text-brand-secondary">
               Connect CLAROSA to analyze your photo aesthetics, color palettes, and visual themes.
             </p>
@@ -166,7 +166,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         {/* Audio DNA Card */}
         <div className="border border-brand-border p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-display-sm text-brand-text">AUDIO DNA</h3>
+            <h3 className="text-display-sm text-brand-text">Audio Dna</h3>
 
             {/* Mode Selector */}
             <div className="flex gap-0 border-b border-brand-border">
@@ -288,7 +288,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
 
         {/* Visual DNA Card */}
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">VISUAL DNA</h3>
+          <h3 className="text-display-sm text-brand-text mb-4">Visual Dna</h3>
 
           {!clarosaData || clarosaData.error ? (
             <div className="space-y-4">

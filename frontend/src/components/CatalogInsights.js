@@ -73,7 +73,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
       <div className="card">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-display-md mb-1">Catalog Analysis</h3>
+            <h3 className="text-brand-text font-medium mb-1">Catalog Analysis</h3>
             <p className="text-body-xs text-brand-secondary">
               {analysis.trackCount} tracks analyzed
               {fromCache && ` • From cache`}

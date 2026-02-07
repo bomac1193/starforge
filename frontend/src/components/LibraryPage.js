@@ -23,7 +23,7 @@ const LibraryPage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-light text-brand-text mb-2">Music Library</h1>
+          <h1 className="text-display-lg text-brand-text mb-2">Music Library</h1>
           <p className="text-brand-secondary">
             Your complete catalog with intelligent analysis
           </p>
