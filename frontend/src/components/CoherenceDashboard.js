@@ -363,7 +363,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       {/* Taste Coherence Section */}
       {tasteCoherence && tasteCoherence.coherence && (
         <div className="border border-brand-border p-6">
-          <h3 className="text-display-sm text-brand-text mb-4">TASTE COHERENCE</h3>
+          <h3 className="text-display-sm text-brand-text mb-4">Taste Coherence</h3>
           <p className="text-body-sm text-brand-secondary mb-4">{tasteCoherence.interpretation?.description}</p>
 
           <div className="grid grid-cols-3 gap-4">

@@ -327,7 +327,7 @@ const CatalogInsights = ({ userId = 'default_user' }) => {
       {/* Taste Coherence */}
       {tasteCoherence && (
         <div className="card">
-          <h4 className="uppercase-label text-brand-secondary mb-4">TASTE COHERENCE</h4>
+          <h4 className="uppercase-label text-brand-secondary mb-4">Taste Coherence</h4>
 
           <div className="border border-brand-border p-4 mb-4">
             <div className="flex justify-between items-center mb-2">
