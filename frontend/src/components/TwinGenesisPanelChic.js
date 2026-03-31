@@ -8,6 +8,8 @@ import TasteCoherenceView from './TasteCoherenceView';
 import InfluenceGenealogyPanel from './InfluenceGenealogyPanel';
 import WritingSamplesInput from './WritingSamplesInput';
 import AIGenerationPanel from './AIGenerationPanel';
+import ProjectDNAPanel from './ProjectDNAPanel';
+import LineageDiscoveries from './LineageDiscoveries';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -26,11 +28,17 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
   const [subscriptionTier, setSubscriptionTier] = useState('personal');
   const [usageInfo, setUsageInfo] = useState(null);
   const [totalTracks, setTotalTracks] = useState(null);
+  const [projectDnaData, setProjectDnaData] = useState(null);
+  const [subtasteData, setSubtasteData] = useState(null);
+  const [subtasteConnecting, setSubtasteConnecting] = useState(false);
+  const [subtasteSource, setSubtasteSource] = useState(null); // 'auto' | 'quiz'
 
-  // Fetch subscription status and track count on mount
+  // Fetch subscription status, track count, and auto-classify on mount
   useEffect(() => {
     fetchSubscriptionStatus();
     fetchTotalTracks();
+    fetchAutoClassification();
+    fetchCachedProjectDNA();
   }, []);
 
   const fetchSubscriptionStatus = async () => {
@@ -58,6 +66,54 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
+  const fetchAutoClassification = async () => {
+    try {
+      const response = await axios.get('/api/subtaste/auto/default_user');
+      if (response.data.success && response.data.classification) {
+        setSubtasteData(response.data.classification);
+        setSubtasteSource('auto');
+      }
+    } catch (error) {
+      // Auto-classification not available yet — that's fine
+    }
+  };
+
+  const fetchCachedProjectDNA = async () => {
+    try {
+      const response = await axios.get('/api/project-dna/default');
+      if (response.data.success) {
+        setProjectDnaData(response.data.projectDNA);
+      }
+    } catch {
+      // No cached Project DNA — that's fine
+    }
+  };
+
+  const handleConnectSubtaste = async () => {
+    setSubtasteConnecting(true);
+    try {
+      // First try to fetch existing quiz genome
+      const response = await axios.get('/api/subtaste/genome/default_user');
+      if (response.data.success) {
+        setSubtasteData(response.data.genome?.archetype || response.data.genome);
+        setSubtasteSource('quiz');
+      }
+    } catch (err) {
+      if (err.response?.status === 404 || err.response?.status === 503) {
+        // No genome or app not running — open quiz
+        window.open('http://localhost:3001/quiz', '_blank');
+      }
+    } finally {
+      setSubtasteConnecting(false);
+    }
+  };
+
+  const handleProjectDnaScanComplete = (projectDNA) => {
+    setProjectDnaData(projectDNA);
+    // Re-run auto-classification with new Project DNA data
+    fetchAutoClassification();
+  };
+
   const handleUploadSuccess = (uploadedCount) => {
     // Update total tracks count
     setTotalTracks(prev => (prev || 0) + uploadedCount);
@@ -73,21 +129,31 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     setConnectingClarosa(true);
 
     try {
-      const profileRes = await axios.get('/api/deep/clarosa/profile');
-      // Fetch ALL photos (not just top 20)
-      const photosRes = await axios.get('/api/deep/clarosa/top-photos', {
-        params: {
-          limit: 500,  // High limit to get all photos
-          minScore: 0  // Include all scores, not just top-rated
-        }
-      });
-      const dnaRes = await axios.get('/api/deep/clarosa/visual-dna');
+      const [profileRes, photosRes, dnaRes] = await Promise.all([
+        axios.get('/api/deep/clarosa/profile'),
+        axios.get('/api/deep/clarosa/top-photos', {
+          params: { limit: 500, minScore: 0 }
+        }),
+        axios.get('/api/deep/clarosa/visual-dna'),
+      ]);
+
+      // Also store Visual DNA in the twin cache for context endpoint
+      try {
+        await axios.post('/api/twin/visual-dna/connect-clarosa', {
+          user_id: 'default_user',
+        });
+      } catch (cacheErr) {
+        console.warn('Visual DNA cache store failed (non-fatal):', cacheErr.message);
+      }
 
       setClarosaData({
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
         visualDNA: dnaRes.data.visualDNA
       });
+
+      // Re-run auto-classification now that Visual DNA is available
+      fetchAutoClassification();
     } catch (error) {
       console.error('Failed to connect to CLAROSA:', error);
       setClarosaData({
@@ -130,7 +196,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
-  const canGenerate = (audioData || clarosaData || rekordboxData) && (caption || bio);
+  const canGenerate = (audioData || clarosaData || rekordboxData || projectDnaData) && (caption || bio);
 
   // Helper: Tier Badge Component
   const TierBadge = ({ tier }) => (
@@ -181,6 +247,9 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
                 )}
               </li>
               <li>
+                <span className="text-brand-text">Project DNA:</span> Upload project files or scan a directory to extract your identity
+              </li>
+              <li>
                 <span className="text-brand-text">Voice & Identity:</span> Add caption samples and bio below
               </li>
             </ol>
@@ -196,19 +265,137 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         </div>
       )}
 
-      {/* Subtaste Integration */}
+      {/* Subtaste Classification */}
       <div className="card">
-        <h3 className="text-display-md mb-4">Subtaste</h3>
-        <p className="text-body text-brand-secondary mb-6">
-          Connect your aesthetic preference system
+        <h3 className="text-display-md mb-4">Taste Archetype</h3>
+        <p className="text-body text-brand-secondary mb-4">
+          {subtasteData
+            ? `Classified from ${subtasteSource === 'quiz' ? 'quiz responses' : 'your creative signals'}`
+            : 'Your archetype is auto-classified from your creative data'}
         </p>
-        <button
-          className="btn-primary w-full"
-          disabled
-        >
-          Connect Subtaste
-        </button>
+
+        {subtasteData ? (
+          <div className="space-y-4">
+            {/* Primary archetype */}
+            <div className="border border-brand-border p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-display-sm">{subtasteData.primary?.glyph || subtasteData.glyph || ''}</span>
+                <div>
+                  <p className="text-body text-brand-text font-medium">
+                    {subtasteData.primary?.designation || subtasteData.designation || ''}
+                  </p>
+                  <p className="text-body-sm text-brand-secondary">
+                    {subtasteData.primary?.creativeMode || subtasteData.creativeMode || ''}
+                  </p>
+                </div>
+                {(subtasteData.primary?.confidence || subtasteData.confidence) > 0 && (
+                  <span className="ml-auto text-body-sm text-brand-secondary font-mono">
+                    {Math.round((subtasteData.primary?.confidence || subtasteData.confidence) * 100)}%
+                  </span>
+                )}
+              </div>
+              {subtasteData.primary?.essence && (
+                <p className="text-body-sm text-brand-secondary italic">
+                  {subtasteData.primary.essence}
+                </p>
+              )}
+              {/* Shadow / tension */}
+              {subtasteData.primary?.shadow && (
+                <div className="mt-3 pt-3 border-t border-brand-border">
+                  <p className="uppercase-label text-brand-secondary mb-1">Shadow</p>
+                  <p className="text-body-sm text-brand-secondary">{subtasteData.primary.shadow}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Secondary + Tertiary stack */}
+            {(subtasteData.secondary || subtasteData.tertiary) && (
+              <div className="space-y-2">
+                {subtasteData.secondary && (
+                  <div className="flex items-center gap-2 text-body-sm border border-brand-border p-3">
+                    <span className="text-brand-text">{subtasteData.secondary.glyph}</span>
+                    <span className="text-brand-text">{subtasteData.secondary.designation}</span>
+                    <span className="text-brand-secondary">{subtasteData.secondary.creativeMode}</span>
+                    {subtasteData.secondary.confidence > 0 && (
+                      <span className="ml-auto font-mono text-brand-secondary">
+                        {Math.round(subtasteData.secondary.confidence * 100)}%
+                      </span>
+                    )}
+                  </div>
+                )}
+                {subtasteData.tertiary && (
+                  <div className="flex items-center gap-2 text-body-sm border border-brand-border p-3 opacity-70">
+                    <span className="text-brand-text">{subtasteData.tertiary.glyph}</span>
+                    <span className="text-brand-text">{subtasteData.tertiary.designation}</span>
+                    <span className="text-brand-secondary">{subtasteData.tertiary.creativeMode}</span>
+                    {subtasteData.tertiary.confidence > 0 && (
+                      <span className="ml-auto font-mono text-brand-secondary">
+                        {Math.round(subtasteData.tertiary.confidence * 100)}%
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Psychometric dimensions — horizontal bars */}
+            {subtasteData.distribution && (
+              <div className="border border-brand-border p-4">
+                <p className="uppercase-label text-brand-secondary mb-3">Archetype Distribution</p>
+                <div className="space-y-1">
+                  {Object.entries(subtasteData.distribution)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 6)
+                    .map(([designation, weight]) => (
+                      <div key={designation} className="flex items-center gap-2">
+                        <span className="text-body-sm text-brand-secondary font-mono w-10">{designation}</span>
+                        <div className="flex-1 h-2 bg-brand-border">
+                          <div
+                            className="h-2 bg-brand-text"
+                            style={{ width: `${Math.round(weight * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-body-sm text-brand-secondary font-mono w-10 text-right">
+                          {Math.round(weight * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Source indicator + refine button */}
+            <div className="flex items-center justify-between pt-2 border-t border-brand-border">
+              <span className="uppercase-label text-brand-secondary">
+                {subtasteSource === 'quiz' ? 'Quiz-validated' : 'Auto-classified'}
+              </span>
+              {subtasteSource !== 'quiz' && (
+                <button
+                  onClick={handleConnectSubtaste}
+                  disabled={subtasteConnecting}
+                  className="text-body-sm text-brand-text underline"
+                >
+                  {subtasteConnecting ? 'Connecting...' : 'Refine with quiz'}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleConnectSubtaste}
+            disabled={subtasteConnecting}
+            className="btn-primary w-full"
+          >
+            {subtasteConnecting ? 'Connecting...' : 'Connect Subtaste'}
+          </button>
+        )}
       </div>
+
+      {/* Project DNA */}
+      <ProjectDNAPanel onScanComplete={handleProjectDnaScanComplete} />
+
+      {/* Lineage Discoveries */}
+      <LineageDiscoveries userId="default" projectDnaData={projectDnaData} />
 
       {/* Visual Integration */}
       <div className="card">
@@ -235,17 +422,74 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
 
         {/* CLAROSA Results */}
         {clarosaData && !clarosaData.error && (
-          <div className="mt-6 border border-brand-border p-4">
-            <p className="uppercase-label text-brand-secondary mb-3">Visual DNA</p>
+          <div className="mt-6 border border-brand-border p-4 space-y-4">
+            <p className="uppercase-label text-brand-secondary">Visual DNA</p>
 
             {/* Style Description */}
-            <p className="text-body text-brand-text mb-4">
+            <p className="text-body text-brand-text">
               {clarosaData.visualDNA?.styleDescription}
             </p>
 
+            {/* Art Movements */}
+            {clarosaData.visualDNA?.deepAnalysis?.artMovements?.length > 0 && (
+              <div>
+                <p className="uppercase-label text-brand-secondary mb-2">Art Movements</p>
+                <div className="flex flex-wrap gap-2">
+                  {clarosaData.visualDNA.deepAnalysis.artMovements.map((m, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 border border-brand-border text-body-sm"
+                      title={`Affinity: ${Math.round(m.affinity * 100)}%`}
+                    >
+                      {m.name} <span className="text-brand-secondary font-mono">{Math.round(m.affinity * 100)}%</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Influences */}
+            {clarosaData.visualDNA?.deepAnalysis?.influences?.length > 0 && (
+              <div>
+                <p className="uppercase-label text-brand-secondary mb-2">Influences</p>
+                <div className="flex flex-wrap gap-2">
+                  {clarosaData.visualDNA.deepAnalysis.influences.map((inf, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary"
+                    >
+                      {inf}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Composition + Visual Era */}
+            {clarosaData.visualDNA?.deepAnalysis?.composition && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="uppercase-label text-brand-secondary mb-1">Composition</p>
+                  <p className="text-body-sm text-brand-text">
+                    {clarosaData.visualDNA.deepAnalysis.composition.symmetry} •{' '}
+                    {clarosaData.visualDNA.deepAnalysis.composition.negative_space} space •{' '}
+                    {clarosaData.visualDNA.deepAnalysis.composition.complexity} complexity
+                  </p>
+                </div>
+                {clarosaData.visualDNA?.deepAnalysis?.visualEra?.primary && (
+                  <div>
+                    <p className="uppercase-label text-brand-secondary mb-1">Visual Era</p>
+                    <p className="text-body-sm text-brand-text">
+                      {clarosaData.visualDNA.deepAnalysis.visualEra.primary}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Color Palette */}
             {clarosaData.visualDNA?.colorPalette && clarosaData.visualDNA.colorPalette.length > 0 && (
-              <div className="mb-4">
+              <div>
                 <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
                 <div className="flex gap-2">
                   {clarosaData.visualDNA.colorPalette.map((color, idx) => (
@@ -264,8 +508,23 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
               </div>
             )}
 
+            {/* Color Profile from deep analysis */}
+            {clarosaData.visualDNA?.deepAnalysis?.colorProfile && (
+              <div className="flex gap-4 text-body-sm">
+                <span className="text-brand-secondary">
+                  Saturation: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.saturation_preference}</span>
+                </span>
+                <span className="text-brand-secondary">
+                  Harmony: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.harmony}</span>
+                </span>
+                <span className="text-brand-secondary">
+                  Temperature: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.temperature}</span>
+                </span>
+              </div>
+            )}
+
             {/* Stats */}
-            <div className="text-body-sm text-brand-secondary">
+            <div className="text-body-sm text-brand-secondary pt-2 border-t border-brand-border">
               {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
               {clarosaData.profile?.stats?.highlight_count || 0} highlights
             </div>

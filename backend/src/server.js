@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve CLAROSA photos as static files
-app.use('/storage', express.static('/home/sphinxy/clarosa/backend/storage'));
+app.use('/storage', express.static(process.env.CLAROSA_STORAGE || path.join(__dirname, '../storage')));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -456,6 +456,36 @@ app.use('/api/ai', aiGenerationRoutes);
 // ========================================
 const writingSamplesRoutes = require('./routes/writingSamples');
 app.use('/api/writing-samples', writingSamplesRoutes);
+
+// ========================================
+// LORA TRAINING (SONIC IDENTITY MODELS)
+// ========================================
+const loraTrainingRoutes = require('./routes/loraTraining');
+app.use('/api/lora', loraTrainingRoutes);
+
+// ========================================
+// PROJECT DNA (CORE IDENTITY SCANNER)
+// ========================================
+const projectDnaRoutes = require('./routes/projectDna');
+app.use('/api/project-dna', projectDnaRoutes);
+
+// ========================================
+// SUBTASTE INTEGRATION (QUIZ + AUTO-CLASSIFY)
+// ========================================
+const subtasteIntegrationRoutes = require('./routes/subtasteIntegration');
+app.use('/api/subtaste', subtasteIntegrationRoutes);
+
+// ========================================
+// TWIN OS VISUAL DNA (CLAROSA INTEGRATION)
+// ========================================
+const twinVisualDnaRoutes = require('./routes/twinVisualDna');
+app.use('/api/twin/visual-dna', twinVisualDnaRoutes);
+
+// ========================================
+// EXPANSION ENGINE (LINEAGE DISCOVERY)
+// ========================================
+const expansionRoutes = require('./routes/expansion');
+app.use('/api/expansion', expansionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

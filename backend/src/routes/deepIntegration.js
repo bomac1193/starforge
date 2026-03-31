@@ -98,7 +98,11 @@ router.get('/clarosa/visual-dna', async (req, res) => {
     const userId = parseInt(req.query.user_id) || 1;
     const forceRefresh = req.query.refresh === 'true';
 
-    const visualDNA = await clarosaDirectService.extractVisualDNA(userId, forceRefresh);
+    // Fetch both the local Visual DNA extraction and the deep analysis in parallel
+    const [visualDNA, fullAnalysis] = await Promise.all([
+      clarosaDirectService.extractVisualDNA(userId, forceRefresh),
+      clarosaDirectService.fetchDeepAnalysis(userId),
+    ]);
 
     if (!visualDNA) {
       return res.status(404).json({
@@ -107,12 +111,58 @@ router.get('/clarosa/visual-dna', async (req, res) => {
       });
     }
 
+    // Merge deep analysis into Visual DNA
+    const deepAnalysis = fullAnalysis?.deep_analysis || fullAnalysis;
+    if (deepAnalysis) {
+      visualDNA.deepAnalysis = {
+        artMovements: deepAnalysis.art_movements || deepAnalysis.artMovements || [],
+        colorProfile: deepAnalysis.color_profile || deepAnalysis.colorProfile || {},
+        composition: deepAnalysis.composition || {},
+        visualEra: deepAnalysis.visual_era || deepAnalysis.visualEra || {},
+        influences: deepAnalysis.influences || [],
+      };
+    }
+
     res.json({
       success: true,
       visualDNA
     });
   } catch (error) {
     console.error('Error extracting visual DNA:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/deep/clarosa/deep-analysis
+ * Get Clarosa's deep visual analysis (art movements, influences, composition, visual era)
+ * Fetches from Clarosa HTTP API rather than direct DB
+ */
+router.get('/clarosa/deep-analysis', async (req, res) => {
+  try {
+    const userId = parseInt(req.query.user_id) || 1;
+
+    const fullAnalysis = await clarosaDirectService.fetchDeepAnalysis(userId);
+
+    if (!fullAnalysis) {
+      return res.status(404).json({
+        success: false,
+        error: 'Could not fetch deep analysis. Is Clarosa running on port 8001?'
+      });
+    }
+
+    // Return the deep_analysis portion (or full response if flat)
+    const deepAnalysis = fullAnalysis.deep_analysis || fullAnalysis;
+
+    res.json({
+      success: true,
+      deepAnalysis
+    });
+  } catch (error) {
+    console.error('Error fetching deep analysis:', error);
     res.status(500).json({
       success: false,
       error: error.message

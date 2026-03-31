@@ -8,6 +8,8 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.46",
+    "ai": "^6.0.97",
     "axios": "^1.13.4",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.6.2",

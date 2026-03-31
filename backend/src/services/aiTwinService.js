@@ -4,6 +4,8 @@ const path = require('path');
 const catalogAnalysisService = require('./catalogAnalysisService');
 const visualDnaCache = require('./visualDnaCache');
 const clarosaService = require('./clarosaServiceDirect');
+const projectDnaService = require('./projectDnaService');
+const subtasteService = require('./subtasteService');
 
 /**
  * AI Twin Service
@@ -73,6 +75,17 @@ class AITwinService {
       // Get Writing Samples for voice training
       const writingSamples = this.getWritingSamples(userId);
 
+      // Get Project DNA (highest-conviction identity signal)
+      const projectDNA = projectDnaService.getProjectDNA(userId === 'default_user' ? 'default' : userId);
+
+      // Run Subtaste classification from all available signals
+      const subtasteResult = subtasteService.classifyUser({
+        audioDNA: audioDNA,
+        visualDNA: visualDNA,
+        writingSamples: writingSamples,
+        projectDNA: projectDNA,
+      });
+
       return {
         available: true,
         audio: {
@@ -90,7 +103,9 @@ class AITwinService {
           paletteCharacteristics: visualDNA.paletteCharacteristics,
           themes: visualDNA.dominantThemes?.slice(0, 5)
         } : null,
-        writingSamples: writingSamples
+        writingSamples: writingSamples,
+        projectDNA: projectDNA,
+        subtaste: subtasteResult?.classification || null,
       };
     } catch (error) {
       console.error('Error getting aesthetic DNA:', error);
@@ -102,9 +117,41 @@ class AITwinService {
    * Build context prompt from aesthetic DNA
    */
   buildAestheticContext(aestheticDNA) {
-    const { audio, visual, writingSamples } = aestheticDNA;
+    const { audio, visual, writingSamples, projectDNA, subtaste } = aestheticDNA;
 
-    let context = 'Artist Profile:\n\n';
+    let context = '';
+
+    // CORE IDENTITY — Project DNA is the highest-conviction signal
+    if (projectDNA && projectDNA.coreIdentity) {
+      const ci = projectDNA.coreIdentity;
+      context += 'CORE IDENTITY (from Project DNA — highest conviction, non-negotiable):\n';
+      context += `Thesis: ${ci.thesis}\n`;
+      context += `Domains: ${(ci.domains || []).join(', ')}\n`;
+      context += `Tools: ${(ci.tools || []).join(', ')}\n`;
+      context += `References: ${(ci.references || []).join(', ')}\n`;
+      context += `\nANTI-TASTE (explicit rejections — content must NOT sound like these):\n`;
+      context += `${(ci.antiTaste || []).join(', ')}\n`;
+      if (projectDNA.tone) {
+        context += `\nTone register: ${projectDNA.tone.register}\n`;
+        context += `Preserve these terms untranslated: ${(projectDNA.tone.preserveTerms || []).join(', ')}\n`;
+      }
+      context += '\n';
+    }
+
+    // Subtaste archetype classification
+    if (subtaste) {
+      context += 'ARCHETYPE CLASSIFICATION:\n';
+      if (subtaste.primary) {
+        context += `Primary: ${subtaste.primary.glyph} (${subtaste.primary.designation}) — ${subtaste.primary.creativeMode}\n`;
+        context += `"${subtaste.primary.essence}"\n`;
+      }
+      if (subtaste.secondary) {
+        context += `Secondary: ${subtaste.secondary.glyph} — ${subtaste.secondary.creativeMode}\n`;
+      }
+      context += '\n';
+    }
+
+    context += 'Artist Profile:\n\n';
 
     // Audio DNA
     if (audio) {

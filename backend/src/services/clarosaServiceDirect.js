@@ -1,7 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 const visualDnaCache = require('./visualDnaCache');
+
+const CLAROSA_API_URL = process.env.CLAROSA_API_URL || 'http://localhost:8001/api/v1';
 
 /**
  * Direct CLAROSA Database Connection
@@ -9,8 +12,8 @@ const visualDnaCache = require('./visualDnaCache');
  */
 class ClarosaDirectService {
   constructor() {
-    this.dbPath = process.env.CLAROSA_DB_PATH || '/home/sphinxy/clarosa/backend/clarosa.db';
-    this.storagePath = process.env.CLAROSA_STORAGE || '/home/sphinxy/clarosa/backend/storage';
+    this.dbPath = process.env.CLAROSA_DB_PATH || '';
+    this.storagePath = process.env.CLAROSA_STORAGE || '';
     this.db = null;
   }
 
@@ -332,6 +335,25 @@ class ClarosaDirectService {
     } catch (error) {
       console.error('Error getting recent activity:', error);
       return [];
+    }
+  }
+
+  /**
+   * Fetch deep analysis from Clarosa HTTP API
+   * Returns art movements, color profile, composition, visual era, influences
+   */
+  async fetchDeepAnalysis(userId = 1) {
+    try {
+      const response = await axios.get(`${CLAROSA_API_URL}/visual-dna/analysis`, {
+        params: { user_id: userId },
+        timeout: 10000,
+      });
+
+      // Return the full response including base_characteristics, confidence, deep_analysis
+      return response.data || null;
+    } catch (error) {
+      console.error('Failed to fetch Clarosa deep analysis:', error.message);
+      return null;
     }
   }
 
