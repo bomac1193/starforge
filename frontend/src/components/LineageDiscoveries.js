@@ -17,6 +17,8 @@ const LIKERT_LABELS = [
 const LineageDiscoveries = ({ userId = 'default', projectDnaData }) => {
   const [suggestions, setSuggestions] = useState(null);
   const [lineageMap, setLineageMap] = useState(null);
+  const [feedbackResponse, setFeedbackResponse] = useState(null);
+  const [metadata, setMetadata] = useState(null);
   const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState(null);
   const [ratings, setRatings] = useState({});
@@ -35,6 +37,8 @@ const LineageDiscoveries = ({ userId = 'default', projectDnaData }) => {
       if (res.data.success && res.data.suggestions) {
         setSuggestions(res.data.suggestions);
         setLineageMap(res.data.lineage_map || null);
+        setFeedbackResponse(res.data.feedback_response || null);
+        setMetadata(res.data.metadata || null);
       }
     } catch {
       // No cached results
@@ -67,6 +71,8 @@ const LineageDiscoveries = ({ userId = 'default', projectDnaData }) => {
       if (res.data.success) {
         setSuggestions(res.data.suggestions || []);
         setLineageMap(res.data.lineage_map || null);
+        setFeedbackResponse(res.data.feedback_response || null);
+        setMetadata(res.data.metadata || null);
       } else {
         setError(res.data.error || 'Discovery failed');
       }
@@ -230,11 +236,56 @@ const LineageDiscoveries = ({ userId = 'default', projectDnaData }) => {
           className="btn-primary w-full"
         >
           {discovering
-            ? 'Researching lineage...'
+            ? savedArtifacts.length > 0
+              ? 'Refining based on your ratings...'
+              : 'Researching lineage...'
             : !projectDnaData
             ? 'Scan Project DNA first'
+            : savedArtifacts.length > 0
+            ? `Rediscover (${savedArtifacts.length} ratings will sharpen results)`
             : 'Discover Lineage'}
         </button>
+      )}
+
+      {/* Discovery round + feedback status */}
+      {metadata && (
+        <div className="text-body-xs text-brand-secondary mb-3 flex items-center gap-3">
+          <span>Round {metadata.discoveryRound || 1}</span>
+          {metadata.feedbackUsed && (
+            <span>/ {metadata.feedbackStats?.total || 0} ratings used as training signal</span>
+          )}
+        </div>
+      )}
+
+      {/* Feedback response — what the system learned */}
+      {feedbackResponse && (
+        <div className="border border-brand-border p-4 mb-4">
+          <p className="uppercase-label text-brand-secondary mb-2">What Changed This Round</p>
+          {feedbackResponse.threads_deepened?.length > 0 && (
+            <div className="mb-2">
+              <p className="text-body-xs text-brand-secondary">Threads deepened:</p>
+              <p className="text-body-sm text-brand-text">
+                {feedbackResponse.threads_deepened.join(' / ')}
+              </p>
+            </div>
+          )}
+          {feedbackResponse.new_branches?.length > 0 && (
+            <div className="mb-2">
+              <p className="text-body-xs text-brand-secondary">New branches:</p>
+              <p className="text-body-sm text-brand-text">
+                {feedbackResponse.new_branches.join(' / ')}
+              </p>
+            </div>
+          )}
+          {feedbackResponse.avoided?.length > 0 && (
+            <div>
+              <p className="text-body-xs text-brand-secondary">Avoided:</p>
+              <p className="text-body-sm text-brand-text">
+                {feedbackResponse.avoided.join(' / ')}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Error */}
@@ -278,7 +329,9 @@ const LineageDiscoveries = ({ userId = 'default', projectDnaData }) => {
               disabled={discovering}
               className="text-body-sm text-brand-text underline"
             >
-              {discovering ? 'Researching...' : 'Rediscover'}
+              {discovering
+                ? savedArtifacts.length > 0 ? 'Refining...' : 'Researching...'
+                : savedArtifacts.length > 0 ? 'Rediscover (sharpened)' : 'Rediscover'}
             </button>
           </div>
 

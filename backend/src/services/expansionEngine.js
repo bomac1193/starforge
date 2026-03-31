@@ -48,8 +48,100 @@ function getDB() {
 }
 
 /**
+ * Build rating feedback context from previous Likert ratings.
+ * This is the training signal that makes each discovery run sharper.
+ *
+ * Ancestors (5) + Canon (4) = "go deeper in this direction"
+ * Resonant (3) = "interesting, don't over-index"
+ * Noted (2) + Miss (1) = "wrong direction, avoid similar"
+ */
+function buildRatingFeedback(userId) {
+  const saved = getSavedArtifacts(userId);
+  if (saved.length === 0) return null;
+
+  const ancestors = saved.filter(s => s.rating === 5);
+  const canon = saved.filter(s => s.rating === 4);
+  const resonant = saved.filter(s => s.rating === 3);
+  const noted = saved.filter(s => s.rating === 2);
+  const misses = saved.filter(s => s.rating === 1);
+
+  const parts = [];
+  parts.push(`=== PREVIOUS DISCOVERY FEEDBACK (${saved.length} artifacts rated) ===`);
+  parts.push(`System accuracy so far: ${Math.round(((ancestors.length + canon.length + resonant.length) / saved.length) * 100)}% resonance rate`);
+
+  if (ancestors.length > 0) {
+    parts.push(`\nANCESTORS (rated 5/5 — these are core to my lineage, go DEEPER in these directions):`);
+    ancestors.forEach(a => {
+      parts.push(`  - "${a.artifact}" (${a.year || '?'}, ${a.location || '?'}, ${a.medium || '?'})`);
+      if (a.gap_filled) parts.push(`    Gap filled: ${a.gap_filled}`);
+    });
+  }
+
+  if (canon.length > 0) {
+    parts.push(`\nCANON (rated 4/5 — strong connections, find more like these):`);
+    canon.forEach(a => {
+      parts.push(`  - "${a.artifact}" (${a.year || '?'}, ${a.location || '?'}, ${a.medium || '?'})`);
+      if (a.gap_filled) parts.push(`    Gap filled: ${a.gap_filled}`);
+    });
+  }
+
+  if (resonant.length > 0) {
+    parts.push(`\nRESONANT (rated 3/5 — interesting parallels, don't over-index):`);
+    resonant.forEach(a => {
+      parts.push(`  - "${a.artifact}" (${a.year || '?'}, ${a.medium || '?'})`);
+    });
+  }
+
+  if (noted.length > 0) {
+    parts.push(`\nNOTED (rated 2/5 — acknowledged but weak connection):`);
+    noted.forEach(a => {
+      parts.push(`  - "${a.artifact}" (${a.medium || '?'})`);
+    });
+  }
+
+  if (misses.length > 0) {
+    parts.push(`\nMISSES (rated 1/5 — wrong direction, AVOID similar artifacts):`);
+    misses.forEach(a => {
+      parts.push(`  - "${a.artifact}" (${a.medium || '?'})`);
+    });
+  }
+
+  // Extract directional signals
+  const ancestorRegions = [...new Set(ancestors.map(a => a.location).filter(Boolean))];
+  const ancestorMediums = [...new Set(ancestors.map(a => a.medium).filter(Boolean))];
+  const ancestorGaps = [...new Set(ancestors.map(a => a.gap_filled).filter(Boolean))];
+  const missRegions = [...new Set(misses.map(a => a.location).filter(Boolean))];
+  const missMediums = [...new Set(misses.map(a => a.medium).filter(Boolean))];
+
+  if (ancestorRegions.length > 0 || ancestorGaps.length > 0) {
+    parts.push(`\nDIRECTIONAL SIGNALS:`);
+    if (ancestorRegions.length > 0) parts.push(`  Regions that resonate: ${ancestorRegions.join(', ')}`);
+    if (ancestorMediums.length > 0) parts.push(`  Mediums that resonate: ${ancestorMediums.join(', ')}`);
+    if (ancestorGaps.length > 0) parts.push(`  Lineage threads confirmed: ${ancestorGaps.join(', ')}`);
+    if (missRegions.length > 0) parts.push(`  Regions that missed: ${missRegions.join(', ')}`);
+    if (missMediums.length > 0) parts.push(`  Mediums that missed: ${missMediums.join(', ')}`);
+  }
+
+  return {
+    text: parts.join('\n'),
+    stats: {
+      total: saved.length,
+      ancestors: ancestors.length,
+      canon: canon.length,
+      resonant: resonant.length,
+      noted: noted.length,
+      misses: misses.length,
+      resonanceRate: Math.round(((ancestors.length + canon.length + resonant.length) / saved.length) * 100),
+    },
+    // Collect all previously suggested artifact names to avoid repeats
+    previousArtifacts: saved.map(a => a.artifact).filter(Boolean),
+  };
+}
+
+/**
  * Run a lineage discovery session
- * Calls Claude with deep-research prompt based on user's identity signals
+ * Calls Claude with deep-research prompt based on user's identity signals.
+ * If previous ratings exist, injects them as feedback to sharpen results.
  */
 async function discoverLineage(userId = 'default', options = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -66,6 +158,29 @@ async function discoverLineage(userId = 'default', options = {}) {
   // Build the context from all available signals
   const identityContext = buildIdentityContext(projectDna, options);
 
+  // Build feedback from previous ratings
+  const feedback = buildRatingFeedback(userId);
+  const hasFeedback = feedback && feedback.stats.total > 0;
+  const previousArtifacts = feedback?.previousArtifacts || [];
+
+  // Build the prompt — adapts based on whether we have prior feedback
+  let feedbackBlock = '';
+  if (hasFeedback) {
+    feedbackBlock = `
+
+${feedback.text}
+
+IMPORTANT FEEDBACK INSTRUCTIONS:
+- Do NOT repeat any previously suggested artifacts. All suggestions must be NEW.
+- Previously suggested: ${previousArtifacts.map(a => `"${a}"`).join(', ')}
+- For artifacts rated ANCESTOR (5) or CANON (4): find deeper, more specific artifacts in the same lineage threads. Go further into those traditions, time periods, and regions.
+- For artifacts rated MISS (1): avoid similar regions, mediums, and themes unless you have a genuinely different angle.
+- For artifacts rated NOTED (2): the connection was too weak. If you suggest from similar territory, the connection must be much more specific.
+- Your conviction scores should be HIGHER on average this round — you now know what resonates.
+- Find at least 2-3 artifacts that go deeper into confirmed lineage threads (ancestors/canon).
+- Find at least 2-3 artifacts from entirely new branches not yet explored.`;
+  }
+
   const response = await axios.post('https://api.anthropic.com/v1/messages', {
     model: 'claude-sonnet-4-5-20250929',
     max_tokens: 4000,
@@ -77,6 +192,7 @@ You are NOT an algorithm recommending "similar" content. You are completing a ge
 
 CREATOR'S IDENTITY:
 ${identityContext}
+${feedbackBlock}
 
 ---
 
@@ -86,7 +202,7 @@ Find 8-12 specific cultural artifacts that would expand this creator's lineage. 
 3. It should come from outside their known sphere — the point is to expand, not reinforce
 4. Prioritize non-Western, underground, and historically marginalized traditions where the connection is genuine
 5. Include at least 2-3 from Africa, 2-3 from Asia/Middle East, and 2-3 from Latin America/Caribbean IF there are genuine lineage connections
-6. Do NOT stretch — only include artifacts with real conceptual or technical connections
+6. Do NOT stretch — only include artifacts with real conceptual or technical connections${hasFeedback ? '\n7. Do NOT repeat any previously suggested artifacts — every suggestion must be new' : ''}
 
 Return ONLY valid JSON:
 {
@@ -106,7 +222,12 @@ Return ONLY valid JSON:
     "primary_thread": "The main lineage thread connecting all suggestions",
     "branches": ["2-3 secondary lineage threads identified"],
     "missing_regions": ["Geographic or cultural regions where lineage connections likely exist but couldn't be confidently identified"]
-  }
+  }${hasFeedback ? `,
+  "feedback_response": {
+    "threads_deepened": ["Which ancestor/canon lineage threads you went deeper on"],
+    "new_branches": ["New unexplored branches introduced this round"],
+    "avoided": ["What you deliberately avoided based on misses"]
+  }` : ''}
 }
 
 RULES:
@@ -138,10 +259,18 @@ RULES:
     throw new Error('Failed to parse lineage discovery results');
   }
 
+  // Count discovery rounds
+  const database = getDB();
+  const existingRow = database.prepare('SELECT suggestions_json FROM expansion_results WHERE user_id = ?').get(userId);
+  const previousRound = existingRow ? (JSON.parse(existingRow.suggestions_json)?.metadata?.discoveryRound || 0) : 0;
+
   // Add metadata
   result.metadata = {
     userId,
     discoveredAt: new Date().toISOString(),
+    discoveryRound: previousRound + 1,
+    feedbackUsed: hasFeedback,
+    feedbackStats: feedback?.stats || null,
     sourcesUsed: {
       projectDna: !!projectDna,
       audioDna: !!options.audioDna,
@@ -151,7 +280,6 @@ RULES:
   };
 
   // Cache results
-  const database = getDB();
   const dnaHash = JSON.stringify(projectDna?.coreIdentity?.thesis || '').slice(0, 50);
 
   database.prepare(`
