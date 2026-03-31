@@ -199,7 +199,7 @@ const INTERNAL_MAPPINGS = {
 
 const DEFAULT_SCORING_CONFIG = {
   psychometricWeight: 0.6,
-  temperature: 3.0,
+  temperature: 12.0,
   distributionThreshold: 0.02,
   secondaryThreshold: 0.1,
 };
@@ -225,28 +225,36 @@ function getDefaultPsychometrics() {
  */
 function calculateSimilarity(profile, designation) {
   const target = INTERNAL_MAPPINGS[designation].psychometricWeights;
-  const distances = [];
 
-  // Openness facets (6 dimensions)
-  distances.push(Math.abs(profile.openness.fantasy - target.openness.fantasy));
-  distances.push(Math.abs(profile.openness.aesthetics - target.openness.aesthetics));
-  distances.push(Math.abs(profile.openness.feelings - target.openness.feelings));
-  distances.push(Math.abs(profile.openness.actions - target.openness.actions));
-  distances.push(Math.abs(profile.openness.ideas - target.openness.ideas));
-  distances.push(Math.abs(profile.openness.values - target.openness.values));
+  // Weighted dimensions: identity-signal dimensions get higher weight
+  const dims = [
+    // Openness facets (6 dimensions)
+    { d: profile.openness.fantasy - target.openness.fantasy, w: 1.0 },
+    { d: profile.openness.aesthetics - target.openness.aesthetics, w: 1.5 },
+    { d: profile.openness.feelings - target.openness.feelings, w: 1.0 },
+    { d: profile.openness.actions - target.openness.actions, w: 1.5 },
+    { d: profile.openness.ideas - target.openness.ideas, w: 1.5 },
+    { d: profile.openness.values - target.openness.values, w: 1.0 },
+    // Intellect
+    { d: profile.intellect - target.intellect, w: 1.5 },
+    // Music preferences (5 dimensions)
+    { d: profile.musicPreferences.mellow - target.music.mellow, w: 1.0 },
+    { d: profile.musicPreferences.unpretentious - target.music.unpretentious, w: 1.0 },
+    { d: profile.musicPreferences.sophisticated - target.music.sophisticated, w: 1.2 },
+    { d: profile.musicPreferences.intense - target.music.intense, w: 1.2 },
+    { d: profile.musicPreferences.contemporary - target.music.contemporary, w: 1.0 },
+  ];
 
-  // Intellect
-  distances.push(Math.abs(profile.intellect - target.intellect));
-
-  // Music preferences (5 dimensions)
-  distances.push(Math.abs(profile.musicPreferences.mellow - target.music.mellow));
-  distances.push(Math.abs(profile.musicPreferences.unpretentious - target.music.unpretentious));
-  distances.push(Math.abs(profile.musicPreferences.sophisticated - target.music.sophisticated));
-  distances.push(Math.abs(profile.musicPreferences.intense - target.music.intense));
-  distances.push(Math.abs(profile.musicPreferences.contemporary - target.music.contemporary));
-
-  const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
-  return 1 - avgDistance;
+  // Weighted RMS distance — squared distances punish large mismatches more,
+  // creating clearer separation between matching and non-matching archetypes
+  let weightedSumSq = 0;
+  let totalWeight = 0;
+  for (const { d, w } of dims) {
+    weightedSumSq += (d * d) * w;
+    totalWeight += w;
+  }
+  const rmsDistance = Math.sqrt(weightedSumSq / totalWeight);
+  return 1 - rmsDistance;
 }
 
 /**
@@ -368,7 +376,7 @@ function classify(psychometrics, config = {}) {
  *
  * @param {object} params
  * @param {object} [params.audioDNA] - From catalogAnalysisService
- * @param {object} [params.visualDNA] - From clarosaService/visualDnaCache
+ * @param {object} [params.visualDNA] - From tizitaService/visualDnaCache
  * @param {object} [params.writingSamples] - From aiTwinService
  * @param {object} [params.projectDNA] - From projectDnaService
  * @returns {object} Psychometric profile ready for classify()

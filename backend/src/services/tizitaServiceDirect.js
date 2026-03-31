@@ -4,16 +4,16 @@ const fs = require('fs');
 const axios = require('axios');
 const visualDnaCache = require('./visualDnaCache');
 
-const CLAROSA_API_URL = process.env.CLAROSA_API_URL || 'http://localhost:8001/api/v1';
+const Tizita_API_URL = process.env.Tizita_API_URL || 'http://localhost:8001/api/v1';
 
 /**
- * Direct CLAROSA Database Connection
+ * Direct Tizita Database Connection
  * Queries SQLite database directly for faster access
  */
-class ClarosaDirectService {
+class TizitaDirectService {
   constructor() {
-    this.dbPath = process.env.CLAROSA_DB_PATH || '';
-    this.storagePath = process.env.CLAROSA_STORAGE || '';
+    this.dbPath = process.env.Tizita_DB_PATH || '';
+    this.storagePath = process.env.Tizita_STORAGE || '';
     this.db = null;
   }
 
@@ -22,23 +22,23 @@ class ClarosaDirectService {
    */
   connect() {
     if (!fs.existsSync(this.dbPath)) {
-      console.warn('CLAROSA database not found at:', this.dbPath);
+      console.warn('Tizita database not found at:', this.dbPath);
       return false;
     }
 
     try {
       this.db = new Database(this.dbPath, { readonly: true });
-      console.log('✓ Connected to CLAROSA database');
+      console.log('✓ Connected to Tizita database');
       return true;
     } catch (error) {
-      console.error('Failed to connect to CLAROSA:', error.message);
+      console.error('Failed to connect to Tizita:', error.message);
       return false;
     }
   }
 
   /**
    * Get user's profile and stats
-   * Note: CLAROSA is single-user system, no user_id filtering on photos
+   * Note: Tizita is single-user system, no user_id filtering on photos
    */
   getUserProfile(userId = 1) {
     if (!this.db) this.connect();
@@ -219,7 +219,7 @@ class ClarosaDirectService {
       }));
 
       // Write to temp file for Python script
-      const tmpFile = `/tmp/clarosa_photos_${Date.now()}.json`;
+      const tmpFile = `/tmp/tizita_photos_${Date.now()}.json`;
       fs.writeFileSync(tmpFile, JSON.stringify(photosData));
 
       // Run sophisticated Python analysis
@@ -339,12 +339,12 @@ class ClarosaDirectService {
   }
 
   /**
-   * Fetch deep analysis from Clarosa HTTP API
+   * Fetch deep analysis from Tizita HTTP API
    * Returns art movements, color profile, composition, visual era, influences
    */
   async fetchDeepAnalysis(userId = 1) {
     try {
-      const response = await axios.get(`${CLAROSA_API_URL}/visual-dna/analysis`, {
+      const response = await axios.get(`${Tizita_API_URL}/visual-dna/analysis`, {
         params: { user_id: userId },
         timeout: 10000,
       });
@@ -352,8 +352,86 @@ class ClarosaDirectService {
       // Return the full response including base_characteristics, confidence, deep_analysis
       return response.data || null;
     } catch (error) {
-      console.error('Failed to fetch Clarosa deep analysis:', error.message);
+      console.error('Failed to fetch Tizita deep analysis:', error.message);
       return null;
+    }
+  }
+
+  /**
+   * Get photos marked as "best" (highest conviction signal, weight 3.0 in taste model)
+   */
+  getBestPhotos() {
+    if (!this.db) this.connect();
+    if (!this.db) return [];
+
+    try {
+      return this.db.prepare(`
+        SELECT id, file_path, clarosa_score, user_rating, siglip_embedding
+        FROM photos
+        WHERE best_photo = 1 AND deleted_at IS NULL
+      `).all();
+    } catch (error) {
+      console.error('Error getting best photos:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get photos marked as favourites (weight 2.0 in taste model)
+   */
+  getFavoritePhotos() {
+    if (!this.db) this.connect();
+    if (!this.db) return [];
+
+    try {
+      return this.db.prepare(`
+        SELECT id, file_path, clarosa_score, user_rating, siglip_embedding
+        FROM photos
+        WHERE favorite = 1 AND deleted_at IS NULL
+      `).all();
+    } catch (error) {
+      console.error('Error getting favorite photos:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get highly-rated photos (star rating >= minRating)
+   */
+  getHighRatedPhotos(minRating = 4) {
+    if (!this.db) this.connect();
+    if (!this.db) return [];
+
+    try {
+      return this.db.prepare(`
+        SELECT id, file_path, clarosa_score, user_rating, siglip_embedding
+        FROM photos
+        WHERE user_rating >= ? AND deleted_at IS NULL
+        ORDER BY user_rating DESC
+      `).all(minRating);
+    } catch (error) {
+      console.error('Error getting high-rated photos:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get low-rated photos (anti-signal for movement classification)
+   */
+  getLowRatedPhotos(maxRating = 2) {
+    if (!this.db) this.connect();
+    if (!this.db) return [];
+
+    try {
+      return this.db.prepare(`
+        SELECT id, file_path, clarosa_score, user_rating, siglip_embedding
+        FROM photos
+        WHERE user_rating IS NOT NULL AND user_rating <= ? AND user_rating > 0 AND deleted_at IS NULL
+        ORDER BY user_rating ASC
+      `).all(maxRating);
+    } catch (error) {
+      console.error('Error getting low-rated photos:', error.message);
+      return [];
     }
   }
 
@@ -368,4 +446,4 @@ class ClarosaDirectService {
   }
 }
 
-module.exports = new ClarosaDirectService();
+module.exports = new TizitaDirectService();

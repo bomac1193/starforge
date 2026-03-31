@@ -10,6 +10,7 @@ import WritingSamplesInput from './WritingSamplesInput';
 import AIGenerationPanel from './AIGenerationPanel';
 import ProjectDNAPanel from './ProjectDNAPanel';
 import LineageDiscoveries from './LineageDiscoveries';
+import VisualLineageDiscovery from './VisualLineageDiscovery';
 
 /**
  * Minimal, chic Twin Genesis Panel
@@ -20,11 +21,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
   const [caption, setCaption] = useState('');
   const [bio, setBio] = useState('');
   const [glowLevel, setGlowLevel] = useState(3);
-  const [clarosaData, setClarosaData] = useState(null);
+  const [tizitaData, setTizitaData] = useState(null);
   const [audioData, setAudioData] = useState(null);
   const [rekordboxData, setRekordboxData] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [connectingClarosa, setConnectingClarosa] = useState(false);
+  const [connectingTizita, setConnectingTizita] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState('personal');
   const [usageInfo, setUsageInfo] = useState(null);
   const [totalTracks, setTotalTracks] = useState(null);
@@ -125,28 +126,28 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     onGlowChange(level);
   };
 
-  const handleConnectClarosa = async () => {
-    setConnectingClarosa(true);
+  const handleConnectTizita = async () => {
+    setConnectingTizita(true);
 
     try {
       const [profileRes, photosRes, dnaRes] = await Promise.all([
-        axios.get('/api/deep/clarosa/profile'),
-        axios.get('/api/deep/clarosa/top-photos', {
+        axios.get('/api/deep/tizita/profile'),
+        axios.get('/api/deep/tizita/top-photos', {
           params: { limit: 500, minScore: 0 }
         }),
-        axios.get('/api/deep/clarosa/visual-dna'),
+        axios.get('/api/deep/tizita/visual-dna'),
       ]);
 
       // Also store Visual DNA in the twin cache for context endpoint
       try {
-        await axios.post('/api/twin/visual-dna/connect-clarosa', {
+        await axios.post('/api/twin/visual-dna/connect-tizita', {
           user_id: 'default_user',
         });
       } catch (cacheErr) {
         console.warn('Visual DNA cache store failed (non-fatal):', cacheErr.message);
       }
 
-      setClarosaData({
+      setTizitaData({
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
         visualDNA: dnaRes.data.visualDNA
@@ -155,8 +156,8 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
       // Re-run auto-classification now that Visual DNA is available
       fetchAutoClassification();
     } catch (error) {
-      console.error('Failed to connect to CLAROSA:', error);
-      setClarosaData({
+      console.error('Failed to connect to Tizita:', error);
+      setTizitaData({
         error: true,
         visualDNA: {
           styleDescription: 'Connection failed',
@@ -164,7 +165,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         }
       });
     } finally {
-      setConnectingClarosa(false);
+      setConnectingTizita(false);
     }
   };
 
@@ -184,7 +185,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
       if (response.data.success) {
         onTwinGenerated({
           ...response.data.twinData,
-          clarosaData,
+          tizitaData,
           audioData,
           rekordboxData
         });
@@ -196,7 +197,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
-  const canGenerate = (audioData || clarosaData || rekordboxData || projectDnaData) && (caption || bio);
+  const canGenerate = (audioData || tizitaData || rekordboxData || projectDnaData) && (caption || bio);
 
   // Helper: Tier Badge Component
   const TierBadge = ({ tier }) => (
@@ -222,7 +223,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
       </div>
 
       {/* Onboarding Guide */}
-      {!audioData && !clarosaData && !rekordboxData && (
+      {!audioData && !tizitaData && !rekordboxData && (
         <div className="card bg-brand-border">
           <h3 className="text-display-sm mb-4">Start Here</h3>
           <div className="space-y-4 text-body-sm text-brand-secondary">
@@ -231,7 +232,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             </p>
             <ol className="list-decimal list-inside space-y-2 ml-2">
               <li>
-                <span className="text-brand-text">Visual DNA:</span> Connect CLAROSA to analyze your photo aesthetic
+                <span className="text-brand-text">Visual DNA:</span> Connect Tizita to analyze your photo aesthetic
               </li>
               <li>
                 <span className="text-brand-text">Audio DNA:</span> Upload tracks or import DJ library
@@ -401,41 +402,41 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
       <div className="card">
         <h3 className="text-display-md mb-4">Visual Catalog</h3>
         <p className="text-body text-brand-secondary mb-6">
-          Direct access to your CLAROSA photo collection
+          Direct access to your Tizita photo collection
         </p>
 
         <button
-          onClick={handleConnectClarosa}
-          disabled={connectingClarosa || (clarosaData && !clarosaData.error)}
+          onClick={handleConnectTizita}
+          disabled={connectingTizita || (tizitaData && !tizitaData.error)}
           className={
-            clarosaData && !clarosaData.error
+            tizitaData && !tizitaData.error
               ? 'btn-secondary w-full opacity-50 cursor-not-allowed'
               : 'btn-primary w-full'
           }
         >
-          {connectingClarosa
+          {connectingTizita
             ? 'Connecting...'
-            : clarosaData && !clarosaData.error
-            ? 'CLAROSA Connected'
-            : 'Connect CLAROSA'}
+            : tizitaData && !tizitaData.error
+            ? 'Tizita Connected'
+            : 'Connect Tizita'}
         </button>
 
-        {/* CLAROSA Results */}
-        {clarosaData && !clarosaData.error && (
+        {/* Tizita Results */}
+        {tizitaData && !tizitaData.error && (
           <div className="mt-6 border border-brand-border p-4 space-y-4">
             <p className="uppercase-label text-brand-secondary">Visual DNA</p>
 
             {/* Style Description */}
             <p className="text-body text-brand-text">
-              {clarosaData.visualDNA?.styleDescription}
+              {tizitaData.visualDNA?.styleDescription}
             </p>
 
             {/* Art Movements */}
-            {clarosaData.visualDNA?.deepAnalysis?.artMovements?.length > 0 && (
+            {tizitaData.visualDNA?.deepAnalysis?.artMovements?.length > 0 && (
               <div>
                 <p className="uppercase-label text-brand-secondary mb-2">Art Movements</p>
                 <div className="flex flex-wrap gap-2">
-                  {clarosaData.visualDNA.deepAnalysis.artMovements.map((m, idx) => (
+                  {tizitaData.visualDNA.deepAnalysis.artMovements.map((m, idx) => (
                     <span
                       key={idx}
                       className="px-2 py-1 border border-brand-border text-body-sm"
@@ -449,11 +450,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             )}
 
             {/* Influences */}
-            {clarosaData.visualDNA?.deepAnalysis?.influences?.length > 0 && (
+            {tizitaData.visualDNA?.deepAnalysis?.influences?.length > 0 && (
               <div>
                 <p className="uppercase-label text-brand-secondary mb-2">Influences</p>
                 <div className="flex flex-wrap gap-2">
-                  {clarosaData.visualDNA.deepAnalysis.influences.map((inf, idx) => (
+                  {tizitaData.visualDNA.deepAnalysis.influences.map((inf, idx) => (
                     <span
                       key={idx}
                       className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary"
@@ -466,21 +467,21 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             )}
 
             {/* Composition + Visual Era */}
-            {clarosaData.visualDNA?.deepAnalysis?.composition && (
+            {tizitaData.visualDNA?.deepAnalysis?.composition && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="uppercase-label text-brand-secondary mb-1">Composition</p>
                   <p className="text-body-sm text-brand-text">
-                    {clarosaData.visualDNA.deepAnalysis.composition.symmetry} •{' '}
-                    {clarosaData.visualDNA.deepAnalysis.composition.negative_space} space •{' '}
-                    {clarosaData.visualDNA.deepAnalysis.composition.complexity} complexity
+                    {tizitaData.visualDNA.deepAnalysis.composition.symmetry} •{' '}
+                    {tizitaData.visualDNA.deepAnalysis.composition.negative_space} space •{' '}
+                    {tizitaData.visualDNA.deepAnalysis.composition.complexity} complexity
                   </p>
                 </div>
-                {clarosaData.visualDNA?.deepAnalysis?.visualEra?.primary && (
+                {tizitaData.visualDNA?.deepAnalysis?.visualEra?.primary && (
                   <div>
                     <p className="uppercase-label text-brand-secondary mb-1">Visual Era</p>
                     <p className="text-body-sm text-brand-text">
-                      {clarosaData.visualDNA.deepAnalysis.visualEra.primary}
+                      {tizitaData.visualDNA.deepAnalysis.visualEra.primary}
                     </p>
                   </div>
                 )}
@@ -488,11 +489,11 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             )}
 
             {/* Color Palette */}
-            {clarosaData.visualDNA?.colorPalette && clarosaData.visualDNA.colorPalette.length > 0 && (
+            {tizitaData.visualDNA?.colorPalette && tizitaData.visualDNA.colorPalette.length > 0 && (
               <div>
                 <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
                 <div className="flex gap-2">
-                  {clarosaData.visualDNA.colorPalette.map((color, idx) => (
+                  {tizitaData.visualDNA.colorPalette.map((color, idx) => (
                     <div key={idx} className="flex-1">
                       <div
                         className="h-12 border border-brand-border"
@@ -509,25 +510,32 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
             )}
 
             {/* Color Profile from deep analysis */}
-            {clarosaData.visualDNA?.deepAnalysis?.colorProfile && (
+            {tizitaData.visualDNA?.deepAnalysis?.colorProfile && (
               <div className="flex gap-4 text-body-sm">
                 <span className="text-brand-secondary">
-                  Saturation: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.saturation_preference}</span>
+                  Saturation: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.saturation_preference}</span>
                 </span>
                 <span className="text-brand-secondary">
-                  Harmony: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.harmony}</span>
+                  Harmony: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.harmony}</span>
                 </span>
                 <span className="text-brand-secondary">
-                  Temperature: <span className="text-brand-text">{clarosaData.visualDNA.deepAnalysis.colorProfile.temperature}</span>
+                  Temperature: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.temperature}</span>
                 </span>
               </div>
             )}
 
             {/* Stats */}
             <div className="text-body-sm text-brand-secondary pt-2 border-t border-brand-border">
-              {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
-              {clarosaData.profile?.stats?.highlight_count || 0} highlights
+              {tizitaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
+              {tizitaData.profile?.stats?.highlight_count || 0} highlights
             </div>
+
+            {/* Visual Lineage Discovery — maps palette to global movements */}
+            {tizitaData.visualDNA?.colorPalette?.length > 0 && (
+              <VisualLineageDiscovery
+                colorPalette={tizitaData.visualDNA.colorPalette}
+              />
+            )}
           </div>
         )}
 
@@ -535,7 +543,7 @@ const TwinGenesisPanelChic = ({ onTwinGenerated, onGlowChange }) => {
         <AudioDNAPanel
           audioData={audioData}
           rekordboxData={rekordboxData}
-          clarosaData={clarosaData}
+          tizitaData={tizitaData}
         />
 
         {/* Cross-Modal Coherence - Visual + Audio Alignment */}

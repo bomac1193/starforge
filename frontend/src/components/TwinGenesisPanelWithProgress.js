@@ -15,7 +15,7 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
   const [glowLevel, setGlowLevel] = useState(3);
 
   // Integration states
-  const [clarosaData, setClarosaData] = useState(null);
+  const [tizitaData, setTizitaData] = useState(null);
   const [sinkData, setSinkData] = useState(null);
   const [rekordboxData, setRekordboxData] = useState(null);
   const [analyzedTracks, setAnalyzedTracks] = useState([]);
@@ -48,10 +48,10 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
     onGlowChange(level);
   };
 
-  // Connect to CLAROSA with progress modal
-  const handleConnectClarosa = async () => {
+  // Connect to Tizita with progress modal
+  const handleConnectTizita = async () => {
     setShowModal(true);
-    setModalType('clarosa');
+    setModalType('tizita');
     setModalProgress({ current: 0, total: 100, percentage: 0 });
     setModalItems([]);
 
@@ -60,13 +60,13 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
       setModalProgress({ current: 10, total: 100, percentage: 10 });
       setModalCurrentItem({ name: 'Loading profile...', id: 'profile' });
 
-      const profileRes = await axios.get('/api/deep/clarosa/profile');
+      const profileRes = await axios.get('/api/deep/tizita/profile');
 
       // Step 2: Get top photos (20-80%)
       setModalProgress({ current: 20, total: 100, percentage: 20 });
       setModalCurrentItem({ name: 'Loading top-rated photos...', id: 'photos' });
 
-      const photosRes = await axios.get('/api/deep/clarosa/top-photos', {
+      const photosRes = await axios.get('/api/deep/tizita/top-photos', {
         params: { limit: 20 }
       });
 
@@ -83,13 +83,13 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
           name: photo.file_path.split('/').pop(),
           id: photo.id,
           preview: `http://localhost:5000${photo.file_url}`,
-          score: photo.clarosa_score
+          score: photo.tizita_score
         });
         setModalItems(prev => [...prev, {
           name: photo.file_path.split('/').pop(),
           id: photo.id,
           preview: `http://localhost:5000${photo.file_url}`,
-          score: photo.clarosa_score
+          score: photo.tizita_score
         }]);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -98,22 +98,22 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
       setModalProgress({ current: 80, total: 100, percentage: 80 });
       setModalCurrentItem({ name: 'Extracting visual DNA...', id: 'dna' });
 
-      const dnaRes = await axios.get('/api/deep/clarosa/visual-dna');
+      const dnaRes = await axios.get('/api/deep/tizita/visual-dna');
 
       setModalProgress({ current: 100, total: 100, percentage: 100 });
       setModalCurrentItem(null);
 
-      setClarosaData({
+      setTizitaData({
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
         visualDNA: dnaRes.data.visualDNA
       });
 
-      console.log('CLAROSA connected:', dnaRes.data.visualDNA);
+      console.log('Tizita connected:', dnaRes.data.visualDNA);
     } catch (error) {
-      console.error('Failed to connect to CLAROSA:', error);
+      console.error('Failed to connect to Tizita:', error);
       setModalProgress({ current: 100, total: 100, percentage: 100 });
-      setClarosaData({
+      setTizitaData({
         error: true,
         visualDNA: {
           styleDescription: 'Connection failed - using fallback',
@@ -233,7 +233,7 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
       if (response.data.success) {
         onTwinGenerated({
           ...response.data.twinData,
-          clarosaData,
+          tizitaData,
           sinkData
         });
       }
@@ -244,7 +244,7 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
-  const canGenerate = (audioFiles.length > 0 || clarosaData) && (caption || bio);
+  const canGenerate = (audioFiles.length > 0 || tizitaData) && (caption || bio);
 
   return (
     <div className="space-y-8">
@@ -257,25 +257,25 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
       <div className="card">
         <h3 className="text-xl mb-4">Quick Sync</h3>
         <p className="text-muted text-sm mb-4">
-          Direct access to your CLAROSA photos and SINK audio analysis
+          Direct access to your Tizita photos and SINK audio analysis
         </p>
         <div className="grid grid-cols-2 gap-4">
           <button
-            onClick={handleConnectClarosa}
-            disabled={clarosaData && !clarosaData.error}
+            onClick={handleConnectTizita}
+            disabled={tizitaData && !tizitaData.error}
             className={`p-4 rounded-lg border-2 text-center transition-all ${
-              clarosaData && !clarosaData.error
+              tizitaData && !tizitaData.error
                 ? 'border-mint bg-mint bg-opacity-20 text-mint'
                 : 'border-muted hover:border-mint'
             }`}
           >
             <div className="text-2xl mb-2">🎨</div>
             <div className="font-bold">
-              {clarosaData && !clarosaData.error ? '✓ CLAROSA Connected' : 'Connect CLAROSA'}
+              {tizitaData && !tizitaData.error ? '✓ Tizita Connected' : 'Connect Tizita'}
             </div>
             <div className="text-xs text-muted mt-1">
-              {clarosaData && !clarosaData.error
-                ? `${clarosaData.photos?.length || 0} photos loaded`
+              {tizitaData && !tizitaData.error
+                ? `${tizitaData.photos?.length || 0} photos loaded`
                 : 'Visual Catalog'}
             </div>
           </button>
@@ -304,14 +304,14 @@ const TwinGenesisPanelWithProgress = ({ onTwinGenerated, onGlowChange }) => {
         </div>
 
         {/* Results Display */}
-        {clarosaData && !clarosaData.error && (
+        {tizitaData && !tizitaData.error && (
           <div className="mt-4 p-4 bg-mint bg-opacity-10 border border-mint rounded-lg">
             <div className="text-sm font-bold text-mint mb-2">Visual DNA</div>
             <p className="text-sm text-text mb-3">
-              {clarosaData.visualDNA?.styleDescription}
+              {tizitaData.visualDNA?.styleDescription}
             </p>
             <div className="text-xs text-muted">
-              {clarosaData.photos?.length || 0} photos • {clarosaData.profile?.stats?.highlight_count || 0} highlights
+              {tizitaData.photos?.length || 0} photos • {tizitaData.profile?.stats?.highlight_count || 0} highlights
             </div>
           </div>
         )}

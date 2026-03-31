@@ -3,7 +3,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const catalogAnalysisService = require('./catalogAnalysisService');
 const visualDnaCache = require('./visualDnaCache');
-const clarosaService = require('./clarosaServiceDirect');
+const tizitaService = require('./tizitaServiceDirect');
 const projectDnaService = require('./projectDnaService');
 const subtasteService = require('./subtasteService');
 
@@ -55,12 +55,12 @@ class AITwinService {
       // Get Audio DNA from catalog analysis
       const audioDNA = await catalogAnalysisService.getCatalogAnalysis(userId);
 
-      // Get Visual DNA from CLAROSA
-      const clarosaProfile = clarosaService.getUserProfile(userId === 'default_user' ? 1 : userId);
+      // Get Visual DNA from Tizita
+      const tizitaProfile = tizitaService.getUserProfile(userId === 'default_user' ? 1 : userId);
       let visualDNA = null;
 
-      if (clarosaProfile && clarosaProfile.stats.total_photos > 0) {
-        const photos = clarosaService.getTopPhotos(userId === 'default_user' ? 1 : userId, 50, 0.60);
+      if (tizitaProfile && tizitaProfile.stats.total_photos > 0) {
+        const photos = tizitaService.getTopPhotos(userId === 'default_user' ? 1 : userId, 50, 0.60);
         if (photos && photos.length > 0) {
           visualDNA = visualDnaCache.getCached(userId === 'default_user' ? 1 : userId, photos);
         }
@@ -223,7 +223,7 @@ class AITwinService {
       if (!aestheticDNA.available) {
         return {
           success: false,
-          error: 'Insufficient aesthetic DNA. Upload music and/or connect CLAROSA.'
+          error: 'Insufficient aesthetic DNA. Upload music and/or connect Tizita.'
         };
       }
 
@@ -266,7 +266,7 @@ class AITwinService {
       if (!aestheticDNA.available) {
         return {
           success: false,
-          error: 'Insufficient aesthetic DNA. Upload music and/or connect CLAROSA.'
+          error: 'Insufficient aesthetic DNA. Upload music and/or connect Tizita.'
         };
       }
 
@@ -312,7 +312,7 @@ The caption should feel authentic to their proven taste, not generic AI.`;
       if (!aestheticDNA.available) {
         return {
           success: false,
-          error: 'Insufficient aesthetic DNA. Upload music and/or connect CLAROSA.'
+          error: 'Insufficient aesthetic DNA. Upload music and/or connect Tizita.'
         };
       }
 

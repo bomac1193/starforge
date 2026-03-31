@@ -1,12 +1,11 @@
 /**
  * Shared Design Tokens for the Starforge Ecosystem
- * Used by: Swanblade, Starforge, Burn the Square
  *
- * Aesthetic: Elegant precision (Swan + Blade)
- * - Tyrian Purple accent (#66023C)
- * - Fraunces for display, Inter for body
+ * Aesthetic: Architectural precision
+ * - Canela for display, Söhne for body
  * - Sharp corners, no border-radius
  * - High contrast black/white base
+ * - Spacing scale: 8/16/24/32/48/64/96
  */
 
 export const colors = {
@@ -46,8 +45,8 @@ export const colors = {
 export const typography = {
   // Font families
   fonts: {
-    display: 'Fraunces, Georgia, serif',
-    body: 'Inter, "Helvetica Neue", Arial, sans-serif',
+    display: 'Canela, Georgia, serif',
+    body: 'Söhne, "Helvetica Neue", Arial, sans-serif',
     mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
   },
 
@@ -89,6 +88,7 @@ export const typography = {
 };
 
 export const spacing = {
+  // Numeric scale (Tailwind-compatible)
   0: '0',
   1: '4px',
   2: '8px',
@@ -101,6 +101,16 @@ export const spacing = {
   12: '48px',
   16: '64px',
   20: '80px',
+  24: '96px',
+
+  // Named semantic scale (ecosystem-standard)
+  xs: '8px',
+  sm: '16px',
+  md: '24px',
+  lg: '32px',
+  xl: '48px',
+  '2xl': '64px',
+  '3xl': '96px',
 };
 
 export const borders = {
@@ -176,7 +186,7 @@ export function generateCSSVariables() {
   --color-warning: ${colors.status.warning};
   --color-info: ${colors.status.info};
 
-  /* Typography */
+  /* Typography — Canela + Söhne */
   --font-display: ${typography.fonts.display};
   --font-body: ${typography.fonts.body};
   --font-mono: ${typography.fonts.mono};

@@ -1,7 +1,7 @@
 /**
  * Twin OS Visual DNA Import Routes
  *
- * Receives Visual DNA exports from Clarosa and integrates with Audio DNA
+ * Receives Visual DNA exports from Tizita and integrates with Audio DNA
  * for cross-modal coherence analysis.
  */
 
@@ -14,7 +14,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const projectDnaService = require('../services/projectDnaService');
 const subtasteService = require('../services/subtasteService');
-const clarosaDirectService = require('../services/clarosaServiceDirect');
+const tizitaDirectService = require('../services/tizitaServiceDirect');
+const artMovementClassifier = require('../services/artMovementClassifier');
 
 // Audio database connection
 const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
@@ -54,7 +55,7 @@ const verifyEcosystemSecret = (req, res, next) => {
 
 /**
  * POST /api/twin/visual-dna/import
- * Import Visual DNA from Clarosa and calculate cross-modal coherence
+ * Import Visual DNA from Tizita and calculate cross-modal coherence
  */
 router.post('/import', verifyEcosystemSecret, async (req, res) => {
   try {
@@ -64,7 +65,7 @@ router.post('/import', verifyEcosystemSecret, async (req, res) => {
       confidence,
       stats,
       visual_characteristics,
-      source = 'clarosa'
+      source = 'tizita'
     } = req.body;
 
     if (!user_id) {
@@ -220,7 +221,7 @@ router.get('/status/:userId', (req, res) => {
     res.json({
       success: true,
       has_visual_dna: false,
-      message: 'No Visual DNA imported. Sync from Clarosa to enable cross-modal analysis.'
+      message: 'No Visual DNA imported. Sync from Tizita to enable cross-modal analysis.'
     });
   }
 });
@@ -236,14 +237,14 @@ router.get('/context/:userId', async (req, res) => {
     // Get cached Visual DNA
     const visualDna = visualDnaCache.get(userId);
 
-    // Fetch deep analysis from Clarosa API (art movements, influences, composition)
+    // Fetch deep analysis from Tizita API (art movements, influences, composition)
     let deepAnalysis = null;
     try {
-      const fullResponse = await clarosaDirectService.fetchDeepAnalysis(1);
+      const fullResponse = await tizitaDirectService.fetchDeepAnalysis(1);
       // Extract the nested deep_analysis object (fetchDeepAnalysis returns full response)
       deepAnalysis = fullResponse?.deep_analysis || fullResponse;
     } catch (err) {
-      // Clarosa not running — that's fine
+      // Tizita not running — that's fine
     }
 
     // Get Audio DNA
@@ -287,8 +288,8 @@ router.get('/context/:userId', async (req, res) => {
       );
     }
 
-    // Get Project DNA (highest-conviction identity signal)
-    const projectDna = projectDnaService.getProjectDNA(userId === 'default_user' ? 'default' : userId);
+    // Get Project DNA (highest-conviction identity signal — auto-scans once if not cached)
+    const projectDna = await projectDnaService.getOrScanProjectDNA(userId === 'default_user' ? 'default' : userId);
 
     // Run Subtaste classification from available signals
     const visualChars = visualDna?.visual_characteristics || null;
@@ -315,14 +316,17 @@ router.get('/context/:userId', async (req, res) => {
           energy: visualDna?.visual_characteristics?.energy || 0.5,
           themes: visualDna?.visual_characteristics?.themes || [],
           confidence: visualDna?.confidence || 0,
-          // Deep analysis: specific art movements, influences, composition
-          art_movements: deepAnalysis?.art_movements || deepAnalysis?.artMovements || [],
+          // Art movements: prefer photo-signal classification, fall back to heuristic
+          art_movements: (() => {
+            const pm = artMovementClassifier.classifyMovements();
+            return pm ? pm.movements : (deepAnalysis?.art_movements || deepAnalysis?.artMovements || []);
+          })(),
           influences: deepAnalysis?.influences || [],
           color_profile: deepAnalysis?.color_profile || deepAnalysis?.colorProfile || null,
           composition: deepAnalysis?.composition || null,
           visual_era: deepAnalysis?.visual_era || deepAnalysis?.visualEra || null,
         } : {
-          message: 'No Visual DNA. Sync from Clarosa.'
+          message: 'No Visual DNA. Sync from Tizita.'
         },
         cross_modal_coherence: crossModalCoherence,
         archetype: deriveArchetype(visualDna, audioDna),
@@ -356,22 +360,22 @@ router.get('/context/:userId', async (req, res) => {
 });
 
 /**
- * POST /api/twin/visual-dna/connect-clarosa
- * Frontend calls this when "Connect CLAROSA" is clicked
- * Fetches analysis from Clarosa API and stores in local cache
+ * POST /api/twin/visual-dna/connect-tizita
+ * Frontend calls this when "Connect Tizita" is clicked
+ * Fetches analysis from Tizita API and stores in local cache
  * No ecosystem secret needed (frontend → own backend)
  */
-router.post('/connect-clarosa', async (req, res) => {
+router.post('/connect-tizita', async (req, res) => {
   try {
     const { user_id = 'default_user' } = req.body;
 
-    // Fetch deep analysis from Clarosa
-    const deepAnalysis = await clarosaDirectService.fetchDeepAnalysis(1);
+    // Fetch deep analysis from Tizita
+    const deepAnalysis = await tizitaDirectService.fetchDeepAnalysis(1);
 
     if (!deepAnalysis) {
       return res.status(503).json({
         success: false,
-        error: 'Clarosa not reachable. Start Clarosa on port 8001.',
+        error: 'Tizita not reachable. Start Tizita on port 8001.',
       });
     }
 
@@ -379,7 +383,7 @@ router.post('/connect-clarosa', async (req, res) => {
     const baseChars = deepAnalysis.base_characteristics || {};
     const deep = deepAnalysis.deep_analysis || deepAnalysis;
 
-    // Build visual_characteristics from Clarosa's actual data
+    // Build visual_characteristics from Tizita's actual data
     const visual_characteristics = {
       warmth: baseChars.warmth || 0.5,
       energy: baseChars.energy || 0.11,
@@ -394,13 +398,13 @@ router.post('/connect-clarosa', async (req, res) => {
       confidence: deepAnalysis.confidence || 0.99,
       visual_characteristics,
       deep_analysis: deep,
-      source: 'clarosa-connect',
+      source: 'tizita-connect',
       imported_at: new Date().toISOString(),
     });
 
     res.json({
       success: true,
-      message: 'Visual DNA connected from Clarosa',
+      message: 'Visual DNA connected from Tizita',
       visual_characteristics,
       deep_analysis: {
         art_movements: deep.art_movements || [],
@@ -411,7 +415,7 @@ router.post('/connect-clarosa', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error connecting Clarosa:', error);
+    console.error('Error connecting Tizita:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -421,17 +425,17 @@ router.post('/connect-clarosa', async (req, res) => {
 
 /**
  * POST /api/twin/visual-dna/sync
- * Pull Visual DNA directly from Clarosa API
+ * Pull Visual DNA directly from Tizita API
  */
 router.post('/sync', verifyEcosystemSecret, async (req, res) => {
   try {
-    const { user_id = 'default', clarosa_url } = req.body;
+    const { user_id = 'default', tizita_url } = req.body;
 
-    const clarosaApiUrl = clarosa_url || process.env.CLAROSA_API_URL || 'http://localhost:8001/api/v1';
+    const tizitaApiUrl = tizita_url || process.env.Tizita_API_URL || 'http://localhost:8001/api/v1';
 
-    // Fetch from Clarosa
+    // Fetch from Tizita
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(`${clarosaApiUrl}/visual-dna/export?user_id=${user_id}`, {
+    const response = await fetch(`${tizitaApiUrl}/visual-dna/export?user_id=${user_id}`, {
       method: 'GET',
       headers: {
         'X-Ecosystem-Secret': ECOSYSTEM_API_SECRET,
@@ -443,7 +447,7 @@ router.post('/sync', verifyEcosystemSecret, async (req, res) => {
       const error = await response.text();
       return res.status(response.status).json({
         success: false,
-        error: `Clarosa API error: ${error}`
+        error: `Tizita API error: ${error}`
       });
     }
 
@@ -452,7 +456,7 @@ router.post('/sync', verifyEcosystemSecret, async (req, res) => {
     // Store it
     visualDnaCache.set(user_id, {
       ...visualDna,
-      source: 'clarosa-sync',
+      source: 'tizita-sync',
       synced_at: new Date().toISOString()
     });
 
@@ -493,7 +497,7 @@ router.post('/sync', verifyEcosystemSecret, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Visual DNA synced from Clarosa',
+      message: 'Visual DNA synced from Tizita',
       visual_dna: {
         confidence: visualDna.confidence,
         stats: visualDna.stats
@@ -501,7 +505,7 @@ router.post('/sync', verifyEcosystemSecret, async (req, res) => {
       cross_modal_analysis: crossModalResult
     });
   } catch (error) {
-    console.error('Error syncing from Clarosa:', error);
+    console.error('Error syncing from Tizita:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -589,7 +593,7 @@ function deriveBrandKeywords(visual, audio) {
 
 function deriveVisualDirection(visual, deepAnalysis) {
   if (!visual?.visual_characteristics && !deepAnalysis) {
-    return 'Develop a consistent visual identity through Clarosa.';
+    return 'Develop a consistent visual identity through Tizita.';
   }
 
   const parts = [];

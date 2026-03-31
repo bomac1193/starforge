@@ -53,7 +53,7 @@ const PricingPage = () => {
       description: 'For creative individuals exploring their aesthetic',
       features: [
         'Basic Twin OS generation',
-        'Visual DNA from CLAROSA photos',
+        'Visual DNA from Tizita photos',
         'Audio upload & analysis (up to 50 tracks)',
         'Single context view',
         'Community support'

@@ -3,7 +3,7 @@ import axios from 'axios';
 
 /**
  * Cross-Modal Coherence Component
- * Displays alignment between Visual DNA (CLAROSA) and Audio DNA
+ * Displays alignment between Visual DNA (Tizita) and Audio DNA
  * Unique differentiator: measures aesthetic coherence across modalities
  */
 const CrossModalCoherence = ({ userId = 'default_user' }) => {
@@ -51,7 +51,7 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
       <div className="border border-brand-border p-4">
         <p className="uppercase-label text-brand-secondary mb-3">Cross-Modal Alignment</p>
         <p className="text-body-sm text-brand-secondary italic">
-          {error || 'Connect CLAROSA and upload music to see cross-modal coherence'}
+          {error || 'Connect Tizita and upload music to see cross-modal coherence'}
         </p>
       </div>
     );

@@ -5,13 +5,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Services
-const clarosaService = require('./services/clarosaService');
-const clarosaDirectService = require('./services/clarosaServiceDirect');
+dotenv.config();
+
+// Services (loaded AFTER dotenv so env vars are available in constructors)
+const tizitaService = require('./services/tizitaService');
+const tizitaDirectService = require('./services/tizitaServiceDirect');
 const sinkService = require('./services/sinkService');
 const sinkFolderScanner = require('./services/sinkFolderScanner');
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,8 +21,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve CLAROSA photos as static files
-app.use('/storage', express.static(process.env.CLAROSA_STORAGE || path.join(__dirname, '../storage')));
+// Serve Tizita photos as static files
+app.use('/storage', express.static(process.env.Tizita_STORAGE || path.join(__dirname, '../storage')));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -164,29 +164,29 @@ app.post('/api/calendar/parse', upload.single('calendar'), (req, res) => {
 });
 
 // ========================================
-// CLAROSA Visual Integration Routes
+// Tizita Visual Integration Routes
 // ========================================
 
-// Get visual essence from CLAROSA
-app.get('/api/clarosa/visual-essence', async (req, res) => {
+// Get visual essence from Tizita
+app.get('/api/tizita/visual-essence', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     const minScore = parseFloat(req.query.min_score) || 0.7;
 
-    // Get top-rated images from CLAROSA
-    const images = await clarosaService.getTopRatedImages(limit, minScore);
+    // Get top-rated images from Tizita
+    const images = await tizitaService.getTopRatedImages(limit, minScore);
 
     // Extract visual tone from images
-    const visualTone = await clarosaService.extractVisualTone(images);
+    const visualTone = await tizitaService.extractVisualTone(images);
 
     res.json({
       success: true,
       images,
       visualTone,
-      source: 'clarosa'
+      source: 'tizita'
     });
   } catch (error) {
-    console.error('Error fetching CLAROSA data:', error);
+    console.error('Error fetching Tizita data:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -194,10 +194,10 @@ app.get('/api/clarosa/visual-essence', async (req, res) => {
   }
 });
 
-// Get CLAROSA taste profile
-app.get('/api/clarosa/taste-profile', async (req, res) => {
+// Get Tizita taste profile
+app.get('/api/tizita/taste-profile', async (req, res) => {
   try {
-    const profile = await clarosaService.getVisualTasteProfile();
+    const profile = await tizitaService.getVisualTasteProfile();
 
     res.json({
       success: true,
@@ -211,8 +211,8 @@ app.get('/api/clarosa/taste-profile', async (req, res) => {
   }
 });
 
-// Import Midjourney images to CLAROSA
-app.post('/api/clarosa/import-midjourney', async (req, res) => {
+// Import Midjourney images to Tizita
+app.post('/api/tizita/import-midjourney', async (req, res) => {
   try {
     const { mjExportPath } = req.body;
 
@@ -223,7 +223,7 @@ app.post('/api/clarosa/import-midjourney', async (req, res) => {
       });
     }
 
-    const result = await clarosaService.importFromMidjourney(mjExportPath);
+    const result = await tizitaService.importFromMidjourney(mjExportPath);
 
     res.json(result);
   } catch (error) {
@@ -327,7 +327,7 @@ app.post('/api/sink/separate-stems', upload.single('audio'), async (req, res) =>
 });
 
 // ========================================
-// Enhanced Twin Generation with CLAROSA + SINK
+// Enhanced Twin Generation with Tizita + SINK
 // ========================================
 
 app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) => {
@@ -335,15 +335,15 @@ app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) 
     const { caption, bio, glowLevel } = req.body;
     const audioFiles = req.files || [];
 
-    console.log('Generating enhanced Twin with CLAROSA + SINK integration');
+    console.log('Generating enhanced Twin with Tizita + SINK integration');
 
-    // 1. Get visual essence from CLAROSA
+    // 1. Get visual essence from Tizita
     let visualData = null;
     try {
-      const images = await clarosaService.getTopRatedImages(10, 0.7);
-      visualData = await clarosaService.extractVisualTone(images);
+      const images = await tizitaService.getTopRatedImages(10, 0.7);
+      visualData = await tizitaService.extractVisualTone(images);
     } catch (error) {
-      console.log('CLAROSA unavailable, using fallback');
+      console.log('Tizita unavailable, using fallback');
       visualData = {
         styleDescription: 'Cosmic neon aesthetic',
         dominantColors: ['#A882FF', '#26FFE6'],
@@ -373,7 +373,7 @@ app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) 
       voiceSample: caption ? `${caption.slice(0, 50)}...` : 'Voice sample pending',
       bio: bio || '',
 
-      // Visual DNA from CLAROSA
+      // Visual DNA from Tizita
       visualTone: visualData.styleDescription,
       colorPalette: visualData.dominantColors,
       aestheticTags: visualData.aestheticTags,
@@ -397,7 +397,7 @@ app.post('/api/twin/generate-enhanced', upload.array('audio'), async (req, res) 
       // Metadata
       generatedAt: new Date().toISOString(),
       sources: {
-        visual: visualData ? 'clarosa' : 'fallback',
+        visual: visualData ? 'tizita' : 'fallback',
         audio: audioData ? 'sink' : 'fallback'
       }
     };
@@ -476,7 +476,7 @@ const subtasteIntegrationRoutes = require('./routes/subtasteIntegration');
 app.use('/api/subtaste', subtasteIntegrationRoutes);
 
 // ========================================
-// TWIN OS VISUAL DNA (CLAROSA INTEGRATION)
+// TWIN OS VISUAL DNA (Tizita INTEGRATION)
 // ========================================
 const twinVisualDnaRoutes = require('./routes/twinVisualDna');
 app.use('/api/twin/visual-dna', twinVisualDnaRoutes);

@@ -68,13 +68,6 @@ const ContextComparisonView = ({ userId }) => {
     );
   }
 
-  // Get color for score
-  const getScoreColor = (score) => {
-    if (score >= 75) return 'text-green-500';
-    if (score >= 50) return 'text-yellow-500';
-    return 'text-orange-500';
-  };
-
   const getScoreLabel = (score) => {
     if (score >= 75) return 'Highly Aligned';
     if (score >= 50) return 'Moderately Aligned';
@@ -89,11 +82,11 @@ const ContextComparisonView = ({ userId }) => {
       <div className="mb-6 pb-6 border-b border-brand-border">
         <div className="flex items-center justify-between mb-2">
           <span className="text-body text-brand-secondary">Overall Alignment</span>
-          <span className={`text-h2 font-bold ${getScoreColor(comparison.overall)}`}>
+          <span className="text-h2 font-bold text-brand-text">
             {comparison.overall}%
           </span>
         </div>
-        <div className="w-full bg-brand-border h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-brand-border h-2 overflow-hidden">
           <div
             className="h-full bg-brand-text transition-all duration-500"
             style={{ width: `${comparison.overall}%` }}

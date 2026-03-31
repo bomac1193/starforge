@@ -31,6 +31,18 @@ function getDB() {
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS lineage_ratings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        artifact_key TEXT NOT NULL,
+        rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+        notes TEXT DEFAULT '',
+        artifact_json TEXT NOT NULL,
+        saved_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, artifact_key)
+      )
+    `);
   }
   return db;
 }
@@ -217,4 +229,53 @@ function getSuggestions(userId = 'default') {
   }
 }
 
-module.exports = { discoverLineage, getSuggestions };
+/**
+ * Rate a lineage discovery artifact (1-5 Likert)
+ * 1=miss, 2=noted, 3=resonant, 4=canon, 5=ancestor
+ */
+function rateArtifact(userId, artifact, rating, notes = '') {
+  const database = getDB();
+  const artifactKey = `${artifact.artifact}::${artifact.year || ''}`.toLowerCase().trim();
+
+  database.prepare(`
+    INSERT INTO lineage_ratings (user_id, artifact_key, rating, notes, artifact_json)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, artifact_key)
+    DO UPDATE SET rating = excluded.rating, notes = excluded.notes, saved_at = datetime('now')
+  `).run(userId, artifactKey, rating, notes, JSON.stringify(artifact));
+
+  return { success: true, artifactKey, rating };
+}
+
+/**
+ * Get all saved/rated artifacts for a user
+ */
+function getSavedArtifacts(userId = 'default') {
+  try {
+    const database = getDB();
+    const rows = database.prepare(
+      'SELECT * FROM lineage_ratings WHERE user_id = ? ORDER BY rating DESC, saved_at DESC'
+    ).all(userId);
+
+    return rows.map(row => ({
+      ...JSON.parse(row.artifact_json),
+      rating: row.rating,
+      notes: row.notes,
+      savedAt: row.saved_at,
+      artifactKey: row.artifact_key,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Remove a rating
+ */
+function removeRating(userId, artifactKey) {
+  const database = getDB();
+  database.prepare('DELETE FROM lineage_ratings WHERE user_id = ? AND artifact_key = ?').run(userId, artifactKey);
+  return { success: true };
+}
+
+module.exports = { discoverLineage, getSuggestions, rateArtifact, getSavedArtifacts, removeRating };

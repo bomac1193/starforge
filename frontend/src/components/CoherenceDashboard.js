@@ -10,8 +10,8 @@ import CrossModalCoherence from './CrossModalCoherence';
 const CoherenceDashboard = ({ userId = 'default_user' }) => {
   const [audioDNA, setAudioDNA] = useState(null);
   const [visualDNA, setVisualDNA] = useState(null);
-  const [clarosaData, setClarosaData] = useState(null);
-  const [connectingClarosa, setConnectingClarosa] = useState(false);
+  const [tizitaData, setTizitaData] = useState(null);
+  const [connectingTizita, setConnectingTizita] = useState(false);
   const [tasteCoherence, setTasteCoherence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +19,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
 
   useEffect(() => {
     fetchAllData();
-  }, [userId, analysisMode, clarosaData]);
+  }, [userId, analysisMode, tizitaData]);
 
   const fetchAllData = async () => {
     try {
@@ -38,9 +38,9 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         setTasteCoherence(coherenceResponse.data);
       }
 
-      // Fetch Visual DNA (CLAROSA) - only if already connected
-      if (clarosaData && !clarosaData.error) {
-        setVisualDNA(clarosaData.visualDNA);
+      // Fetch Visual DNA (Tizita) - only if already connected
+      if (tizitaData && !tizitaData.error) {
+        setVisualDNA(tizitaData.visualDNA);
       }
 
     } catch (error) {
@@ -51,19 +51,19 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
     }
   };
 
-  const handleConnectClarosa = async () => {
-    setConnectingClarosa(true);
+  const handleConnectTizita = async () => {
+    setConnectingTizita(true);
 
     try {
-      const profileRes = await axios.get('/api/deep/clarosa/profile');
+      const profileRes = await axios.get('/api/deep/tizita/profile');
       // Fetch ALL photos (not just top 20)
-      const photosRes = await axios.get('/api/deep/clarosa/top-photos', {
+      const photosRes = await axios.get('/api/deep/tizita/top-photos', {
         params: {
           limit: 500,  // High limit to get all photos
           minScore: 0  // Include all scores, not just top-rated
         }
       });
-      const dnaRes = await axios.get('/api/deep/clarosa/visual-dna');
+      const dnaRes = await axios.get('/api/deep/tizita/visual-dna');
 
       const connectedData = {
         profile: profileRes.data.profile,
@@ -71,11 +71,11 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         visualDNA: dnaRes.data.visualDNA
       };
 
-      setClarosaData(connectedData);
+      setTizitaData(connectedData);
       setVisualDNA(connectedData.visualDNA);
     } catch (error) {
-      console.error('Failed to connect to CLAROSA:', error);
-      setClarosaData({
+      console.error('Failed to connect to Tizita:', error);
+      setTizitaData({
         error: true,
         visualDNA: {
           styleDescription: 'Connection failed',
@@ -83,7 +83,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         }
       });
     } finally {
-      setConnectingClarosa(false);
+      setConnectingTizita(false);
     }
   };
 
@@ -105,7 +105,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
       <div className="max-w-2xl mx-auto py-24 text-center">
         <h2 className="text-display-md text-brand-text mb-4">AESTHETIC COHERENCE ENGINE</h2>
         <p className="text-body text-brand-secondary mb-8">
-          Upload music and connect CLAROSA to analyze your aesthetic DNA across audio and visual domains.
+          Upload music and connect Tizita to analyze your aesthetic DNA across audio and visual domains.
         </p>
         <div className="grid grid-cols-2 gap-6 text-left">
           <div className="border border-brand-border p-6">
@@ -117,7 +117,7 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
           <div className="border border-brand-border p-6">
             <h3 className="text-brand-text font-medium mb-2">Visual Dna</h3>
             <p className="text-body-sm text-brand-secondary">
-              Connect CLAROSA to analyze your photo aesthetics, color palettes, and visual themes.
+              Connect Tizita to analyze your photo aesthetics, color palettes, and visual themes.
             </p>
           </div>
         </div>
@@ -290,34 +290,34 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
         <div className="border border-brand-border p-6">
           <h3 className="text-display-sm text-brand-text mb-4">Visual Dna</h3>
 
-          {!clarosaData || clarosaData.error ? (
+          {!tizitaData || tizitaData.error ? (
             <div className="space-y-4">
               <p className="text-body-sm text-brand-secondary mb-6">
-                Direct access to your CLAROSA photo collection
+                Direct access to your Tizita photo collection
               </p>
               <button
-                onClick={handleConnectClarosa}
-                disabled={connectingClarosa}
+                onClick={handleConnectTizita}
+                disabled={connectingTizita}
                 className="btn-primary w-full"
               >
-                {connectingClarosa ? 'Connecting...' : 'Connect CLAROSA'}
+                {connectingTizita ? 'Connecting...' : 'Connect Tizita'}
               </button>
             </div>
           ) : (
             <div className="space-y-4">
               {/* Style Description */}
-              {clarosaData.visualDNA?.styleDescription && (
+              {tizitaData.visualDNA?.styleDescription && (
                 <p className="text-body text-brand-text mb-4">
-                  {clarosaData.visualDNA.styleDescription}
+                  {tizitaData.visualDNA.styleDescription}
                 </p>
               )}
 
               {/* Color Palette */}
-              {clarosaData.visualDNA?.colorPalette && clarosaData.visualDNA.colorPalette.length > 0 && (
+              {tizitaData.visualDNA?.colorPalette && tizitaData.visualDNA.colorPalette.length > 0 && (
                 <div className="mb-4">
                   <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
                   <div className="flex gap-2">
-                    {clarosaData.visualDNA.colorPalette.map((color, idx) => (
+                    {tizitaData.visualDNA.colorPalette.map((color, idx) => (
                       <div key={idx} className="flex-1">
                         <div
                           className="h-12 border border-brand-border"
@@ -352,8 +352,8 @@ const CoherenceDashboard = ({ userId = 'default_user' }) => {
 
               {/* Stats */}
               <div className="text-body-sm text-brand-secondary pt-4 border-t border-brand-border">
-                {clarosaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
-                {clarosaData.profile?.stats?.highlight_count || 0} highlights
+                {tizitaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
+                {tizitaData.profile?.stats?.highlight_count || 0} highlights
               </div>
             </div>
           )}

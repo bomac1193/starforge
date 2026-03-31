@@ -169,6 +169,26 @@ function getProjectDNA(userId = 'default') {
   }
 }
 
+/**
+ * Get Project DNA, auto-scanning once if no cached data exists.
+ * This avoids burning API credits on every request — scans once, caches forever
+ * until manually refreshed via POST /scan.
+ */
+let autoScanPromise = null;
+async function getOrScanProjectDNA(userId = 'default') {
+  const cached = getProjectDNA(userId);
+  if (cached) return cached;
+
+  // No cached data — trigger a one-time scan (deduplicated)
+  if (!autoScanPromise) {
+    console.log('Project DNA not cached — running one-time auto-scan...');
+    autoScanPromise = scanAndSave(userId)
+      .then(result => { autoScanPromise = null; return result; })
+      .catch(err => { autoScanPromise = null; console.error('Auto-scan failed:', err.message); return null; });
+  }
+  return autoScanPromise;
+}
+
 // --- Scan from uploaded files (for other users) ---
 
 async function extractIdentityFromContext(projectContext, sourcesScanned) {
@@ -378,6 +398,7 @@ module.exports = {
   scanProjectDNA,
   scanAndSave,
   getProjectDNA,
+  getOrScanProjectDNA,
   scanFromUploadedFiles,
   scanDirectory,
   scanUploadedAndSave,

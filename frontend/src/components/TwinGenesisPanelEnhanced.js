@@ -12,8 +12,8 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
   const [glowLevel, setGlowLevel] = useState(3);
 
   // Integration states
-  const [clarosaConnected, setClarosaConnected] = useState(false);
-  const [clarosaData, setClarosaData] = useState(null);
+  const [tizitaConnected, setTizitaConnected] = useState(false);
+  const [tizitaData, setTizitaData] = useState(null);
   const [sinkAnalyzing, setSinkAnalyzing] = useState(false);
   const [sinkData, setSinkData] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -68,12 +68,12 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
     onGlowChange(level);
   };
 
-  // Connect to CLAROSA for visual essence
-  const handleConnectClarosa = async () => {
+  // Connect to Tizita for visual essence
+  const handleConnectTizita = async () => {
     try {
-      setClarosaConnected(true);
+      setTizitaConnected(true);
 
-      const response = await axios.get('/api/clarosa/visual-essence', {
+      const response = await axios.get('/api/tizita/visual-essence', {
         params: {
           limit: 10,
           min_score: 0.7
@@ -81,13 +81,13 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
       });
 
       if (response.data.success) {
-        setClarosaData(response.data);
-        console.log('CLAROSA connected:', response.data.visualTone);
+        setTizitaData(response.data);
+        console.log('Tizita connected:', response.data.visualTone);
       }
     } catch (error) {
-      console.error('Failed to connect to CLAROSA:', error);
+      console.error('Failed to connect to Tizita:', error);
       // Keep button as connected for UI purposes, will use fallback
-      setClarosaData({
+      setTizitaData({
         visualTone: {
           styleDescription: 'Cosmic neon aesthetic',
           dominantColors: ['#A882FF', '#26FFE6'],
@@ -173,7 +173,7 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
         calendarFile,
         glowLevel,
         voiceSample: caption ? `${caption.slice(0, 50)}...` : 'Voice sample pending',
-        visualTone: clarosaData?.visualTone?.styleDescription || 'Cosmic aesthetic',
+        visualTone: tizitaData?.visualTone?.styleDescription || 'Cosmic aesthetic',
         audioProfile: sinkData?.profile || 'Audio profile pending',
         capacityScore: glowLevel >= 4 ? 'high' : glowLevel >= 3 ? 'medium' : 'low',
       };
@@ -184,7 +184,7 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
     }
   };
 
-  const canGenerate = (audioFiles.length > 0 || clarosaConnected) && (caption || bio);
+  const canGenerate = (audioFiles.length > 0 || tizitaConnected) && (caption || bio);
 
   return (
     <div className="space-y-8">
@@ -201,17 +201,17 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
         </p>
         <div className="grid grid-cols-2 gap-4">
           <button
-            onClick={handleConnectClarosa}
-            disabled={clarosaConnected}
+            onClick={handleConnectTizita}
+            disabled={tizitaConnected}
             className={`p-4 rounded-lg border-2 text-center transition-all ${
-              clarosaConnected
+              tizitaConnected
                 ? 'border-mint bg-mint bg-opacity-20 text-mint'
                 : 'border-muted hover:border-mint'
             }`}
           >
             <div className="text-2xl mb-2">🎨</div>
             <div className="font-bold">
-              {clarosaConnected ? '✓ CLAROSA Connected' : 'Connect CLAROSA'}
+              {tizitaConnected ? '✓ Tizita Connected' : 'Connect Tizita'}
             </div>
             <div className="text-xs text-muted mt-1">Visual Catalog</div>
           </button>
@@ -234,14 +234,14 @@ const TwinGenesisPanelEnhanced = ({ onTwinGenerated, onGlowChange }) => {
         </div>
 
         {/* Show synced data */}
-        {clarosaData && (
+        {tizitaData && (
           <div className="mt-4 p-3 bg-mint bg-opacity-10 border border-mint rounded-lg">
             <p className="text-sm text-mint">
-              Visual Tone: {clarosaData.visualTone?.styleDescription}
+              Visual Tone: {tizitaData.visualTone?.styleDescription}
             </p>
-            {clarosaData.visualTone?.dominantColors && (
+            {tizitaData.visualTone?.dominantColors && (
               <div className="flex gap-2 mt-2">
-                {clarosaData.visualTone.dominantColors.slice(0, 5).map((color, idx) => (
+                {tizitaData.visualTone.dominantColors.slice(0, 5).map((color, idx) => (
                   <div
                     key={idx}
                     className="w-8 h-8 rounded border border-muted"

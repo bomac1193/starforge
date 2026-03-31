@@ -1,6 +1,6 @@
 /**
  * Cross-Modal Coherence Analyzer
- * Analyzes alignment between Visual DNA (CLAROSA) and Audio DNA
+ * Analyzes alignment between Visual DNA (Tizita) and Audio DNA
  * Unique feature: nobody else does cross-modal aesthetic analysis
  */
 class CrossModalAnalyzer {

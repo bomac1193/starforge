@@ -45,6 +45,15 @@ module.exports = {
         'body-sm': ['12px', { lineHeight: '18px', fontWeight: '400' }],      // Buch
         'label': ['11px', { lineHeight: '16px', fontWeight: '500', letterSpacing: '0.05em' }], // Medium
       },
+      spacing: {
+        'xs': '8px',
+        'sm': '16px',
+        'md': '24px',
+        'lg': '32px',
+        'xl': '48px',
+        '2xl': '64px',
+        '3xl': '96px',
+      },
       letterSpacing: {
         'wider': '0.05em',
         'widest': '0.1em',

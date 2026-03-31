@@ -73,7 +73,7 @@ const AIGenerationPanel = ({ userId = 'default_user' }) => {
       if (err.response?.status === 403) {
         setError(`This feature requires ${err.response.data.requiredTier} tier. Upgrade to unlock AI generation.`);
       } else {
-        setError(err.response?.data?.error || 'Generation failed. Make sure you have uploaded music and/or connected CLAROSA.');
+        setError(err.response?.data?.error || 'Generation failed. Make sure you have uploaded music and/or connected Tizita.');
       }
     } finally {
       setLoading(false);

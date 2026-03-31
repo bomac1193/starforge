@@ -6,7 +6,7 @@ import axios from 'axios';
  * Displays Sonic Palette - the audio equivalent of Visual DNA color palette
  * Shows frequency bands, tonal characteristics, and sonic signature
  */
-const AudioDNAPanel = ({ audioData, rekordboxData, clarosaData }) => {
+const AudioDNAPanel = ({ audioData, rekordboxData, tizitaData }) => {
   const [sonicPalette, setSonicPalette] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

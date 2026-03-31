@@ -2,26 +2,26 @@ const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
 
-// CLAROSA Integration Service
-// Connects to local CLAROSA instance for visual catalog
+// Tizita Integration Service
+// Connects to local Tizita instance for visual catalog
 
-class ClarosaService {
+class TizitaService {
   constructor() {
-    // CLAROSA runs on its own port (adjust as needed)
-    this.clarosaBaseUrl = process.env.CLAROSA_URL || 'http://localhost:8000';
-    this.clarosaPath = process.env.CLAROSA_PATH || '/home/sphinxy/clarosa';
+    // Tizita runs on its own port (adjust as needed)
+    this.tizitaBaseUrl = process.env.Tizita_URL || 'http://localhost:8000';
+    this.tizitaPath = process.env.Tizita_PATH || '/home/sphinxy/tizita';
   }
 
   /**
-   * Get user's top-rated images from CLAROSA
+   * Get user's top-rated images from Tizita
    * @param {number} limit - Number of images to fetch
    * @param {number} minScore - Minimum Bradley-Terry score (0-1)
    * @returns {Promise<Array>} - Top rated images with metadata
    */
   async getTopRatedImages(limit = 10, minScore = 0.7) {
     try {
-      // Call CLAROSA API endpoint
-      const response = await axios.get(`${this.clarosaBaseUrl}/api/images/top-rated`, {
+      // Call Tizita API endpoint
+      const response = await axios.get(`${this.tizitaBaseUrl}/api/images/top-rated`, {
         params: { limit, min_score: minScore }
       });
 
@@ -36,7 +36,7 @@ class ClarosaService {
         createdAt: img.created_at
       }));
     } catch (error) {
-      console.error('Error fetching from CLAROSA:', error.message);
+      console.error('Error fetching from Tizita:', error.message);
 
       // Fallback: Try direct database query if API unavailable
       return this.getTopRatedImagesFallback(limit, minScore);
@@ -44,20 +44,20 @@ class ClarosaService {
   }
 
   /**
-   * Fallback: Query CLAROSA database directly
+   * Fallback: Query Tizita database directly
    */
   async getTopRatedImagesFallback(limit, minScore) {
     try {
-      // CLAROSA uses SQLAlchemy with PostgreSQL
+      // Tizita uses SQLAlchemy with PostgreSQL
       // This is a fallback if API is down
 
-      console.log('CLAROSA API unavailable, using mock data');
+      console.log('Tizita API unavailable, using mock data');
 
       // Return mock structure for development
       return [
         {
           id: 1,
-          path: '/clarosa/images/sample1.jpg',
+          path: '/tizita/images/sample1.jpg',
           score: 0.85,
           confidence: 0.92,
           colorPalette: ['#A882FF', '#26FFE6', '#0F0F1A'],
@@ -158,7 +158,7 @@ class ClarosaService {
 
   /**
    * Import images from Midjourney export
-   * This would process MJ exports and add them to CLAROSA for ranking
+   * This would process MJ exports and add them to Tizita for ranking
    */
   async importFromMidjourney(mjExportPath) {
     try {
@@ -170,8 +170,8 @@ class ClarosaService {
 
       console.log(`Found ${imageFiles.length} Midjourney images to import`);
 
-      // Call CLAROSA import endpoint
-      const response = await axios.post(`${this.clarosaBaseUrl}/api/images/import`, {
+      // Call Tizita import endpoint
+      const response = await axios.post(`${this.tizitaBaseUrl}/api/images/import`, {
         source: 'midjourney',
         images: imageFiles.map(f => ({
           path: path.join(mjExportPath, f),
@@ -194,11 +194,11 @@ class ClarosaService {
   }
 
   /**
-   * Get user's visual taste profile from CLAROSA
+   * Get user's visual taste profile from Tizita
    */
   async getVisualTasteProfile() {
     try {
-      const response = await axios.get(`${this.clarosaBaseUrl}/api/profile/taste`);
+      const response = await axios.get(`${this.tizitaBaseUrl}/api/profile/taste`);
 
       return {
         confidence: response.data.confidence,
@@ -214,4 +214,4 @@ class ClarosaService {
   }
 }
 
-module.exports = new ClarosaService();
+module.exports = new TizitaService();

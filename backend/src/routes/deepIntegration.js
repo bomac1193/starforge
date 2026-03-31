@@ -1,11 +1,11 @@
 /**
  * Deep Integration Routes
- * Direct database access to CLAROSA and folder scanning for SINK
+ * Direct database access to Tizita and folder scanning for SINK
  */
 
 const express = require('express');
 const router = express.Router();
-const clarosaDirectService = require('../services/clarosaServiceDirect');
+const tizitaDirectService = require('../services/tizitaServiceDirect');
 const sinkFolderScanner = require('../services/sinkFolderScanner');
 const visualDnaCache = require('../services/visualDnaCache');
 const sonicPaletteService = require('../services/sonicPaletteService');
@@ -16,6 +16,7 @@ const influenceGenealogy = require('../services/influenceGenealogy');
 const Database = require('better-sqlite3');
 const path = require('path');
 const { requireFeature } = require('../middleware/subscription');
+const artMovementClassifier = require('../services/artMovementClassifier');
 
 // Audio database connection
 const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
@@ -29,22 +30,22 @@ const getAudioDB = () => {
 };
 
 // ========================================
-// CLAROSA DIRECT DATABASE ACCESS
+// Tizita DIRECT DATABASE ACCESS
 // ========================================
 
 /**
- * GET /api/deep/clarosa/profile
- * Get user's actual CLAROSA profile with stats
+ * GET /api/deep/tizita/profile
+ * Get user's actual Tizita profile with stats
  */
-router.get('/clarosa/profile', (req, res) => {
+router.get('/tizita/profile', (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
-    const profile = clarosaDirectService.getUserProfile(userId);
+    const profile = tizitaDirectService.getUserProfile(userId);
 
     if (!profile) {
       return res.status(404).json({
         success: false,
-        error: 'CLAROSA database not found or profile not available'
+        error: 'Tizita database not found or profile not available'
       });
     }
 
@@ -53,7 +54,7 @@ router.get('/clarosa/profile', (req, res) => {
       profile
     });
   } catch (error) {
-    console.error('Error getting CLAROSA profile:', error);
+    console.error('Error getting Tizita profile:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -62,16 +63,16 @@ router.get('/clarosa/profile', (req, res) => {
 });
 
 /**
- * GET /api/deep/clarosa/top-photos
- * Get user's actual top-rated photos from CLAROSA
+ * GET /api/deep/tizita/top-photos
+ * Get user's actual top-rated photos from Tizita
  */
-router.get('/clarosa/top-photos', (req, res) => {
+router.get('/tizita/top-photos', (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const minScore = parseFloat(req.query.min_score) || 60;
 
-    const photos = clarosaDirectService.getTopPhotos(userId, limit, minScore);
+    const photos = tizitaDirectService.getTopPhotos(userId, limit, minScore);
 
     res.json({
       success: true,
@@ -88,20 +89,20 @@ router.get('/clarosa/top-photos', (req, res) => {
 });
 
 /**
- * GET /api/deep/clarosa/visual-dna
- * Extract complete visual DNA from user's CLAROSA photos
+ * GET /api/deep/tizita/visual-dna
+ * Extract complete visual DNA from user's Tizita photos
  * Now includes sophisticated color analysis and marketing-grade descriptions
  * Uses intelligent caching for fast subsequent loads
  */
-router.get('/clarosa/visual-dna', async (req, res) => {
+router.get('/tizita/visual-dna', async (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
     const forceRefresh = req.query.refresh === 'true';
 
     // Fetch both the local Visual DNA extraction and the deep analysis in parallel
     const [visualDNA, fullAnalysis] = await Promise.all([
-      clarosaDirectService.extractVisualDNA(userId, forceRefresh),
-      clarosaDirectService.fetchDeepAnalysis(userId),
+      tizitaDirectService.extractVisualDNA(userId, forceRefresh),
+      tizitaDirectService.fetchDeepAnalysis(userId),
     ]);
 
     if (!visualDNA) {
@@ -113,13 +114,33 @@ router.get('/clarosa/visual-dna', async (req, res) => {
 
     // Merge deep analysis into Visual DNA
     const deepAnalysis = fullAnalysis?.deep_analysis || fullAnalysis;
+
+    // Try photo-signal-based art movement classification (uses best/fav/rated photos)
+    const photoMovements = artMovementClassifier.classifyMovements();
+
     if (deepAnalysis) {
       visualDNA.deepAnalysis = {
-        artMovements: deepAnalysis.art_movements || deepAnalysis.artMovements || [],
+        artMovements: photoMovements
+          ? photoMovements.movements
+          : (deepAnalysis.art_movements || deepAnalysis.artMovements || []),
         colorProfile: deepAnalysis.color_profile || deepAnalysis.colorProfile || {},
         composition: deepAnalysis.composition || {},
         visualEra: deepAnalysis.visual_era || deepAnalysis.visualEra || {},
         influences: deepAnalysis.influences || [],
+      };
+      if (photoMovements) {
+        visualDNA.deepAnalysis.movementSignal = photoMovements.signal;
+        visualDNA.deepAnalysis.movementSource = 'photo_signals';
+      }
+    } else if (photoMovements) {
+      visualDNA.deepAnalysis = {
+        artMovements: photoMovements.movements,
+        movementSignal: photoMovements.signal,
+        movementSource: 'photo_signals',
+        colorProfile: {},
+        composition: {},
+        visualEra: {},
+        influences: [],
       };
     }
 
@@ -137,25 +158,33 @@ router.get('/clarosa/visual-dna', async (req, res) => {
 });
 
 /**
- * GET /api/deep/clarosa/deep-analysis
- * Get Clarosa's deep visual analysis (art movements, influences, composition, visual era)
- * Fetches from Clarosa HTTP API rather than direct DB
+ * GET /api/deep/tizita/deep-analysis
+ * Get Tizita's deep visual analysis (art movements, influences, composition, visual era)
+ * Fetches from Tizita HTTP API rather than direct DB
  */
-router.get('/clarosa/deep-analysis', async (req, res) => {
+router.get('/tizita/deep-analysis', async (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
 
-    const fullAnalysis = await clarosaDirectService.fetchDeepAnalysis(userId);
+    const fullAnalysis = await tizitaDirectService.fetchDeepAnalysis(userId);
 
     if (!fullAnalysis) {
       return res.status(404).json({
         success: false,
-        error: 'Could not fetch deep analysis. Is Clarosa running on port 8001?'
+        error: 'Could not fetch deep analysis. Is Tizita running on port 8001?'
       });
     }
 
     // Return the deep_analysis portion (or full response if flat)
     const deepAnalysis = fullAnalysis.deep_analysis || fullAnalysis;
+
+    // Override art movements with photo-signal-based classification if available
+    const photoMovements = artMovementClassifier.classifyMovements();
+    if (photoMovements) {
+      deepAnalysis.art_movements = photoMovements.movements;
+      deepAnalysis.movement_signal = photoMovements.signal;
+      deepAnalysis.movement_source = 'photo_signals';
+    }
 
     res.json({
       success: true,
@@ -171,10 +200,10 @@ router.get('/clarosa/deep-analysis', async (req, res) => {
 });
 
 /**
- * POST /api/deep/clarosa/visual-dna/refresh
+ * POST /api/deep/tizita/visual-dna/refresh
  * Force refresh Visual DNA cache
  */
-router.post('/clarosa/visual-dna/refresh', async (req, res) => {
+router.post('/tizita/visual-dna/refresh', async (req, res) => {
   try {
     const userId = parseInt(req.body.user_id) || 1;
 
@@ -182,7 +211,7 @@ router.post('/clarosa/visual-dna/refresh', async (req, res) => {
     visualDnaCache.invalidateCache(userId);
 
     // Generate fresh Visual DNA
-    const visualDNA = await clarosaDirectService.extractVisualDNA(userId, true);
+    const visualDNA = await tizitaDirectService.extractVisualDNA(userId, true);
 
     res.json({
       success: true,
@@ -199,10 +228,10 @@ router.post('/clarosa/visual-dna/refresh', async (req, res) => {
 });
 
 /**
- * GET /api/deep/clarosa/visual-dna/cache-stats
+ * GET /api/deep/tizita/visual-dna/cache-stats
  * Get cache statistics
  */
-router.get('/clarosa/visual-dna/cache-stats', (req, res) => {
+router.get('/tizita/visual-dna/cache-stats', (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
     const stats = visualDnaCache.getCacheStats(userId);
@@ -220,13 +249,13 @@ router.get('/clarosa/visual-dna/cache-stats', (req, res) => {
 });
 
 /**
- * GET /api/deep/clarosa/curation
+ * GET /api/deep/tizita/curation
  * Get photos grouped by curation category (highlight, keep, review, delete)
  */
-router.get('/clarosa/curation', (req, res) => {
+router.get('/tizita/curation', (req, res) => {
   try {
     const userId = parseInt(req.query.user_id) || 1;
-    const categories = clarosaDirectService.getCurationCategories(userId);
+    const categories = tizitaDirectService.getCurationCategories(userId);
 
     if (!categories) {
       return res.status(404).json({
@@ -619,7 +648,7 @@ router.post('/cross-modal/analyze', requireFeature('cross_modal_coherence'), asy
     let audio = audioDNA;
 
     if (!visual) {
-      visual = await clarosaDirectService.extractVisualDNA(userId || 1);
+      visual = await tizitaDirectService.extractVisualDNA(userId || 1);
     }
 
     if (!audio) {
@@ -718,9 +747,9 @@ router.post('/twin/generate-complete', async (req, res) => {
 
     console.log('Generating complete Twin with deep integration');
 
-    // 1. Get visual DNA from CLAROSA (direct database)
-    const visualDNA = clarosaDirectService.extractVisualDNA(userId || 1);
-    const profile = clarosaDirectService.getUserProfile(userId || 1);
+    // 1. Get visual DNA from Tizita (direct database)
+    const visualDNA = tizitaDirectService.extractVisualDNA(userId || 1);
+    const profile = tizitaDirectService.getUserProfile(userId || 1);
 
     // 2. Analyze catalog with SINK (if path provided)
     let audioDNA = null;
@@ -737,7 +766,7 @@ router.post('/twin/generate-complete', async (req, res) => {
 
     // 3. Combine into complete Twin profile
     const twinProfile = {
-      // Visual DNA from CLAROSA
+      // Visual DNA from Tizita
       visual: {
         styleDescription: visualDNA?.styleDescription || 'No visual data',
         topTags: visualDNA?.topTags || [],

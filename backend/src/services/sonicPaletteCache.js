@@ -36,6 +36,12 @@ class SonicPaletteCacheService {
       );
     `);
 
+    // Migrate: add style_description if missing (old DBs may lack it)
+    const columns = this.db.pragma('table_info(sonic_palette_cache)').map(c => c.name);
+    if (!columns.includes('style_description')) {
+      this.db.exec(`ALTER TABLE sonic_palette_cache ADD COLUMN style_description TEXT NOT NULL DEFAULT ''`);
+    }
+
     console.log('Sonic Palette cache initialized');
   }
 

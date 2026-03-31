@@ -67,19 +67,6 @@ const TasteCoherenceView = ({ context, userId }) => {
 
   const { coherence, interpretation, trackCount } = data;
 
-  // Get color for score
-  const getScoreColor = (score) => {
-    if (score >= 0.75) return 'text-blue-500';
-    if (score >= 0.5) return 'text-purple-500';
-    return 'text-pink-500';
-  };
-
-  const getBarColor = (score) => {
-    if (score >= 0.75) return 'bg-blue-500';
-    if (score >= 0.5) return 'bg-purple-500';
-    return 'bg-pink-500';
-  };
-
   const getScoreLabel = (score) => {
     if (score >= 0.75) return 'Consistent';
     if (score >= 0.5) return 'Balanced';
@@ -142,7 +129,7 @@ const TasteCoherenceView = ({ context, userId }) => {
             </p>
           </div>
           <div className="text-right">
-            <p className={`text-h2 font-bold ${getScoreColor(coherence.overall)}`}>
+            <p className="text-h2 font-bold text-brand-text">
               {Math.round(coherence.overall * 100)}%
             </p>
             <p className="text-body-sm text-brand-secondary">
@@ -151,9 +138,9 @@ const TasteCoherenceView = ({ context, userId }) => {
           </div>
         </div>
 
-        <div className="w-full bg-brand-border h-3 rounded-full overflow-hidden">
+        <div className="w-full bg-brand-border h-3 overflow-hidden">
           <div
-            className={`h-full ${getBarColor(coherence.overall)} transition-all duration-500`}
+            className="h-full bg-brand-text transition-all duration-500"
             style={{ width: `${coherence.overall * 100}%` }}
           />
         </div>
@@ -184,9 +171,9 @@ const TasteCoherenceView = ({ context, userId }) => {
               </div>
             </div>
 
-            <div className="w-full bg-brand-border h-1.5 rounded-full overflow-hidden">
+            <div className="w-full bg-brand-border h-1.5 overflow-hidden">
               <div
-                className={`h-full ${getBarColor(metric.value)} transition-all duration-300`}
+                className="h-full bg-brand-text transition-all duration-300"
                 style={{ width: `${metric.value * 100}%` }}
               />
             </div>
@@ -199,19 +186,19 @@ const TasteCoherenceView = ({ context, userId }) => {
         <p className="uppercase-label text-brand-secondary mb-3">What This Means</p>
         <div className="grid grid-cols-3 gap-4 text-body-xs">
           <div>
-            <p className="text-blue-500 font-medium mb-1">75-100% Consistent</p>
+            <p className="text-brand-text font-medium mb-1">75-100% Consistent</p>
             <p className="text-brand-secondary">
               Focused taste, clear preferences
             </p>
           </div>
           <div>
-            <p className="text-purple-500 font-medium mb-1">50-74% Balanced</p>
+            <p className="text-brand-text font-medium mb-1">50-74% Balanced</p>
             <p className="text-brand-secondary">
               Mix of consistency and variety
             </p>
           </div>
           <div>
-            <p className="text-pink-500 font-medium mb-1">0-49% Eclectic</p>
+            <p className="text-brand-text font-medium mb-1">0-49% Eclectic</p>
             <p className="text-brand-secondary">
               Diverse, exploratory taste
             </p>

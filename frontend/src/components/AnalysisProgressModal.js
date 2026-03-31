@@ -7,7 +7,7 @@ import React from 'react';
 const AnalysisProgressModal = ({
   isOpen,
   onClose,
-  type, // 'clarosa' or 'sink'
+  type, // 'tizita' or 'sink'
   progress,
   currentItem,
   items
@@ -16,8 +16,8 @@ const AnalysisProgressModal = ({
 
   const getTitle = () => {
     switch (type) {
-      case 'clarosa':
-        return 'Connecting to CLAROSA';
+      case 'tizita':
+        return 'Connecting to Tizita';
       case 'sink':
         return 'Analyzing Audio';
       default:
@@ -27,7 +27,7 @@ const AnalysisProgressModal = ({
 
   const getDescription = () => {
     switch (type) {
-      case 'clarosa':
+      case 'tizita':
         return 'Loading visual catalog and extracting taste profile';
       case 'sink':
         return 'Analyzing mood, energy, BPM, and key for each track';
@@ -82,7 +82,7 @@ const AnalysisProgressModal = ({
             <div className="text-body text-brand-text truncate">
               {currentItem.name || currentItem.path || currentItem.id}
             </div>
-            {currentItem.preview && type === 'clarosa' && (
+            {currentItem.preview && type === 'tizita' && (
               <div className="mt-3">
                 <img
                   src={currentItem.preview}
@@ -126,7 +126,7 @@ const AnalysisProgressModal = ({
         {items && items.length > 0 && (
           <div>
             <div className="uppercase-label text-brand-secondary mb-3">
-              {type === 'clarosa' ? 'Loaded photos' : 'Analyzed tracks'}
+              {type === 'tizita' ? 'Loaded photos' : 'Analyzed tracks'}
             </div>
             <div className="max-h-48 overflow-y-auto space-y-2">
               {items.slice(-5).reverse().map((item, idx) => (
@@ -134,7 +134,7 @@ const AnalysisProgressModal = ({
                   key={idx}
                   className="flex items-center gap-3 p-3 border border-brand-border text-body-sm"
                 >
-                  {type === 'clarosa' && item.preview && (
+                  {type === 'tizita' && item.preview && (
                     <img
                       src={item.preview}
                       alt=""
@@ -167,11 +167,11 @@ const AnalysisProgressModal = ({
         <div className="mt-6 p-3 border border-brand-border">
           <p className="text-body-sm text-brand-text">
             {progress?.percentage === 100 ? (
-              type === 'clarosa'
+              type === 'tizita'
                 ? `Loaded ${items?.length || 0} photos. Visual DNA extracted.`
                 : `Analyzed ${items?.length || 0} tracks. Musical DNA generated.`
             ) : (
-              type === 'clarosa'
+              type === 'tizita'
                 ? 'Extracting your visual taste profile'
                 : 'Learning your musical patterns'
             )}
