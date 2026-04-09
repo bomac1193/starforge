@@ -17,6 +17,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { requireFeature } = require('../middleware/subscription');
 const artMovementClassifier = require('../services/artMovementClassifier');
+const culturalColorDictionary = require('../services/culturalColorDictionary');
+const visualTaxonomy = require('../services/visualMovementTaxonomy');
 
 // Audio database connection
 const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
@@ -101,11 +103,11 @@ router.get('/tizita/visual-dna', async (req, res) => {
 
     // Fetch both the local Visual DNA extraction and the deep analysis in parallel
     const [visualDNA, fullAnalysis] = await Promise.all([
-      tizitaDirectService.extractVisualDNA(userId, forceRefresh),
+      tizitaDirectService.extractVisualDNA(userId, forceRefresh).catch(() => null),
       tizitaDirectService.fetchDeepAnalysis(userId),
     ]);
 
-    if (!visualDNA) {
+    if (!visualDNA && !fullAnalysis) {
       return res.status(404).json({
         success: false,
         error: 'Could not extract visual DNA'
@@ -115,28 +117,113 @@ router.get('/tizita/visual-dna', async (req, res) => {
     // Merge deep analysis into Visual DNA
     const deepAnalysis = fullAnalysis?.deep_analysis || fullAnalysis;
 
-    // Try photo-signal-based art movement classification (uses best/fav/rated photos)
+    // If k-means failed but Tizita analysis available — construct minimal visualDNA
+    const effectiveVisualDNA = visualDNA || (() => {
+      const base = fullAnalysis?.base_characteristics || {};
+      return {
+        styleDescription: `${base.themes?.[0] || 'Experimental'} aesthetic`,
+        colorPalette: [],
+        confidence: fullAnalysis?.confidence || 0,
+        photoCount: 0,
+      };
+    })();
+
+    // Get photo-signal-based classifier for boost signals
     const photoMovements = artMovementClassifier.classifyMovements();
 
+    // Extract palette hex codes for taxonomy matching
+    const paletteHexes = (effectiveVisualDNA.colorPalette || [])
+      .map(c => c.hex)
+      .filter(Boolean);
+
+    // Build classifier-to-taxonomy boosts from photo signal movements
+    const classifierBoosts = {};
+    if (photoMovements) {
+      const CLASSIFIER_TO_TAXONOMY = {
+        'Kente Aesthetic': 'kente',
+        'Ndebele Geometric': 'ndebele',
+        'Ankara/African Print': 'ankara',
+        'Adinkra (Ashanti Symbol)': 'adinkra',
+        'Nsibidi (Igbo Script)': 'nsibidi',
+        'Ba-ila Fractal (Zambia)': 'baila',
+        'Bogolan/Mudcloth (Mali)': 'bogolan',
+        'Adire (Yoruba Indigo)': 'adire',
+        'Tingatinga (Tanzania)': 'tingatinga',
+        'Bauhaus': 'bauhaus',
+        'Brutalism': 'brutalism',
+        'Memphis': 'memphis',
+        'Minimalism': 'minimalism',
+        'Swiss Design': 'swiss_design',
+        'Art Deco': 'art_deco',
+        'Art Nouveau': 'art_nouveau',
+        'Wabi-sabi': 'wabi_sabi',
+        'Ma (Negative Space)': 'ma',
+        'Kanso (Simplicity)': 'kanso',
+        'Islamic Geometric': 'islamic_geometric',
+        'Arabesque': 'arabesque',
+        'Persian Miniature': 'persian_miniature',
+        'Muralism': 'muralism',
+        'Magical Realism': 'magical_realism',
+        'Madhubani': 'madhubani',
+        'Mughal Miniature': 'mughal_miniature',
+        'Ukiyo-e (Japanese Woodblock)': 'ukiyoe',
+        'Shan Shui (Chinese Landscape)': 'shanshui',
+      };
+
+      for (const m of photoMovements.movements) {
+        const taxId = CLASSIFIER_TO_TAXONOMY[m.name];
+        if (taxId) {
+          classifierBoosts[taxId] = m.affinity * 0.4;
+        }
+      }
+    }
+
+    // Taxonomy-matched movements (primary) with classifier boosts
+    let taxonomyMovements = [];
+    if (paletteHexes.length > 0) {
+      const taxResults = visualTaxonomy.matchPaletteToMovements(
+        paletteHexes, 7, classifierBoosts
+      );
+      taxonomyMovements = taxResults.map(entry => ({
+        name: entry.movement.name,
+        id: entry.movement.id,
+        region: entry.movement.region,
+        era: entry.movement.era,
+        affinity: Math.round(entry.affinity * 100) / 100,
+        cultural_context: entry.movement.cultural_context,
+        key_practitioners: entry.movement.key_practitioners,
+        hex_palette: entry.movement.hex_palette,
+        matchedColors: entry.matchedColors?.slice(0, 3),
+        boosted: entry.boosted || false,
+      }));
+    }
+
+    // Enrich color palette with cultural names
+    const enrichedPalette = culturalColorDictionary.matchPalette(
+      effectiveVisualDNA.colorPalette || []
+    );
+
     if (deepAnalysis) {
-      visualDNA.deepAnalysis = {
-        artMovements: photoMovements
-          ? photoMovements.movements
+      effectiveVisualDNA.deepAnalysis = {
+        artMovements: taxonomyMovements.length > 0
+          ? taxonomyMovements
           : (deepAnalysis.art_movements || deepAnalysis.artMovements || []),
         colorProfile: deepAnalysis.color_profile || deepAnalysis.colorProfile || {},
         composition: deepAnalysis.composition || {},
         visualEra: deepAnalysis.visual_era || deepAnalysis.visualEra || {},
         influences: deepAnalysis.influences || [],
+        movementSource: taxonomyMovements.length > 0
+          ? 'taxonomy_matched'
+          : 'heuristic',
       };
       if (photoMovements) {
-        visualDNA.deepAnalysis.movementSignal = photoMovements.signal;
-        visualDNA.deepAnalysis.movementSource = 'photo_signals';
+        effectiveVisualDNA.deepAnalysis.movementSignal = photoMovements.signal;
       }
-    } else if (photoMovements) {
-      visualDNA.deepAnalysis = {
-        artMovements: photoMovements.movements,
-        movementSignal: photoMovements.signal,
-        movementSource: 'photo_signals',
+    } else {
+      effectiveVisualDNA.deepAnalysis = {
+        artMovements: taxonomyMovements,
+        movementSignal: photoMovements?.signal || null,
+        movementSource: 'taxonomy_matched',
         colorProfile: {},
         composition: {},
         visualEra: {},
@@ -144,9 +231,12 @@ router.get('/tizita/visual-dna', async (req, res) => {
       };
     }
 
+    // Add enriched palette to response
+    effectiveVisualDNA.culturalPalette = enrichedPalette;
+
     res.json({
       success: true,
-      visualDNA
+      visualDNA: effectiveVisualDNA
     });
   } catch (error) {
     console.error('Error extracting visual DNA:', error);

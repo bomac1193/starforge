@@ -143,15 +143,15 @@ class VisualDnaCacheService {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `).run(
         userId,
-        visualDna.styleDescription,
+        visualDna.styleDescription ?? '',
         JSON.stringify(visualDna.colorPalette || []),
-        visualDna.paletteCharacteristics || '',
+        typeof visualDna.paletteCharacteristics === 'object' ? JSON.stringify(visualDna.paletteCharacteristics) : (visualDna.paletteCharacteristics ?? ''),
         JSON.stringify(visualDna.dominantThemes || []),
-        visualDna.totalAnalyzed || 0,
-        visualDna.highRatedCount || 0,
-        visualDna.confidence || 0,
-        photos.length,
-        photoHash
+        visualDna.totalAnalyzed ?? 0,
+        visualDna.highRatedCount ?? 0,
+        visualDna.confidence ?? 0,
+        photos?.length ?? 0,
+        photoHash ?? ''
       );
 
       console.log(`Visual DNA cached for user ${userId}`);

@@ -191,8 +191,8 @@ class TizitaDirectService {
     if (!this.db) return null;
 
     try {
-      // Get ALL photos for comprehensive analysis (using 0-1 scale)
-      const allPhotos = this.getTopPhotos(userId, 500, 0.0);
+      // Get top-rated photos for analysis (limit to 50 for fast k-means — best signal)
+      const allPhotos = this.getTopPhotos(userId, 50, 0.0);
 
       if (allPhotos.length === 0) {
         return {
@@ -235,6 +235,18 @@ class TizitaDirectService {
         let stdout = '';
         let stderr = '';
 
+        // Kill after 90s to prevent zombie processes (k-means on large photos is slow)
+        const timeout = setTimeout(() => {
+          python.kill('SIGTERM');
+          try { fs.unlinkSync(tmpFile); } catch (e) {}
+          console.warn('Python visual DNA analysis timed out after 90s');
+          resolve({
+            styleDescription: this.generateSimpleStyleDescription(allPhotos),
+            colorPalette: [],
+            confidence: 0.5
+          });
+        }, 90000);
+
         python.stdout.on('data', (data) => {
           stdout += data.toString();
         });
@@ -244,6 +256,7 @@ class TizitaDirectService {
         });
 
         python.on('close', (code) => {
+          clearTimeout(timeout);
           // Clean up temp file
           try { fs.unlinkSync(tmpFile); } catch (e) {}
 

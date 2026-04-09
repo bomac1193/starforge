@@ -9,6 +9,10 @@
  *   favorite    = weight 2.0 (strong preference)
  *   rating >= 4 = weight 1.5 (liked)
  *   rating <= 2 = weight -1.0 (anti-signal)
+ *
+ * Characteristics are computed PER-PHOTO and then weighted-averaged,
+ * rather than computing from a single centroid (which kills variance
+ * and produces artificially low energy for all users).
  */
 
 const tizitaDirectService = require('./tizitaServiceDirect');
@@ -56,47 +60,148 @@ function computeWeightedCentroid(photoGroups) {
 }
 
 /**
- * Extract visual characteristics from an embedding vector
- * Same dimensional analysis as Tizita's calculate_deep_analysis
- * but applied to the high-signal centroid
+ * Extract visual characteristics from a single embedding vector.
+ * Used per-photo before averaging.
  */
-function extractCharacteristics(vec) {
+function extractSingleCharacteristics(vec) {
+  const dim = vec.length;
   const lowLevel = vec.slice(0, 256);
   const midLevel = vec.slice(256, 512);
   const highLevel = vec.slice(512);
 
-  // Warmth: early dimensions
+  // Warmth: early dimensions (mean of first 128)
   const warmthDims = vec.slice(0, 128);
   const warmthMean = warmthDims.reduce((a, b) => a + b, 0) / warmthDims.length;
   const warmth = Math.max(0, Math.min(1, 0.5 + warmthMean * 2));
 
-  // Energy: variance across vector
-  const mean = vec.reduce((a, b) => a + b, 0) / vec.length;
-  const variance = vec.reduce((sum, v) => sum + (v - mean) ** 2, 0) / vec.length;
-  const energy = Math.max(0, Math.min(1, Math.sqrt(variance) * 3));
+  // For single embeddings, use dimension-range features instead of overall std
+  // (SigLIP std is ~0.036 for ALL photos — useless for differentiation)
 
-  // Contrast: spread
+  // Energy: magnitude range of high-level features (captures visual intensity)
+  const highRange = highLevel.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
+  const energy = Math.max(0, Math.min(1, highRange * 10));
+
+  // Contrast: difference between max and min across ALL dimensions
   let min = Infinity, max = -Infinity;
-  for (const v of vec) {
-    if (v < min) min = v;
-    if (v > max) max = v;
+  for (let i = 0; i < dim; i++) {
+    if (vec[i] < min) min = vec[i];
+    if (vec[i] > max) max = vec[i];
   }
-  const contrast = Math.max(0, Math.min(1, (max - min) * 0.5));
+  const contrast = Math.max(0, Math.min(1, (max - min) * 2.5));
 
-  // Complexity: std dev
-  const complexity = Math.sqrt(variance);
+  // Complexity: count of dimensions with significant absolute value
+  // (how many features are "active")
+  const threshold = 0.02;
+  let activeCount = 0;
+  for (let i = 0; i < dim; i++) {
+    if (Math.abs(vec[i]) > threshold) activeCount++;
+  }
+  const complexity = Math.max(0, Math.min(1, activeCount / dim));
 
-  // Symmetry: inverse of mid-level variance
-  const midMean = midLevel.reduce((a, b) => a + b, 0) / midLevel.length;
-  const midVar = midLevel.reduce((sum, v) => sum + (v - midMean) ** 2, 0) / midLevel.length;
-  const symmetry = Math.max(0, Math.min(1, 1 - Math.sqrt(midVar) * 2));
+  // Symmetry: correlation between first and second half of mid-level
+  const midA = midLevel.slice(0, 128);
+  const midB = midLevel.slice(128, 256);
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < 128; i++) {
+    dot += midA[i] * midB[i];
+    normA += midA[i] * midA[i];
+    normB += midB[i] * midB[i];
+  }
+  const cosine = (normA > 0 && normB > 0) ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+  const symmetry = Math.max(0, Math.min(1, (cosine + 1) / 2)); // Map [-1,1] to [0,1]
 
-  // Organic vs geometric
-  const highMean = highLevel.slice(0, 128).reduce((a, b) => a + b, 0) / 128;
-  const organic = Math.max(0, Math.min(1, highMean + 0.5));
+  // Organic vs geometric: ratio of smooth (low-freq) to sharp (high-freq) features
+  const lowMean = Math.abs(lowLevel.reduce((a, b) => a + b, 0) / lowLevel.length);
+  const highMean = Math.abs(highLevel.reduce((a, b) => a + b, 0) / highLevel.length);
+  const organicRaw = highMean / (lowMean + highMean + 1e-8);
+  const organic = Math.max(0, Math.min(1, organicRaw * 2));
   const geometric = 1 - organic;
 
   return { warmth, energy, contrast, complexity, symmetry, organic, geometric };
+}
+
+/**
+ * Compute weighted average of per-photo characteristics.
+ * This preserves per-photo variance that gets lost in centroid averaging.
+ */
+function computeWeightedCharacteristics(photoGroups) {
+  const accumulator = { warmth: 0, energy: 0, contrast: 0, complexity: 0, symmetry: 0, organic: 0, geometric: 0 };
+  let totalWeight = 0;
+
+  for (const { photos, weight } of photoGroups) {
+    const absWeight = Math.abs(weight);
+    const sign = weight >= 0 ? 1 : -1;
+
+    for (const photo of photos) {
+      const emb = parseEmbedding(photo.siglip_embedding);
+      if (!emb || emb.length !== 768) continue;
+
+      const chars = extractSingleCharacteristics(emb);
+
+      for (const key of Object.keys(accumulator)) {
+        // For anti-signals (negative weight), invert the contribution
+        accumulator[key] += chars[key] * absWeight * sign;
+      }
+      totalWeight += absWeight;
+    }
+  }
+
+  if (totalWeight === 0) return null;
+
+  // Normalize and clamp
+  const result = {};
+  for (const key of Object.keys(accumulator)) {
+    result[key] = Math.max(0, Math.min(1, accumulator[key] / totalWeight));
+  }
+
+  return result;
+}
+
+/**
+ * Also compute embedding diversity as an additional energy signal.
+ * High diversity = eclectic taste = more energy/dynamism.
+ */
+function computeEmbeddingDiversity(photoGroups) {
+  // Collect all positive-signal embeddings
+  const embeddings = [];
+  for (const { photos, weight } of photoGroups) {
+    if (weight <= 0) continue;
+    for (const photo of photos) {
+      const emb = parseEmbedding(photo.siglip_embedding);
+      if (emb && emb.length === 768) embeddings.push(emb);
+    }
+  }
+
+  if (embeddings.length < 3) return 0.5; // Not enough data
+
+  // Compute average pairwise cosine distance (sample up to 200 for speed)
+  const sample = embeddings.length > 200
+    ? embeddings.sort(() => Math.random() - 0.5).slice(0, 200)
+    : embeddings;
+
+  let totalDist = 0;
+  let pairs = 0;
+
+  for (let i = 0; i < sample.length; i++) {
+    // Compare to 10 random others for O(n) instead of O(n^2)
+    const numCompare = Math.min(10, sample.length - 1);
+    for (let j = 0; j < numCompare; j++) {
+      const k = (i + 1 + j) % sample.length;
+      let dot = 0, normA = 0, normB = 0;
+      for (let d = 0; d < 768; d++) {
+        dot += sample[i][d] * sample[k][d];
+        normA += sample[i][d] * sample[i][d];
+        normB += sample[k][d] * sample[k][d];
+      }
+      const cosine = dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-8);
+      totalDist += 1 - cosine; // cosine distance
+      pairs++;
+    }
+  }
+
+  const avgDist = totalDist / (pairs || 1);
+  // Typical cosine distances for photos: 0.1 (very similar) to 0.8 (very different)
+  return Math.max(0, Math.min(1, avgDist * 2.5));
 }
 
 /**
@@ -179,20 +284,24 @@ function classifyMovements() {
     return null; // No high-signal photos, caller should fall back to heuristic
   }
 
-  // Compute weighted centroid from all signal sources
-  const centroid = computeWeightedCentroid([
+  const photoGroups = [
     { photos: bestPhotos, weight: 3.0 },
     { photos: favPhotos, weight: 2.0 },
     { photos: highRated, weight: 1.5 },
     { photos: lowRated, weight: -1.0 },
-  ]);
+  ];
 
-  if (!centroid) {
+  // Compute characteristics per-photo then average (preserves variance)
+  const chars = computeWeightedCharacteristics(photoGroups);
+
+  if (!chars) {
     return null;
   }
 
-  // Extract characteristics from the high-signal centroid
-  const chars = extractCharacteristics(centroid);
+  // Boost energy with embedding diversity signal
+  const diversity = computeEmbeddingDiversity(photoGroups);
+  chars.energy = Math.max(0, Math.min(1, chars.energy * 0.6 + diversity * 0.4));
+  chars.complexity = Math.max(0, Math.min(1, chars.complexity * 0.6 + diversity * 0.4));
 
   // Score movements
   const scores = scoreMovements(chars);
@@ -203,9 +312,13 @@ function classifyMovements() {
     .slice(0, 7)
     .map(([name, affinity]) => ({ name, affinity: Math.round(affinity * 100) / 100 }));
 
+  // Also compute centroid for other consumers
+  const centroid = computeWeightedCentroid(photoGroups);
+
   return {
     movements: sorted,
     characteristics: chars,
+    diversity,
     signal: {
       bestPhotos: bestPhotos.length,
       favorites: favPhotos.length,

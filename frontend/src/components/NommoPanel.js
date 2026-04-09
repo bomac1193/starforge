@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import HubCard from './HubCard';
 import CollapsibleSection from './CollapsibleSection';
@@ -11,6 +11,25 @@ import ProjectDNAPanel from './ProjectDNAPanel';
 import LineageDiscoveries from './LineageDiscoveries';
 import VisualLineageDiscovery from './VisualLineageDiscovery';
 import DriftPanel from './DriftPanel';
+
+// --- Session cache: instant loads, background refresh every 5 min ---
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_PREFIX = 'nommo_';
+
+function cacheGet(key) {
+  try {
+    const raw = sessionStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    return { data, ts, stale: Date.now() - ts > CACHE_TTL };
+  } catch { return null; }
+}
+
+function cacheSet(key, data) {
+  try {
+    sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* storage full — non-fatal */ }
+}
 
 // Archetype designation → glyph name + Greek symbol + full relational data
 // This is the single source of truth for archetype metadata.
@@ -285,33 +304,83 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
   const [showArchetypeDetails, setShowArchetypeDetails] = useState(false);
   const [expandedDesignation, setExpandedDesignation] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null); // 'mode' | 'shadow' | 'growth' | null
+  const [showVisualAdvanced, setShowVisualAdvanced] = useState(false);
 
-  // --- Auto-connect on mount ---
+  // Track whether we loaded from session cache (skip redundant fetches)
+  const loadedFromCache = useRef(false);
+
+  // --- Auto-connect on mount (cache-first) ---
   useEffect(() => {
-    fetchSubscriptionStatus();
-    fetchTotalTracks();
-    fetchCachedProjectDNA();
+    // Try instant restore from sessionStorage
+    const cached = {
+      subtaste: cacheGet('subtaste'),
+      tizita: cacheGet('tizita'),
+      writingDna: cacheGet('writingDna'),
+      narrative: cacheGet('narrative'),
+      drift: cacheGet('drift'),
+      conviction: cacheGet('conviction'),
+      projectDna: cacheGet('projectDna'),
+      totalTracks: cacheGet('totalTracks'),
+      subscription: cacheGet('subscription'),
+    };
 
-    // 1. Load cached genome (instant)
-    fetchCachedGenome();
+    // Instant state restore from cache
+    if (cached.subtaste?.data) {
+      setSubtasteData(cached.subtaste.data.archetype || cached.subtaste.data);
+      setSubtasteSource(cached.subtaste.data._source || 'cache');
+      if (cached.subtaste.data._stagesCompleted) setSubtasteStagesCompleted(cached.subtaste.data._stagesCompleted);
+      if (cached.subtaste.data._subtasteUserId) setSubtasteUserIdRef(cached.subtaste.data._subtasteUserId);
+      setLastSyncTime(cached.subtaste.data._cachedAt);
+    }
+    if (cached.tizita?.data) {
+      setTizitaData(cached.tizita.data);
+    }
+    if (cached.writingDna?.data) {
+      setWritingDnaData(cached.writingDna.data);
+    }
+    if (cached.narrative?.data) {
+      setNarrative(cached.narrative.data.narrative);
+      setNarrativeStale(cached.narrative.data.isStale || false);
+    }
+    if (cached.drift?.data) {
+      setDriftTimeline(cached.drift.data.timeline || []);
+      setDriftData(cached.drift.data.drift || null);
+      setDriftSeason(cached.drift.data.season || null);
+    }
+    if (cached.conviction?.data) {
+      setConvictionData(cached.conviction.data);
+    }
+    if (cached.projectDna?.data) {
+      setProjectDnaData(cached.projectDna.data);
+    }
+    if (cached.totalTracks?.data != null) {
+      setTotalTracks(cached.totalTracks.data);
+    }
+    if (cached.subscription?.data) {
+      setSubscriptionTier(cached.subscription.data.tier);
+      setUsageInfo(cached.subscription.data.usage);
+    }
 
-    // 2. Auto-connect Tizita (background)
-    autoConnectTizita();
+    const anyCached = Object.values(cached).some(c => c?.data);
+    loadedFromCache.current = anyCached;
 
-    // 3. Handle URL params from quiz redirect
+    // Determine what needs refreshing (stale or missing)
+    const needsRefresh = (key) => !cached[key]?.data || cached[key]?.stale;
+
+    // Always handle URL params
     handleUrlParams();
 
-    // 4. Auto-connect WritingDNA from Ibis
-    fetchWritingDna();
-
-    // 5. Fetch cached narrative
-    fetchNarrative();
-
-    // 6. Fetch drift data
-    fetchDriftData();
-
-    // 7. Fetch conviction weights
-    fetchConvictionData();
+    // Refresh stale or missing data in background
+    if (needsRefresh('subscription')) fetchSubscriptionStatus();
+    if (needsRefresh('totalTracks')) fetchTotalTracks();
+    if (needsRefresh('projectDna')) fetchCachedProjectDNA();
+    if (needsRefresh('subtaste')) fetchCachedGenome();
+    else if (cached.subtaste?.data?._subtasteUserId) syncFromSubtaste(cached.subtaste.data._subtasteUserId);
+    if (needsRefresh('tizita')) autoConnectTizita();
+    if (needsRefresh('writingDna')) fetchWritingDna();
+    if (needsRefresh('narrative')) fetchNarrative();
+    if (needsRefresh('drift')) fetchDriftData();
+    if (needsRefresh('conviction')) fetchConvictionData();
   }, []);
 
   // --- URL param handling (quiz callback) ---
@@ -343,7 +412,8 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     try {
       const response = await axios.get('/api/subtaste/genome/default_user/cached');
       if (response.data.success && response.data.genome) {
-        setSubtasteData(response.data.genome?.archetype || response.data.genome);
+        const genome = response.data.genome?.archetype || response.data.genome;
+        setSubtasteData(genome);
         setSubtasteSource(response.data.source || 'cache');
         if (response.data.stagesCompleted) {
           setSubtasteStagesCompleted(response.data.stagesCompleted);
@@ -352,6 +422,15 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
           setSubtasteUserIdRef(response.data.subtasteUserId);
         }
         setLastSyncTime(response.data.cachedAt);
+
+        // Store in session cache
+        cacheSet('subtaste', {
+          ...genome,
+          _source: response.data.source || 'cache',
+          _stagesCompleted: response.data.stagesCompleted,
+          _subtasteUserId: response.data.subtasteUserId,
+          _cachedAt: response.data.cachedAt,
+        });
 
         // Background sync: fetch fresh data from Subtaste to update cache
         syncFromSubtaste(response.data.subtasteUserId);
@@ -397,9 +476,14 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
         axios.get('/api/identity/season/default_user'),
       ]);
 
-      if (timelineRes.data?.success) setDriftTimeline(timelineRes.data.timeline || []);
-      if (driftRes.data?.success) setDriftData(driftRes.data.drift || null);
-      if (seasonRes.data?.success) setDriftSeason(seasonRes.data.season || null);
+      const timeline = timelineRes.data?.success ? timelineRes.data.timeline || [] : [];
+      const drift = driftRes.data?.success ? driftRes.data.drift || null : null;
+      const season = seasonRes.data?.success ? seasonRes.data.season || null : null;
+
+      setDriftTimeline(timeline);
+      setDriftData(drift);
+      setDriftSeason(season);
+      cacheSet('drift', { timeline, drift, season });
     } catch (err) {
       console.error('Failed to fetch drift data:', err);
     }
@@ -411,6 +495,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       const res = await axios.get('/api/identity/conviction/default_user');
       if (res.data?.success) {
         setConvictionData(res.data);
+        cacheSet('conviction', res.data);
       }
     } catch (err) {
       console.error('Failed to fetch conviction data:', err);
@@ -424,6 +509,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       if (res.data?.success && res.data?.hasNarrative) {
         setNarrative(res.data.narrative);
         setNarrativeStale(res.data.isStale || false);
+        cacheSet('narrative', { narrative: res.data.narrative, isStale: res.data.isStale });
       }
     } catch (err) {
       console.error('Failed to fetch narrative:', err);
@@ -452,6 +538,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       const res = await axios.get('/api/writing-dna/ibis/default_user');
       if (res.data?.success && res.data?.connected) {
         setWritingDnaData(res.data.writingDNA);
+        cacheSet('writingDna', res.data.writingDNA);
       }
     } catch (err) {
       console.error('Failed to fetch WritingDNA:', err);
@@ -466,6 +553,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       const res = await axios.post('/api/writing-dna/ibis/default_user/sync');
       if (res.data?.success && res.data?.synced) {
         setWritingDnaData(res.data.writingDNA);
+        cacheSet('writingDna', res.data.writingDNA);
       }
     } catch (err) {
       console.error('Failed to rescan WritingDNA:', err);
@@ -494,16 +582,22 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
         console.warn('Visual DNA cache store failed (non-fatal):', cacheErr.message);
       }
 
-      setTizitaData({
+      const tizita = {
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
         visualDNA: dnaRes.data.visualDNA
+      };
+      setTizitaData(tizita);
+      // Cache without photos (too large for sessionStorage) — keep profile + visualDNA
+      cacheSet('tizita', {
+        profile: tizita.profile,
+        visualDNA: tizita.visualDNA,
+        _photosCount: tizita.photos?.length || 0,
       });
 
       fetchAutoClassification();
     } catch (error) {
       console.log('Tizita auto-connect unavailable:', error.message);
-      // Don't set error state on auto-connect — just leave null
     } finally {
       setConnectingTizita(false);
     }
@@ -515,6 +609,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       if (response.data.success) {
         setSubscriptionTier(response.data.tier);
         setUsageInfo(response.data.usage);
+        cacheSet('subscription', { tier: response.data.tier, usage: response.data.usage });
       }
     } catch (error) {
       console.error('Failed to fetch subscription status:', error);
@@ -528,6 +623,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       });
       if (response.data.success) {
         setTotalTracks(response.data.stats.totalTracks);
+        cacheSet('totalTracks', response.data.stats.totalTracks);
       }
     } catch (error) {
       console.error('Failed to fetch track count:', error);
@@ -555,6 +651,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       const response = await axios.get('/api/project-dna/default');
       if (response.data.success) {
         setProjectDnaData(response.data.projectDNA);
+        cacheSet('projectDna', response.data.projectDNA);
       }
     } catch {
       // No cached Project DNA
@@ -588,10 +685,12 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     try {
       const response = await axios.post('/api/subtaste/genome/default_user/rescan');
       if (response.data.success && response.data.genome) {
-        setSubtasteData(response.data.genome?.archetype || response.data.genome);
+        const genome = response.data.genome?.archetype || response.data.genome;
+        setSubtasteData(genome);
         setSubtasteSource('quiz');
         setLastSyncTime(new Date().toISOString());
         setSyncStatus('synced');
+        cacheSet('subtaste', { ...genome, _source: 'quiz', _cachedAt: new Date().toISOString() });
       }
     } catch (err) {
       console.error('Subtaste rescan failed:', err);
@@ -614,11 +713,13 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
         }),
       ]);
 
-      setTizitaData({
+      const tizita = {
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
         visualDNA: dnaRes.data.visualDNA
-      });
+      };
+      setTizitaData(tizita);
+      cacheSet('tizita', { profile: tizita.profile, visualDNA: tizita.visualDNA, _photosCount: tizita.photos?.length || 0 });
 
       fetchAutoClassification();
     } catch (error) {
@@ -1204,120 +1305,202 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
           onToggle={() => toggleCard('visual')}
           accentElement={colorSwatches}
         >
-          {hasVisualDNA && (
-            <div className="space-y-4">
-              <p className="text-body text-brand-text">
-                {tizitaData.visualDNA?.styleDescription}
-              </p>
+          {hasVisualDNA && (() => {
+            const vdna = tizitaData.visualDNA;
+            const da = vdna?.deepAnalysis;
+            const palette = vdna?.culturalPalette?.length > 0 ? vdna.culturalPalette : vdna?.colorPalette || [];
+            const movements = da?.artMovements || [];
 
-              {/* Art Movements */}
-              {tizitaData.visualDNA?.deepAnalysis?.artMovements?.length > 0 && (
-                <div>
-                  <p className="uppercase-label text-brand-secondary mb-2">Art Movements</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tizitaData.visualDNA.deepAnalysis.artMovements.map((m, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-1 border border-brand-border text-body-sm"
-                        title={`Affinity: ${Math.round(m.affinity * 100)}%`}
-                      >
-                        {m.name} <span className="text-brand-secondary font-mono">{Math.round(m.affinity * 100)}%</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+            return (
+              <div className="space-y-5">
 
-              {/* Influences */}
-              {tizitaData.visualDNA?.deepAnalysis?.influences?.length > 0 && (
-                <div>
-                  <p className="uppercase-label text-brand-secondary mb-2">Influences</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tizitaData.visualDNA.deepAnalysis.influences.map((inf, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary"
-                      >
-                        {inf}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Composition + Visual Era */}
-              {tizitaData.visualDNA?.deepAnalysis?.composition && (
-                <div className="grid grid-cols-2 gap-4">
+                {/* Color Palette */}
+                {palette.length > 0 && (
                   <div>
-                    <p className="uppercase-label text-brand-secondary mb-1">Composition</p>
-                    <p className="text-body-sm text-brand-text">
-                      {tizitaData.visualDNA.deepAnalysis.composition.symmetry} •{' '}
-                      {tizitaData.visualDNA.deepAnalysis.composition.negative_space} space •{' '}
-                      {tizitaData.visualDNA.deepAnalysis.composition.complexity} complexity
-                    </p>
-                  </div>
-                  {tizitaData.visualDNA?.deepAnalysis?.visualEra?.primary && (
-                    <div>
-                      <p className="uppercase-label text-brand-secondary mb-1">Visual Era</p>
-                      <p className="text-body-sm text-brand-text">
-                        {tizitaData.visualDNA.deepAnalysis.visualEra.primary}
-                      </p>
+                    <div className="flex gap-2">
+                      {palette.map((color, idx) => {
+                        const displayName = color.culturalName || color.name || color.hex;
+                        const hex = color.hex;
+                        const pct = color.percentage ? Math.round(color.percentage) : null;
+                        return (
+                          <div key={idx} className="flex-1">
+                            <div
+                              className="h-16 border border-brand-border"
+                              style={{ backgroundColor: hex }}
+                              title={color.context ? `${displayName} (${color.origin}): ${color.context}` : hex}
+                            />
+                            <p className="text-body-sm text-brand-text mt-1 text-center leading-tight">
+                              {color.matched ? displayName : hex}
+                            </p>
+                            {color.origin && color.matched && (
+                              <p className="text-body-sm text-brand-secondary text-center leading-tight">
+                                {color.origin}
+                              </p>
+                            )}
+                            {pct > 0 && (
+                              <p className="text-body-sm text-brand-secondary text-center font-mono">
+                                {pct}%
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                  </div>
+                )}
+
+                {/* Top movements */}
+                {movements.length > 0 && (
+                  <div>
+                    <p className="uppercase-label text-brand-secondary mb-2">Visual Lineage</p>
+                    <div className="space-y-1">
+                      {movements.slice(0, 3).map((m, idx) => (
+                        <div key={idx} className="grid items-baseline" style={{ gridTemplateColumns: '1fr auto auto' }}>
+                          <span className="text-body-sm text-brand-text truncate pr-2">
+                            {m.name}
+                          </span>
+                          <span className="text-body-sm text-brand-secondary text-right pr-3" style={{ minWidth: '90px' }}>
+                            {m.region || ''}
+                          </span>
+                          <span className="text-brand-secondary font-mono text-body-sm text-right" style={{ minWidth: '36px' }}>
+                            {Math.round((m.affinity || 0) * 100)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Visual Era + Color Profile */}
+                <div className="flex gap-4 text-body-sm text-brand-secondary">
+                  {da?.visualEra?.primary && (
+                    <span>Era: <span className="text-brand-text">{da.visualEra.primary}</span></span>
+                  )}
+                  {da?.colorProfile?.temperature && (
+                    <span>Temp: <span className="text-brand-text">{da.colorProfile.temperature}</span></span>
+                  )}
+                  {da?.colorProfile?.harmony && (
+                    <span>Harmony: <span className="text-brand-text">{da.colorProfile.harmony}</span></span>
                   )}
                 </div>
-              )}
 
-              {/* Color Palette */}
-              {tizitaData.visualDNA?.colorPalette?.length > 0 && (
-                <div>
-                  <p className="uppercase-label text-brand-secondary mb-2">Color Palette</p>
-                  <div className="flex gap-2">
-                    {tizitaData.visualDNA.colorPalette.map((color, idx) => (
-                      <div key={idx} className="flex-1">
-                        <div
-                          className="h-12 border border-brand-border"
-                          style={{ backgroundColor: color.hex }}
-                          title={`${color.name} (${color.hex})`}
-                        />
-                        <p className="text-body-sm text-brand-secondary mt-1 text-center">
-                          {color.hex}
-                        </p>
+                {/* Stats */}
+                <div className="text-body-sm text-brand-secondary">
+                  {tizitaData.profile?.stats?.total_photos || 0} photos, {' '}
+                  {tizitaData.profile?.stats?.highlight_count || 0} highlights, {' '}
+                  {da?.movementSource === 'taxonomy_matched' ? 'taxonomy-matched' : 'heuristic'}
+                </div>
+
+                {/* Advanced toggle */}
+                <button
+                  onClick={() => setShowVisualAdvanced(!showVisualAdvanced)}
+                  className="text-body-sm text-brand-secondary hover:text-brand-text transition-colors"
+                >
+                  {showVisualAdvanced ? 'Less detail' : 'More detail'}
+                </button>
+
+                {/* --- ADVANCED VIEW --- */}
+                {showVisualAdvanced && (
+                  <div className="space-y-5 pt-3 border-t border-brand-border">
+                    <p className="text-body text-brand-text">
+                      {vdna?.styleDescription}
+                    </p>
+
+                    {/* Full movements with cultural context */}
+                    {movements.length > 0 && (
+                      <div>
+                        <p className="uppercase-label text-brand-secondary mb-2">Full Lineage</p>
+                        <div className="space-y-2">
+                          {movements.map((m, idx) => (
+                            <div key={idx} className="border border-brand-border p-2.5">
+                              <div className="grid items-baseline" style={{ gridTemplateColumns: '1fr auto auto' }}>
+                                <span className="text-body-sm text-brand-text font-medium truncate pr-2">{m.name}</span>
+                                <span className="text-body-sm text-brand-secondary text-right pr-3" style={{ minWidth: '90px' }}>
+                                  {m.region || ''}
+                                </span>
+                                <span className="text-brand-secondary font-mono text-body-sm text-right" style={{ minWidth: '36px' }}>
+                                  {Math.round((m.affinity || 0) * 100)}%
+                                </span>
+                              </div>
+                              {m.era && (
+                                <p className="text-body-sm text-brand-secondary mt-0.5">
+                                  {m.era}
+                                </p>
+                              )}
+                              {m.cultural_context && (
+                                <p className="text-body-sm text-brand-secondary mt-1 leading-snug">
+                                  {m.cultural_context}
+                                </p>
+                              )}
+                              {m.key_practitioners?.length > 0 && (
+                                <p className="text-body-sm text-brand-secondary mt-1">
+                                  {m.key_practitioners.slice(0, 3).join(', ')}
+                                </p>
+                              )}
+                              {m.hex_palette?.length > 0 && (
+                                <div className="flex gap-0.5 mt-1.5">
+                                  {m.hex_palette.slice(0, 5).map((h, hi) => (
+                                    <div
+                                      key={hi}
+                                      className="w-4 h-4 border border-brand-border"
+                                      style={{ backgroundColor: h }}
+                                      title={h}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Influences */}
+                    {da?.influences?.length > 0 && (
+                      <div>
+                        <p className="uppercase-label text-brand-secondary mb-2">Influences</p>
+                        <div className="flex flex-wrap gap-2">
+                          {da.influences.map((inf, idx) => (
+                            <span key={idx} className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary">
+                              {inf}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Composition + Color Profile */}
+                    {da?.composition && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="uppercase-label text-brand-secondary mb-1">Composition</p>
+                          <p className="text-body-sm text-brand-text">
+                            {da.composition.symmetry}, {da.composition.negative_space} space, {da.composition.complexity} complexity
+                          </p>
+                        </div>
+                        {da?.colorProfile && (
+                          <div>
+                            <p className="uppercase-label text-brand-secondary mb-1">Color Profile</p>
+                            <p className="text-body-sm text-brand-text">
+                              {da.colorProfile.saturation_preference} saturation, {da.colorProfile.temperature}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Visual Lineage Discovery */}
+                    {vdna?.colorPalette?.length > 0 && (
+                      <VisualLineageDiscovery
+                        colorPalette={vdna.colorPalette}
+                        userId="default_user"
+                      />
+                    )}
                   </div>
-                </div>
-              )}
-
-              {/* Color Profile */}
-              {tizitaData.visualDNA?.deepAnalysis?.colorProfile && (
-                <div className="flex gap-4 text-body-sm">
-                  <span className="text-brand-secondary">
-                    Saturation: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.saturation_preference}</span>
-                  </span>
-                  <span className="text-brand-secondary">
-                    Harmony: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.harmony}</span>
-                  </span>
-                  <span className="text-brand-secondary">
-                    Temperature: <span className="text-brand-text">{tizitaData.visualDNA.deepAnalysis.colorProfile.temperature}</span>
-                  </span>
-                </div>
-              )}
-
-              {/* Stats */}
-              <div className="text-body-sm text-brand-secondary pt-2 border-t border-brand-border">
-                {tizitaData.profile?.stats?.total_photos || 0} photos analyzed •{' '}
-                {tizitaData.profile?.stats?.highlight_count || 0} highlights
+                )}
               </div>
-
-              {/* Visual Lineage Discovery */}
-              {tizitaData.visualDNA?.colorPalette?.length > 0 && (
-                <VisualLineageDiscovery
-                  colorPalette={tizitaData.visualDNA.colorPalette}
-                  userId="default_user"
-                />
-              )}
-            </div>
-          )}
+            );
+          })()}
         </HubCard>
 
         {/* Card 3 — Audio DNA */}

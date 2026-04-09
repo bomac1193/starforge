@@ -8,6 +8,7 @@ from user's photo collection for marketing-grade insights.
 import sys
 import json
 import argparse
+import math
 from pathlib import Path
 from collections import Counter
 import colorsys
@@ -26,29 +27,82 @@ def rgb_to_hex(rgb):
     return '#{:02x}{:02x}{:02x}'.format(int(rgb[0]), int(rgb[1]), int(rgb[2]))
 
 
-def get_color_name(rgb):
-    """Get descriptive name for color based on HSV"""
+def rgb_to_hsv(rgb):
+    """Convert RGB (0-255) to HSV (h=0-360, s=0-1, v=0-1)"""
     h, s, v = colorsys.rgb_to_hsv(rgb[0]/255, rgb[1]/255, rgb[2]/255)
-    h = h * 360
+    return h * 360, s, v
 
-    # Saturation and value thresholds
+
+def is_near_black(rgb, threshold=0.15):
+    """Check if a color is near-black based on HSV value"""
+    _, _, v = rgb_to_hsv(rgb)
+    return v < threshold
+
+
+def is_near_white(rgb):
+    """Check if a color is near-white (high value, low saturation)"""
+    _, s, v = rgb_to_hsv(rgb)
+    return v > 0.95 and s < 0.1
+
+
+def get_color_name(rgb):
+    """Get descriptive name for color based on HSV with dark color support"""
+    h, s, v = rgb_to_hsv(rgb)
+
+    # Very dark colors — catch these first regardless of saturation
+    if v < 0.15:
+        return "black"
+
+    # Dark but visible colors
+    if v < 0.35:
+        if s < 0.15:
+            return "charcoal"
+        # Has hue — describe as "dark {hue}"
+        hue_name = _hue_name(h)
+        return f"dark {hue_name}"
+
+    # Achromatic (low saturation)
     if s < 0.1:
-        if v < 0.3:
-            return "black"
-        elif v > 0.7:
+        if v > 0.7:
             return "white"
-        else:
-            return "grey"
+        return "grey"
 
-    # Color hue ranges
+    # Full color classification
+    hue_name = _hue_name(h)
+
+    # Add brightness qualifier
+    if v < 0.55:
+        return f"deep {hue_name}"
+    elif v > 0.85 and s > 0.5:
+        return f"bright {hue_name}"
+    elif s < 0.35:
+        return f"muted {hue_name}"
+
+    return hue_name
+
+
+def _hue_name(h):
+    """Map hue angle to color name"""
     if h < 15 or h >= 345:
         return "red"
+    elif h < 30:
+        return "vermillion"
     elif h < 45:
         return "orange"
+    elif h < 60:
+        return "amber"
     elif h < 75:
         return "yellow"
-    elif h < 165:
+    elif h < 105:
+        return "chartreuse"
+    elif h < 135:
         return "green"
+    elif h < 165:
+        return "teal"
+    elif h < 195:
+        return "cyan"
+    elif h < 225:
+        return "azure"
     elif h < 255:
         return "blue"
     elif h < 285:
@@ -56,11 +110,39 @@ def get_color_name(rgb):
     elif h < 315:
         return "magenta"
     else:
-        return "pink"
+        return "rose"
 
 
-def extract_dominant_colors(image_path, n_colors=5):
-    """Extract dominant colors from an image using k-means clustering"""
+def rgb_distance(rgb1, rgb2):
+    """Euclidean distance between two RGB colors"""
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(rgb1, rgb2)))
+
+
+def deduplicate_colors(colors, min_distance=30):
+    """Merge colors that are very similar (within min_distance in RGB space)"""
+    if not colors:
+        return colors
+
+    merged = [colors[0]]
+    for color in colors[1:]:
+        is_duplicate = False
+        for existing in merged:
+            if rgb_distance(color['rgb'], existing['rgb']) < min_distance:
+                # Merge into the higher-weight one
+                existing['weight'] += color['weight']
+                existing['percentage'] += color['percentage']
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            merged.append(color)
+
+    return merged
+
+
+def extract_dominant_colors(image_path, n_colors=8):
+    """Extract dominant colors from an image using k-means clustering.
+    Uses 8 initial clusters and filters near-black/near-white for better results.
+    """
     try:
         img = Image.open(image_path)
 
@@ -74,7 +156,7 @@ def extract_dominant_colors(image_path, n_colors=5):
         # Get pixel data
         pixels = np.array(img).reshape(-1, 3)
 
-        # Use k-means to find dominant colors
+        # Use k-means to find dominant colors (more clusters for better filtering)
         kmeans = KMeans(n_clusters=n_colors, random_state=42, n_init=10)
         kmeans.fit(pixels)
 
@@ -84,18 +166,34 @@ def extract_dominant_colors(image_path, n_colors=5):
         # Count occurrences to get dominance
         counts = Counter(labels)
 
-        # Sort by dominance
-        sorted_colors = []
+        # Build color list
+        all_cluster_colors = []
         for i in sorted(counts, key=counts.get, reverse=True):
             rgb = colors[i]
-            sorted_colors.append({
+            all_cluster_colors.append({
                 'rgb': rgb.tolist(),
                 'hex': rgb_to_hex(rgb),
                 'name': get_color_name(rgb),
                 'percentage': (counts[i] / len(labels)) * 100
             })
 
-        return sorted_colors
+        # Filter near-black and near-white
+        filtered = [c for c in all_cluster_colors
+                     if not is_near_black(c['rgb']) and not is_near_white(c['rgb'])]
+
+        # If all colors were filtered (very dark photo), relax threshold
+        if len(filtered) < 2:
+            filtered = [c for c in all_cluster_colors
+                         if not is_near_black(c['rgb'], threshold=0.08)]
+
+        # If still empty, take the brightest cluster(s)
+        if not filtered:
+            by_brightness = sorted(all_cluster_colors,
+                                    key=lambda c: colorsys.rgb_to_hsv(c['rgb'][0]/255, c['rgb'][1]/255, c['rgb'][2]/255)[2],
+                                    reverse=True)
+            filtered = by_brightness[:3]
+
+        return filtered[:5]
 
     except Exception as e:
         return None
@@ -124,7 +222,7 @@ def analyze_photo_collection(photos_data):
         if not path or not Path(path).exists():
             continue
 
-        colors = extract_dominant_colors(path, n_colors=3)
+        colors = extract_dominant_colors(path, n_colors=8)
         if colors:
             # Weight colors by photo score
             score_weight = photo.get('score', 50) / 100
@@ -139,21 +237,35 @@ def analyze_photo_collection(photos_data):
         if tags:
             style_tags.extend(tags)
 
-    # Aggregate colors
+    # Filter near-black from aggregated pool before deduplication
+    all_colors = [c for c in all_colors if not is_near_black(c['rgb'])]
+
+    # If too few colors after filtering, relax threshold
+    if len(all_colors) < 5:
+        # Re-run without filter — use original extraction which already filtered per-image
+        pass  # all_colors already has per-image filtering applied
+
+    # Aggregate colors by hex
     color_aggregation = {}
     for color in all_colors:
         hex_code = color['hex']
         if hex_code in color_aggregation:
             color_aggregation[hex_code]['weight'] += color['weight']
         else:
-            color_aggregation[hex_code] = color
+            color_aggregation[hex_code] = {**color}
 
-    # Sort by weight and get top 5
-    top_colors = sorted(
+    # Sort by weight
+    sorted_colors = sorted(
         color_aggregation.values(),
         key=lambda c: c['weight'],
         reverse=True
-    )[:5]
+    )
+
+    # Deduplicate similar colors
+    sorted_colors = deduplicate_colors(sorted_colors, min_distance=30)
+
+    # Get top 5
+    top_colors = sorted_colors[:5]
 
     # Analyze color palette characteristics
     palette_description = describe_color_palette(top_colors)
@@ -163,15 +275,17 @@ def analyze_photo_collection(photos_data):
     top_tags = [tag for tag, _ in tag_counts.most_common(5)]
 
     # Generate sophisticated style description
-    style_description = generate_style_description(top_tags, palette_description, top_photos)
+    style_description = generate_style_description(top_tags, palette_description, top_photos, top_colors)
 
+    total_weight = sum(c['weight'] for c in top_colors) or 1
     return {
         'styleDescription': style_description,
         'colorPalette': [
             {
                 'hex': c['hex'],
                 'name': c['name'],
-                'weight': round(c['weight'], 2)
+                'weight': round(c['weight'], 2),
+                'percentage': round(c['weight'] / total_weight * 100, 1)
             }
             for c in top_colors
         ],
@@ -186,49 +300,87 @@ def analyze_photo_collection(photos_data):
 def describe_color_palette(colors):
     """Generate sophisticated description of color palette"""
     if not colors:
-        return "neutral palette"
+        return {"type": "neutral palette", "warmth": "neutral", "saturation": "balanced"}
 
-    # Get color names
-    color_names = [c['name'] for c in colors]
-    color_counts = Counter(color_names)
+    # Analyze HSV properties across palette
+    warm_count = 0
+    cool_count = 0
+    total_saturation = 0
+    total_value = 0
 
-    # Check for monochrome
-    if len(set(color_names)) <= 2:
-        if 'black' in color_names or 'white' in color_names or 'grey' in color_names:
-            return "monochrome"
-        else:
-            return "limited palette"
+    warm_hues = set()
+    cool_hues = set()
 
-    # Check for warm vs cool
-    warm_colors = {'red', 'orange', 'yellow', 'pink'}
-    cool_colors = {'blue', 'green', 'purple'}
+    for c in colors:
+        h, s, v = rgb_to_hsv(c['rgb'])
+        total_saturation += s
+        total_value += v
 
-    warm_count = sum(1 for c in color_names if c in warm_colors)
-    cool_count = sum(1 for c in color_names if c in cool_colors)
+        # Classify warm vs cool
+        if (h < 60 or h >= 300):  # reds, oranges, yellows, magentas
+            warm_count += 1
+            warm_hues.add(c['name'])
+        elif (60 <= h < 300):  # greens, blues, purples
+            cool_count += 1
+            cool_hues.add(c['name'])
 
+    n = len(colors)
+    avg_saturation = total_saturation / n
+    avg_value = total_value / n
+
+    # Determine palette type
     if warm_count > cool_count * 2:
-        return "warm-toned"
+        palette_type = "warm-toned"
+        warmth = "warm"
     elif cool_count > warm_count * 2:
-        return "cool-toned"
-    elif 'black' in color_names and 'white' in color_names:
-        return "high-contrast"
+        palette_type = "cool-toned"
+        warmth = "cool"
+    elif avg_value < 0.35:
+        palette_type = "shadow-forward"
+        warmth = "warm" if warm_count >= cool_count else "cool"
+    elif avg_saturation < 0.2:
+        palette_type = "muted earth"
+        warmth = "neutral"
+    elif avg_saturation > 0.6:
+        palette_type = "vivid"
+        warmth = "warm" if warm_count >= cool_count else "cool"
     else:
-        return "balanced"
+        palette_type = "balanced"
+        warmth = "neutral"
+
+    # Saturation descriptor
+    if avg_saturation > 0.6:
+        sat_desc = "vibrant"
+    elif avg_saturation > 0.35:
+        sat_desc = "moderate"
+    elif avg_saturation > 0.15:
+        sat_desc = "muted"
+    else:
+        sat_desc = "desaturated"
+
+    return {
+        "type": palette_type,
+        "warmth": warmth,
+        "saturation": sat_desc,
+        "avg_saturation": round(avg_saturation, 2),
+        "avg_value": round(avg_value, 2),
+        "warm_count": warm_count,
+        "cool_count": cool_count,
+    }
 
 
-def generate_style_description(tags, palette, photos):
+def generate_style_description(tags, palette_info, photos, top_colors):
     """
-    Generate marketing-grade style description
-    Like what Vogue, Dazed, or a top creative agency would say
+    Generate marketing-grade style description using actual color data
+    and photo characteristics.
     """
 
     # Calculate average score
     avg_score = sum(p.get('score', 50) for p in photos) / len(photos) if photos else 50
 
-    # Build sophisticated description
     parts = []
 
-    # Primary aesthetic modifier
+    # Primary aesthetic modifier from curation quality
     if avg_score >= 85:
         primary = "Refined"
     elif avg_score >= 70:
@@ -238,23 +390,29 @@ def generate_style_description(tags, palette, photos):
     else:
         primary = "Experimental"
 
-    # Palette-based modifier
+    # Color-informed modifier (uses actual palette analysis, not just tags)
+    palette_type = palette_info.get("type", "balanced") if isinstance(palette_info, dict) else palette_info
+    saturation = palette_info.get("saturation", "balanced") if isinstance(palette_info, dict) else "balanced"
+
     palette_modifiers = {
-        'monochrome': 'minimalist',
+        'shadow-forward': 'chiaroscuro',
         'warm-toned': 'intimate',
         'cool-toned': 'atmospheric',
-        'high-contrast': 'editorial',
+        'vivid': 'saturated',
+        'muted earth': 'earth-toned',
         'balanced': 'versatile',
-        'limited palette': 'focused'
     }
 
-    palette_mod = palette_modifiers.get(palette, 'distinctive')
+    palette_mod = palette_modifiers.get(palette_type, 'distinctive')
+
+    # Build color description from actual palette
+    color_names = [c['name'] for c in top_colors] if top_colors else []
+    unique_color_names = list(dict.fromkeys(color_names))  # Deduplicate, preserve order
 
     # Build core style from tags
     if not tags:
         core_style = "visual aesthetic"
     else:
-        # Map tags to sophisticated language
         tag_map = {
             'portrait': 'portraiture',
             'selfie': 'self-documentation',
@@ -277,8 +435,15 @@ def generate_style_description(tags, palette, photos):
         else:
             core_style = f"{primary_tag}-driven aesthetic"
 
-    # Assemble final description
+    # Assemble final description with color detail
     description = f"{primary} {palette_mod} {core_style}"
+
+    # Append actual color signature
+    if unique_color_names:
+        # Take top 3 most distinct color names
+        signature_colors = unique_color_names[:3]
+        color_str = ", ".join(signature_colors)
+        description += f". Palette anchored in {color_str}."
 
     return description
 

@@ -42,14 +42,15 @@ export default function RelationalPanel() {
   const fetchUserProfile = async () => {
     try {
       setLoadingProfile(true);
-      const res = await axios.get(`${API}/twin-os/context/default_user`);
-      if (res.data?.subtaste?.primary) {
+      // Use lightweight cached genome endpoint (instant) instead of heavy /context
+      const res = await axios.get(`${API}/subtaste/genome/default_user/cached`);
+      const genome = res.data?.genome;
+      const archetype = genome?.archetype || genome;
+      if (archetype?.primary?.designation) {
         setUserProfile({
-          archetypePrimary: res.data.subtaste.primary.designation,
-          archetypeSecondary: res.data.subtaste.secondary?.designation,
-          distribution: res.data.subtaste.distribution,
-          audio: res.data.audio,
-          visual: res.data.visual,
+          archetypePrimary: archetype.primary.designation,
+          archetypeSecondary: archetype.secondary?.designation,
+          distribution: archetype.distribution,
         });
       }
     } catch (err) {
