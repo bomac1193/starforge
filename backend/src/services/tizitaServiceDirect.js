@@ -244,18 +244,15 @@ class TizitaDirectService {
     if (!this.db) return null;
 
     try {
-      // Get user-curated photos (best, favorites, high-rated)
-      let allPhotos = this.getCuratedPhotos(50);
-
-      // Fallback to ML-scored if no curated photos exist
-      if (allPhotos.length === 0) {
-        console.log('No curated photos found, falling back to ML-scored');
-        allPhotos = this.getTopPhotos(userId, 50, 0.0);
-      }
+      // Curated photos only: user signal beats ML scoring by definition.
+      // ML scores (clarosa_score) have zero overlap with curated in practice,
+      // so any fallback would analyze the wrong photos and produce the wrong
+      // palette. If there are no curated photos, the analysis is empty.
+      const allPhotos = this.getCuratedPhotos(50);
 
       if (allPhotos.length === 0) {
         return {
-          styleDescription: 'No photos analyzed yet',
+          styleDescription: 'No curated photos yet. Mark photos as best, favourite, or rate them in Tizita to seed your Visual DNA.',
           confidence: 0,
           photoCount: 0
         };
@@ -276,7 +273,7 @@ class TizitaDirectService {
       // Prepare photo data for Python analyzer
       const photosData = allPhotos.map(p => ({
         path: p.fullPath,
-        score: p.curationScore || p.clarosa_score || 50,
+        score: p.curationScore,
         tags: p.tags || []
       }));
 

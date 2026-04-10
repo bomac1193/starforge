@@ -1,74 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 /**
  * Visual Lineage Discovery
  * Maps the user's color palette to global visual movements.
- * Shows visual era, movement affinities, and hex color recommendations.
+ * Shows movement affinities and hex color recommendations.
  * B&W. Sharp. Same aesthetic as LineageDiscoveries.
+ *
+ * Likert feedback lives on the main palette swatches in NommoPanel;
+ * this view is pure information, not interaction.
  */
 const VisualLineageDiscovery = ({ colorPalette = [], userId = 'default_user' }) => {
   const [result, setResult] = useState(null);
   const [discovering, setDiscovering] = useState(false);
   const [error, setError] = useState(null);
   const [expandedMovement, setExpandedMovement] = useState(null);
-  const [recRatings, setRecRatings] = useState({}); // hex -> 1..5
-
-  // Load existing ratings for suggested colors
-  const fetchRatings = useCallback(async () => {
-    try {
-      const res = await axios.get(`/api/color-ratings/${userId}`);
-      if (res.data?.success) {
-        const map = {};
-        for (const r of res.data.ratings || []) {
-          map[r.color_hex] = r.rating;
-        }
-        setRecRatings(map);
-      }
-    } catch (e) {
-      // silent — ratings are optional
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    fetchRatings();
-  }, [fetchRatings]);
-
-  const handleRateRec = async (rec, rating) => {
-    const hex = rec.suggestedHex;
-    const current = recRatings[hex] || 0;
-    try {
-      if (current === rating) {
-        // toggle off
-        await axios.delete('/api/color-ratings/rate', {
-          data: { userId, colorHex: hex },
-        });
-        setRecRatings((prev) => {
-          const { [hex]: _, ...rest } = prev;
-          return rest;
-        });
-      } else {
-        await axios.post('/api/color-ratings/rate', {
-          userId,
-          color: {
-            hex,
-            culturalName: rec.movement,
-            origin: `${rec.region} / ${rec.era}`,
-          },
-          rating,
-        });
-        setRecRatings((prev) => ({ ...prev, [hex]: rating }));
-      }
-    } catch (e) {
-      console.error('Failed to rate recommendation:', e);
-    }
-  };
 
   // Auto-discover when palette changes
   useEffect(() => {
     if (colorPalette.length > 0) {
       handleDiscover();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(colorPalette)]);
 
   const handleDiscover = async () => {
@@ -126,35 +79,7 @@ const VisualLineageDiscovery = ({ colorPalette = [], userId = 'default_user' }) 
         </div>
       )}
 
-      {/* Visual Era — compact */}
-      {result?.visualEra && (
-        <div className="border border-brand-border p-4 mb-4">
-          <div className="flex items-baseline justify-between mb-1">
-            <p className="uppercase-label text-brand-secondary">Visual Era</p>
-            <span className="text-body-sm font-mono text-brand-text">
-              {Math.round(result.visualEra.affinity * 100)}%
-            </span>
-          </div>
-          <div className="flex items-baseline gap-3 mb-1">
-            <p className="text-body text-brand-text font-medium">
-              {result.visualEra.movement}
-            </p>
-            <p className="text-body-xs text-brand-secondary">
-              {result.visualEra.region} · {result.visualEra.era}
-            </p>
-          </div>
-          <p className="text-body-sm text-brand-text mt-2">
-            {result.visualEra.context}
-          </p>
-          {result.visualEra.practitioners?.length > 0 && (
-            <p className="text-body-xs text-brand-secondary mt-2">
-              {result.visualEra.practitioners.join(' · ')}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Movement Affinities — compact grid layout */}
+      {/* Movement Affinities — compact 4-col grid, era folded in */}
       {result?.movements?.length > 0 && (
         <div className="mb-4">
           <p className="uppercase-label text-brand-secondary mb-3">Movement Affinities</p>
@@ -215,6 +140,16 @@ const VisualLineageDiscovery = ({ colorPalette = [], userId = 'default_user' }) 
                         {m.keywords.join(' / ')}
                       </p>
                     )}
+                    {m.context && (
+                      <p className="text-body-xs text-brand-secondary italic">
+                        {m.context}
+                      </p>
+                    )}
+                    {m.practitioners?.length > 0 && (
+                      <p className="text-body-xs text-brand-secondary">
+                        {m.practitioners.join(' · ')}
+                      </p>
+                    )}
                     <p className="text-body-xs text-brand-secondary">
                       {m.matchCount} color{m.matchCount !== 1 ? 's' : ''} matched
                     </p>
@@ -226,97 +161,37 @@ const VisualLineageDiscovery = ({ colorPalette = [], userId = 'default_user' }) 
         </div>
       )}
 
-      {/* Hex Color Recommendations — compact grid with Likert feedback */}
+      {/* Hex Color Recommendations — information only, no Likert noise */}
       {result?.recommendations?.length > 0 && (
-        <div className="border-t border-brand-border pt-4 mb-4">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="uppercase-label text-brand-secondary">Color Recommendations</p>
-            <p className="text-body-xs text-brand-secondary">Rate to save · 4+ enters My Palette</p>
-          </div>
-          <div className="space-y-2">
-            {result.recommendations.map((rec, idx) => {
-              const hex = rec.suggestedHex;
-              const currentRating = recRatings[hex] || 0;
-              const ratingLabels = ['Miss', 'Noted', 'Resonant', 'Canon', 'Ancestor'];
-              return (
-                <div
-                  key={idx}
-                  className="grid items-center gap-3 py-1.5"
-                  style={{ gridTemplateColumns: '28px 14px 28px 1fr 96px' }}
-                >
-                  {/* Current swatch */}
-                  <div
-                    className="h-7 w-7 border border-brand-border"
-                    style={{ backgroundColor: rec.currentHex }}
-                    title={rec.currentHex}
-                  />
-                  {/* Arrow */}
-                  <span className="text-brand-secondary text-body-xs text-center">→</span>
-                  {/* Suggested swatch */}
-                  <div
-                    className="h-7 w-7 border-2 border-brand-text"
-                    style={{ backgroundColor: hex }}
-                    title={hex}
-                  />
-                  {/* Compact context (2 lines max, monospace hex) */}
-                  <div className="min-w-0">
-                    <p className="text-body-sm text-brand-text truncate">
-                      <span className="font-mono">{hex}</span>
-                      <span className="text-brand-secondary"> · {rec.movement}</span>
-                    </p>
-                    <p className="text-body-xs text-brand-secondary truncate">
-                      {rec.region} · {rec.era} · {rec.practitioner}
-                    </p>
-                  </div>
-                  {/* Likert bars */}
-                  <div className="flex items-center gap-px">
-                    {[1, 2, 3, 4, 5].map((val) => (
-                      <button
-                        key={val}
-                        onClick={() => handleRateRec(rec, val)}
-                        className="flex-1"
-                        title={ratingLabels[val - 1]}
-                      >
-                        <div
-                          className={`h-2 w-full transition-colors ${
-                            val <= currentRating
-                              ? 'bg-brand-text'
-                              : 'bg-brand-border hover:bg-brand-secondary'
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Lineage Map — compact */}
-      {result?.lineage && (
         <div className="border-t border-brand-border pt-4">
-          <p className="uppercase-label text-brand-secondary mb-2">Visual Lineage</p>
-          <div className="space-y-1">
-            {result.lineage.primary && (
-              <p className="text-body-sm text-brand-text">
-                <span className="text-brand-secondary uppercase-label mr-2">Primary</span>
-                {result.lineage.primary}
-              </p>
-            )}
-            {result.lineage.secondary && (
-              <p className="text-body-sm text-brand-text">
-                <span className="text-brand-secondary uppercase-label mr-2">Secondary</span>
-                {result.lineage.secondary}
-              </p>
-            )}
-            {result.lineage.adjacent?.length > 0 && (
-              <p className="text-body-sm text-brand-text">
-                <span className="text-brand-secondary uppercase-label mr-2">Adjacent</span>
-                {result.lineage.adjacent.join(' · ')}
-              </p>
-            )}
+          <p className="uppercase-label text-brand-secondary mb-3">Color Recommendations</p>
+          <div className="space-y-1.5">
+            {result.recommendations.map((rec, idx) => (
+              <div
+                key={idx}
+                className="grid items-center gap-3"
+                style={{ gridTemplateColumns: '24px 12px 24px 1fr' }}
+              >
+                {/* Current swatch */}
+                <div
+                  className="h-6 w-6 border border-brand-border"
+                  style={{ backgroundColor: rec.currentHex }}
+                  title={rec.currentHex}
+                />
+                <span className="text-brand-secondary text-body-xs text-center">→</span>
+                {/* Suggested swatch */}
+                <div
+                  className="h-6 w-6 border-2 border-brand-text"
+                  style={{ backgroundColor: rec.suggestedHex }}
+                  title={rec.suggestedHex}
+                />
+                {/* Single-line context */}
+                <p className="text-body-xs text-brand-text truncate">
+                  <span className="font-mono">{rec.suggestedHex}</span>
+                  <span className="text-brand-secondary"> · {rec.movement} · {rec.region} · {rec.era}</span>
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -306,7 +306,6 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
   const [showArchetypeDetails, setShowArchetypeDetails] = useState(false);
   const [expandedDesignation, setExpandedDesignation] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null); // 'mode' | 'shadow' | 'growth' | null
-  const [showVisualAdvanced, setShowVisualAdvanced] = useState(false);
   const [colorRatings, setColorRatings] = useState({});
   const [curatedThumbnails, setCuratedThumbnails] = useState([]);
 
@@ -1479,7 +1478,6 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                             .sort(([, a], [, b]) => b - a)
                             .map(([hex, rating]) => {
                               const paletteColor = palette.find(c => c.hex === hex);
-                              const name = paletteColor?.culturalName || paletteColor?.name || hex;
                               return (
                                 <div key={hex} className="text-center">
                                   <div
@@ -1530,162 +1528,103 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                   </div>
                 )}
 
-                {/* Top movements — compact grid */}
+                {/* Style description — one-line lede */}
+                {vdna?.styleDescription && (
+                  <p className="text-body text-brand-text leading-snug">
+                    {vdna.styleDescription}
+                  </p>
+                )}
+
+                {/* Full movements — single source of truth, no simple/advanced split */}
                 {movements.length > 0 && (
                   <div>
                     <p className="uppercase-label text-brand-secondary mb-2">Visual Lineage</p>
-                    <div className="space-y-1">
-                      {movements.slice(0, 3).map((m, idx) => (
-                        <div
-                          key={idx}
-                          className="grid items-baseline gap-2"
-                          style={{ gridTemplateColumns: '1fr 110px 80px 44px' }}
-                        >
-                          <span className="text-body-sm text-brand-text truncate">
-                            {m.name}
-                          </span>
-                          <span className="text-body-xs text-brand-secondary text-right truncate">
-                            {m.region || ''}
-                          </span>
-                          <span className="text-body-xs text-brand-secondary text-right truncate">
-                            {m.era || ''}
-                          </span>
-                          <span className="text-brand-secondary font-mono text-body-sm text-right">
-                            {Math.round((m.affinity || 0) * 100)}%
-                          </span>
+                    <div className="space-y-2">
+                      {movements.map((m, idx) => (
+                        <div key={idx} className="border border-brand-border p-2.5">
+                          <div
+                            className="grid items-baseline gap-2"
+                            style={{ gridTemplateColumns: '1fr 110px 80px 44px' }}
+                          >
+                            <span className="text-body-sm text-brand-text font-medium truncate">{m.name}</span>
+                            <span className="text-body-xs text-brand-secondary text-right truncate">
+                              {m.region || ''}
+                            </span>
+                            <span className="text-body-xs text-brand-secondary text-right truncate">
+                              {m.era || ''}
+                            </span>
+                            <span className="text-brand-secondary font-mono text-body-sm text-right">
+                              {Math.round((m.affinity || 0) * 100)}%
+                            </span>
+                          </div>
+                          {m.cultural_context && (
+                            <p className="text-body-xs text-brand-secondary mt-1 leading-snug">
+                              {m.cultural_context}
+                            </p>
+                          )}
+                          {m.key_practitioners?.length > 0 && (
+                            <p className="text-body-xs text-brand-secondary mt-1">
+                              {m.key_practitioners.slice(0, 3).join(' · ')}
+                            </p>
+                          )}
+                          {m.hex_palette?.length > 0 && (
+                            <div className="flex gap-0.5 mt-1.5">
+                              {m.hex_palette.slice(0, 5).map((h, hi) => (
+                                <div
+                                  key={hi}
+                                  className="w-4 h-4 border border-brand-border"
+                                  style={{ backgroundColor: h }}
+                                  title={h}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Visual Era + Color Profile */}
-                <div className="flex gap-4 text-body-sm text-brand-secondary">
-                  {da?.visualEra?.primary && (
-                    <span>Era: <span className="text-brand-text">{da.visualEra.primary}</span></span>
+                {/* Influences + Composition + Color Profile — compact row */}
+                <div className="space-y-2 text-body-sm text-brand-secondary">
+                  {da?.composition && (
+                    <p>
+                      <span className="text-brand-secondary uppercase-label mr-2">Composition</span>
+                      <span className="text-brand-text">
+                        {da.composition.symmetry}, {da.composition.negative_space} space, {da.composition.complexity} complexity
+                      </span>
+                    </p>
                   )}
-                  {da?.colorProfile?.temperature && (
-                    <span>Temp: <span className="text-brand-text">{da.colorProfile.temperature}</span></span>
+                  {da?.colorProfile && (
+                    <p>
+                      <span className="text-brand-secondary uppercase-label mr-2">Color</span>
+                      <span className="text-brand-text">
+                        {da.colorProfile.saturation_preference} saturation, {da.colorProfile.temperature}
+                        {da.colorProfile.harmony ? `, ${da.colorProfile.harmony}` : ''}
+                      </span>
+                    </p>
                   )}
-                  {da?.colorProfile?.harmony && (
-                    <span>Harmony: <span className="text-brand-text">{da.colorProfile.harmony}</span></span>
+                  {da?.influences?.length > 0 && (
+                    <p>
+                      <span className="text-brand-secondary uppercase-label mr-2">Influences</span>
+                      <span className="text-brand-text">{da.influences.join(' · ')}</span>
+                    </p>
                   )}
                 </div>
 
-                {/* Stats */}
-                <div className="text-body-sm text-brand-secondary">
-                  {tizitaData.profile?.stats?.total_photos || 0} photos, {' '}
-                  {tizitaData.profile?.stats?.highlight_count || 0} highlights, {' '}
+                {/* Stats footer */}
+                <div className="text-body-xs text-brand-secondary pt-1 border-t border-brand-border">
+                  {tizitaData.profile?.stats?.total_photos || 0} photos · {' '}
+                  {tizitaData.profile?.stats?.highlight_count || 0} highlights · {' '}
                   {da?.movementSource === 'taxonomy_matched' ? 'taxonomy-matched' : 'heuristic'}
                 </div>
 
-                {/* Advanced toggle */}
-                <button
-                  onClick={() => setShowVisualAdvanced(!showVisualAdvanced)}
-                  className="text-body-sm text-brand-secondary hover:text-brand-text transition-colors"
-                >
-                  {showVisualAdvanced ? 'Less detail' : 'More detail'}
-                </button>
-
-                {/* --- ADVANCED VIEW --- */}
-                {showVisualAdvanced && (
-                  <div className="space-y-5 pt-3 border-t border-brand-border">
-                    <p className="text-body text-brand-text">
-                      {vdna?.styleDescription}
-                    </p>
-
-                    {/* Full movements with cultural context */}
-                    {movements.length > 0 && (
-                      <div>
-                        <p className="uppercase-label text-brand-secondary mb-2">Full Lineage</p>
-                        <div className="space-y-2">
-                          {movements.map((m, idx) => (
-                            <div key={idx} className="border border-brand-border p-2.5">
-                              <div
-                                className="grid items-baseline gap-2"
-                                style={{ gridTemplateColumns: '1fr 110px 80px 44px' }}
-                              >
-                                <span className="text-body-sm text-brand-text font-medium truncate">{m.name}</span>
-                                <span className="text-body-xs text-brand-secondary text-right truncate">
-                                  {m.region || ''}
-                                </span>
-                                <span className="text-body-xs text-brand-secondary text-right truncate">
-                                  {m.era || ''}
-                                </span>
-                                <span className="text-brand-secondary font-mono text-body-sm text-right">
-                                  {Math.round((m.affinity || 0) * 100)}%
-                                </span>
-                              </div>
-                              {m.cultural_context && (
-                                <p className="text-body-sm text-brand-secondary mt-1 leading-snug">
-                                  {m.cultural_context}
-                                </p>
-                              )}
-                              {m.key_practitioners?.length > 0 && (
-                                <p className="text-body-sm text-brand-secondary mt-1">
-                                  {m.key_practitioners.slice(0, 3).join(', ')}
-                                </p>
-                              )}
-                              {m.hex_palette?.length > 0 && (
-                                <div className="flex gap-0.5 mt-1.5">
-                                  {m.hex_palette.slice(0, 5).map((h, hi) => (
-                                    <div
-                                      key={hi}
-                                      className="w-4 h-4 border border-brand-border"
-                                      style={{ backgroundColor: h }}
-                                      title={h}
-                                    />
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Influences */}
-                    {da?.influences?.length > 0 && (
-                      <div>
-                        <p className="uppercase-label text-brand-secondary mb-2">Influences</p>
-                        <div className="flex flex-wrap gap-2">
-                          {da.influences.map((inf, idx) => (
-                            <span key={idx} className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary">
-                              {inf}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Composition + Color Profile */}
-                    {da?.composition && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="uppercase-label text-brand-secondary mb-1">Composition</p>
-                          <p className="text-body-sm text-brand-text">
-                            {da.composition.symmetry}, {da.composition.negative_space} space, {da.composition.complexity} complexity
-                          </p>
-                        </div>
-                        {da?.colorProfile && (
-                          <div>
-                            <p className="uppercase-label text-brand-secondary mb-1">Color Profile</p>
-                            <p className="text-body-sm text-brand-text">
-                              {da.colorProfile.saturation_preference} saturation, {da.colorProfile.temperature}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Visual Lineage Discovery */}
-                    {vdna?.colorPalette?.length > 0 && (
-                      <VisualLineageDiscovery
-                        colorPalette={vdna.colorPalette}
-                        userId="default_user"
-                      />
-                    )}
-                  </div>
+                {/* Visual Lineage Discovery — color recommendations against global movements */}
+                {vdna?.colorPalette?.length > 0 && (
+                  <VisualLineageDiscovery
+                    colorPalette={vdna.colorPalette}
+                    userId="default_user"
+                  />
                 )}
               </div>
             );
