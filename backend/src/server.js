@@ -488,6 +488,12 @@ const expansionRoutes = require('./routes/expansion');
 app.use('/api/expansion', expansionRoutes);
 
 // ========================================
+// COLOR RATINGS
+// ========================================
+const colorRatingRoutes = require('./routes/colorRatings');
+app.use('/api/color-ratings', colorRatingRoutes);
+
+// ========================================
 // WRITING DNA (IBIS INTEGRATION)
 // ========================================
 const writingDnaRoutes = require('./routes/writingDna');

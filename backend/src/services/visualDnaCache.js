@@ -44,7 +44,7 @@ class VisualDnaCacheService {
   generatePhotoHash(photos) {
     // Create a hash from photo IDs and scores to detect changes
     const hashString = photos
-      .map(p => `${p.id}-${p.clarosa_score}`)
+      .map(p => `${p.id}-${p.curationScore || p.clarosa_score || 0}`)
       .sort()
       .join('|');
 

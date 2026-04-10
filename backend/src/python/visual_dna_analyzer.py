@@ -33,10 +33,18 @@ def rgb_to_hsv(rgb):
     return h * 360, s, v
 
 
-def is_near_black(rgb, threshold=0.15):
-    """Check if a color is near-black based on HSV value"""
-    _, _, v = rgb_to_hsv(rgb)
-    return v < threshold
+def is_near_black(rgb, threshold=0.30):
+    """Check if a color is near-black based on HSV value.
+    Colors with V < threshold are filtered UNLESS they have
+    significant saturation (dark but chromatic colors like
+    deep navy, burgundy survive).
+    """
+    _, s, v = rgb_to_hsv(rgb)
+    if v < 0.12:
+        return True
+    if v < threshold and s < 0.25:
+        return True
+    return False
 
 
 def is_near_white(rgb):
@@ -184,7 +192,7 @@ def extract_dominant_colors(image_path, n_colors=8):
         # If all colors were filtered (very dark photo), relax threshold
         if len(filtered) < 2:
             filtered = [c for c in all_cluster_colors
-                         if not is_near_black(c['rgb'], threshold=0.08)]
+                         if not is_near_black(c['rgb'], threshold=0.12)]
 
         # If still empty, take the brightest cluster(s)
         if not filtered:

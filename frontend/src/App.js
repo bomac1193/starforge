@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import './App.css';
 import CoherenceDashboard from './components/CoherenceDashboard';
 import NommoPanel from './components/NommoPanel';
 import LibraryPage from './components/LibraryPage';
 import RelationalPanel from './components/RelationalPanel';
+import RescanToast from './components/RescanToast';
+import { RescanProgressProvider } from './context/RescanProgressContext';
 
-// Detect quiz callback — if subtaste_user_id param is present, open Nommo tab
+// Detect quiz callback. If subtaste_user_id param is present, open Nommo tab.
 const getInitialView = () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get('subtaste_user_id')) return 'genesis';
@@ -20,8 +22,27 @@ function App() {
     setTwinData(data);
   };
 
+  // Called by the rescan toast when the user clicks a completed job.
+  // Jumps to the target view and scrolls the referenced element into view.
+  const handleRescanNavigate = useCallback((target) => {
+    if (target?.view) {
+      setActiveView(target.view);
+    }
+    if (target?.elementId) {
+      // Wait for the view switch to render before scrolling.
+      setTimeout(() => {
+        const el = document.getElementById(target.elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+    }
+  }, []);
+
   return (
+    <RescanProgressProvider onNavigate={handleRescanNavigate}>
     <div className="min-h-screen bg-brand-bg">
+      <RescanToast />
       {/* Header */}
       <header className="border-b border-brand-border py-8">
         <div className="max-w-container mx-auto px-8">
@@ -99,6 +120,7 @@ function App() {
         </div>
       </main>
     </div>
+    </RescanProgressProvider>
   );
 }
 

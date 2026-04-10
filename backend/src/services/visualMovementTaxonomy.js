@@ -979,51 +979,123 @@ function matchPaletteToMovements(palette, limit = 8, boosts = {}) {
 }
 
 /**
- * Generate hex color recommendations based on movement affinity
- * "You're using X, try Y which [practitioner] used in [movement]"
+ * Convert hex to HSV. Used for hue-family gating in recommendations so we
+ * never suggest e.g. a grey replacement for a blue.
+ */
+function hexToHsv(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  h = (h * 60 + 360) % 360;
+  const s = max === 0 ? 0 : d / max;
+  const v = max;
+  return { h, s, v };
+}
+
+/**
+ * Hue-family test. Two colours are in the same family when:
+ *  - both are neutral (low saturation on both sides), OR
+ *  - both are chromatic and hue-distance ≤ 30°.
+ *
+ * This prevents the taxonomy from suggesting greys as replacements for
+ * blues just because a top movement happens to be monochrome.
+ */
+function sameHueFamily(hsvA, hsvB) {
+  const NEUTRAL = 0.12;
+  if (hsvA.s < NEUTRAL && hsvB.s < NEUTRAL) return true;
+  if (hsvA.s < NEUTRAL || hsvB.s < NEUTRAL) return false;
+  const dh = Math.min(
+    Math.abs(hsvA.h - hsvB.h),
+    360 - Math.abs(hsvA.h - hsvB.h),
+  );
+  return dh <= 30;
+}
+
+/**
+ * Generate hex color recommendations based on movement affinity.
+ * Hue-preserving: only suggests shifts within the same colour family as the
+ * user's original. If a user has a dusty blue, they get suggested a cultural
+ * blue, not a grey.
+ *
+ * If the top movements don't contain a same-hue option for a given user
+ * colour, we fall back to searching ALL movements for the best same-hue
+ * match. Better to surface a deeper match than a wrong-hue "correction."
  */
 function generateColorRecommendations(userPalette, topMovements) {
   const recommendations = [];
-  const userLabs = userPalette.map(h => ({ hex: h, lab: hexToLab(h) }));
+  const userColors = userPalette.map(h => ({
+    hex: h,
+    lab: hexToLab(h),
+    hsv: hexToHsv(h),
+  }));
+  const seen = new Set();
 
-  for (const entry of topMovements.slice(0, 3)) {
-    const m = entry.movement;
-
+  const tryMovement = (user, m, intensity) => {
+    let best = null;
     for (const mHex of m.hex_palette) {
-      const mLab = hexToLab(mHex);
+      const mHsv = hexToHsv(mHex);
+      if (!sameHueFamily(user.hsv, mHsv)) continue;
+      const dist = colorDistance(user.lab, hexToLab(mHex));
+      if (dist < 8) continue; // too similar, not a meaningful suggestion
+      if (dist > 80) continue; // too far to be useful
+      if (!best || dist < best.dist) best = { hex: mHex, dist };
+    }
+    if (!best) return null;
+    const key = `${user.hex}->${best.hex}`;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    return {
+      currentHex: user.hex,
+      suggestedHex: best.hex,
+      distance: best.dist,
+      movement: m.name,
+      era: `${m.era_start}${m.era_end ? '-' + m.era_end : '+'}`,
+      region: m.region,
+      practitioner: m.key_practitioners[0],
+      context: (m.cultural_context || '').split('.')[0],
+      intensity,
+    };
+  };
 
-      // Find the user color closest to this movement color
-      let closestUser = null;
-      let closestDist = Infinity;
-      for (const u of userLabs) {
-        const d = colorDistance(u.lab, mLab);
-        if (d < closestDist) {
-          closestDist = d;
-          closestUser = u;
-        }
-      }
-
-      // Only recommend if there's a meaningful but not identical match
-      if (closestDist > 8 && closestDist < 60) {
-        recommendations.push({
-          currentHex: closestUser.hex,
-          suggestedHex: mHex,
-          distance: closestDist,
-          movement: m.name,
-          era: `${m.era_start}${m.era_end ? '-' + m.era_end : '+'}`,
-          region: m.region,
-          practitioner: m.key_practitioners[0],
-          context: m.cultural_context.split('.')[0],
-          reason: `You're using ${closestUser.hex}. Check out ${mHex} from ${m.name} (${m.region}, ${m.era_start}${m.era_end ? '-' + m.era_end : '+'}). ${m.key_practitioners[0]} worked within this tradition.`,
-        });
+  // Pass 1: prefer the movements the user already matches (top 5).
+  for (const user of userColors) {
+    for (const entry of topMovements.slice(0, 5)) {
+      const rec = tryMovement(user, entry.movement, 'affinity');
+      if (rec) {
+        recommendations.push(rec);
+        break; // one suggestion per user colour from the affinity pool
       }
     }
+  }
+
+  // Pass 2: for user colours with no same-hue suggestion yet, search ALL
+  // movements for the best same-family match. This is the safety net that
+  // surfaces a cultural blue when the user's blue has no home in the top
+  // matches.
+  const covered = new Set(recommendations.map(r => r.currentHex));
+  for (const user of userColors) {
+    if (covered.has(user.hex)) continue;
+    let best = null;
+    for (const m of movements) {
+      const rec = tryMovement(user, m, 'expansion');
+      if (rec && (!best || rec.distance < best.distance)) best = rec;
+    }
+    if (best) recommendations.push(best);
   }
 
   // Sort by distance (closest first = most natural shift)
   return recommendations
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, 5);
+    .slice(0, 6);
 }
 
 /**

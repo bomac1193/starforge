@@ -16,10 +16,10 @@
   {"name": "Julie Mehretu Storm", "origin": "Ethiopian-American / Contemporary", "hex": "#6B7B8D", "radius": 25, "context": "Layered grey of Julie Mehretu's architectural abstractions. Maps, wind patterns, migration. Scale as meaning."},
   {"name": "Njideka Crosby Collage", "origin": "Nigerian-American / Contemporary", "hex": "#D4A574", "radius": 30, "context": "Warm transfer-print brown of Njideka Akunyili Crosby. Domestic scenes layered with Nigerian magazine transfers. Dual belonging."},
 
-  {"name": "Tyrian Purple", "origin": "Phoenician / Mediterranean", "hex": "#4F1D63", "radius": 35, "context": "Extracted from murex sea snails. Worth more than gold. Royalty from Carthage to Rome to Byzantium."},
+  {"name": "Tyrian Purple", "origin": "Phoenician / Mediterranean", "hex": "#4F1D63", "radius": 20, "context": "Extracted from murex sea snails. Worth more than gold. Royalty from Carthage to Rome to Byzantium."},
   {"name": "Alizarin Crimson", "origin": "Madder Root / Persian", "hex": "#960018", "radius": 30, "context": "From madder root (Rubia tinctorum). Ancient Persia through Renaissance. Deep, transparent red of Old Masters."},
   {"name": "Vermillion", "origin": "Chinese / Mediterranean", "hex": "#E34234", "radius": 30, "context": "Cinnabar mercury sulfide. Sacred red in Chinese lacquer, Roman murals, and Byzantine manuscripts. Zhu sha."},
-  {"name": "Egyptian Blue", "origin": "Ancient Egypt", "hex": "#1034A6", "radius": 35, "context": "First synthetic pigment. Calcium copper silicate. Blue of pharaohs, Amun-Ra, and afterlife imagery. 2600 BCE."},
+  {"name": "Egyptian Blue", "origin": "Ancient Egypt", "hex": "#1034A6", "radius": 25, "context": "First synthetic pigment. Calcium copper silicate. Blue of pharaohs, Amun-Ra, and afterlife imagery. 2600 BCE."},
   {"name": "Terra Cotta", "origin": "Mediterranean / Global", "hex": "#CC4E2C", "radius": 30, "context": "Fired earth clay. From Nok terracottas to Greek amphorae to Mexican pottery. Universal material of civilisation."},
   {"name": "Raw Umber", "origin": "Umbria / Italy", "hex": "#826644", "radius": 30, "context": "Natural earth pigment from Umbria. Warm brown of Caravaggio shadow, chiaroscuro, and Baroque drama."},
   {"name": "Burnt Sienna", "origin": "Siena / Italy", "hex": "#A0522D", "radius": 30, "context": "Heat-treated Sienese earth. Warm reddish-brown of Renaissance flesh tones and architectural washes."},
@@ -53,7 +53,7 @@
   {"name": "Celadon", "origin": "Chinese / Korean", "hex": "#ACE1AF", "radius": 30, "context": "Jade-green glaze of Song dynasty ceramics. Korean celadon ware. Zen simplicity, the colour of heaven."},
   {"name": "Cinnabar Red", "origin": "Chinese", "hex": "#E44D2E", "radius": 30, "context": "Zhu sha. Mercury sulfide pigment. Red lacquer of Chinese temples, seals, and new year. Fortune and joy."},
   {"name": "Imperial Yellow", "origin": "Chinese", "hex": "#FFD700", "radius": 25, "context": "Exclusive to the emperor. Ming and Qing dynasty roof tiles, dragon robes. The centre of the cosmos."},
-  {"name": "Lapis Lazuli", "origin": "Afghan / Persian", "hex": "#26619C", "radius": 35, "context": "Ultramarine from Afghan mines. More precious than gold. The Virgin Mary's mantle. Vermeer's blue."},
+  {"name": "Lapis Lazuli", "origin": "Afghan / Persian", "hex": "#26619C", "radius": 25, "context": "Ultramarine from Afghan mines. More precious than gold. The Virgin Mary's mantle. Vermeer's blue."},
   {"name": "Ukiyo-e Prussian", "origin": "Japanese", "hex": "#003153", "radius": 30, "context": "Berlin blue adopted by Hokusai. The Great Wave. Imported pigment that transformed Edo-period woodblock printing."},
   {"name": "Raku Smoke", "origin": "Japanese", "hex": "#4A4A4A", "radius": 25, "context": "Carbon smoke trapped in crackle glaze. Wabi-sabi tea ceremony ware. Chojiro, Sen no Rikyu. Imperfection as beauty."},
   {"name": "Matcha", "origin": "Japanese", "hex": "#80B882", "radius": 30, "context": "Powdered green tea colour. Chanoyu tea ceremony. Zen Buddhism, seasonal awareness, ichigo ichie (one chance, one meeting)."},
@@ -70,7 +70,7 @@
   {"name": "Henna Copper", "origin": "South Asian / North African", "hex": "#A0522D", "radius": 30, "context": "Lawsonia inermis plant paste. Wedding hands, celebration, blessing. 5000 years across MENA and South Asia."},
 
   {"name": "Cochineal Crimson", "origin": "Mesoamerican", "hex": "#960019", "radius": 30, "context": "Carmine from cochineal insects on nopal cactus. Aztec tribute commodity. Conquered by Spain, it coloured the world."},
-  {"name": "Mayan Blue", "origin": "Mesoamerican", "hex": "#4E8795", "radius": 35, "context": "Indigo fused with palygorskite clay. Survives 1000 years. Used in sacrifice and temple painting. Indestructible pigment."},
+  {"name": "Mayan Blue", "origin": "Mesoamerican", "hex": "#4E8795", "radius": 25, "context": "Indigo fused with palygorskite clay. Survives 1000 years. Used in sacrifice and temple painting. Indestructible pigment."},
   {"name": "Quetzal Green", "origin": "Mesoamerican", "hex": "#006D6F", "radius": 30, "context": "Colour of the resplendent quetzal. Sacred to Aztec and Maya. Jade, feathers, and divine kingship."},
   {"name": "Pachamama Terracotta", "origin": "Andean / South American", "hex": "#B7613F", "radius": 30, "context": "Earth mother colour of Andean ceramics and textiles. Moche, Nazca, Inca pottery traditions."},
   {"name": "Mendieta Earth", "origin": "Cuban-American", "hex": "#6B4226", "radius": 30, "context": "Ana Mendieta's Silueta series. Body pressed into earth, fire, blood. Cuban exile, goddess imagery, land art."},
@@ -81,7 +81,7 @@
   {"name": "Mola Scarlet", "origin": "Guna / Panama", "hex": "#FF2400", "radius": 30, "context": "Reverse-applique textile art of Guna (Kuna) women. Vivid layers cut to reveal symbolic animal and geometric forms."},
   {"name": "Torres-Garcia Compass", "origin": "Uruguayan Constructivism", "hex": "#C4A35A", "radius": 30, "context": "Golden geometry of Joaquin Torres-Garcia. Inverted maps. South is up. Universal constructivism from Montevideo."},
 
-  {"name": "Persian Turquoise", "origin": "Iranian / Persian", "hex": "#00CED1", "radius": 35, "context": "Isfahan mosque tiles. Neyshabur turquoise mines. Protection against the evil eye. The dome of heaven."},
+  {"name": "Persian Turquoise", "origin": "Iranian / Persian", "hex": "#00CED1", "radius": 25, "context": "Isfahan mosque tiles. Neyshabur turquoise mines. Protection against the evil eye. The dome of heaven."},
   {"name": "Iznik Cobalt", "origin": "Ottoman / Turkish", "hex": "#1C39BB", "radius": 30, "context": "Cobalt blue of Iznik ceramics. Ottoman mosque tiles, Topkapi Palace. Suleiman's architectural programme."},
 
   {"name": "Klein Blue", "origin": "French Contemporary", "hex": "#002FA7", "radius": 30, "context": "International Klein Blue (IKB). Yves Klein's patented ultramarine. The immaterial made visible. 1960."},
@@ -104,7 +104,7 @@
   {"name": "Veve Charcoal", "origin": "Haitian Vodou", "hex": "#36454F", "radius": 25, "context": "Charcoal and ash lines of vodou veve ritual drawings. Ground symbols invoking lwa spirits. Sacred geometry."},
   {"name": "Carnival Gold", "origin": "Caribbean / Brazilian", "hex": "#FFD700", "radius": 25, "context": "Gold sequins and lame of Trinidad Carnival and Rio samba. Masquerade, liberation, embodied resistance."},
 
-  {"name": "Wong Kar-wai Neon", "origin": "Hong Kong Cinema", "hex": "#39FF14", "radius": 35, "context": "Neon-saturated nights of Chungking Express, In the Mood for Love. Rain-soaked Hong Kong. Longing in colour."},
+  {"name": "Wong Kar-wai Neon", "origin": "Hong Kong Cinema", "hex": "#39FF14", "radius": 25, "context": "Neon-saturated nights of Chungking Express, In the Mood for Love. Rain-soaked Hong Kong. Longing in colour."},
   {"name": "Kubrick Red", "origin": "British-American Cinema", "hex": "#8B0000", "radius": 25, "context": "The Shining's blood elevator, 2001's HAL eye, Clockwork Orange's droog red. Menace and control."},
   {"name": "Film Noir Silver", "origin": "American Cinema", "hex": "#A9A9A9", "radius": 25, "context": "Silver-grey of 1940s noir. Venetian blinds, cigarette smoke, moral ambiguity. Double Indemnity, The Third Man."},
   {"name": "Wes Anderson Pastel", "origin": "American Cinema", "hex": "#FFB6C1", "radius": 30, "context": "Symmetrical pastels of Grand Budapest Hotel. Nostalgia machines. Pink, mint, and powder blue in perfect composition."},
@@ -115,5 +115,16 @@
   {"name": "Lamp Black", "origin": "Universal / Ancient", "hex": "#2B2B2B", "radius": 20, "context": "Soot from oil lamps. Oldest manufactured pigment. Rembrandt's shadows, Chinese ink, cave painting. Pure carbon."},
 
   {"name": "Saharan Sand", "origin": "North Africa / Sahel", "hex": "#C2B280", "radius": 30, "context": "Erg dune gold. Tuareg territory. Sand as architecture in Djenne, Timbuktu. Material of the world's largest desert."},
-  {"name": "Dead Sea Mineral", "origin": "Levantine / Ancient", "hex": "#708090", "radius": 25, "context": "Mineral grey of the lowest point on earth. Salt crystalline. Masada fortress. Ancient trade and modern healing."}
+  {"name": "Dead Sea Mineral", "origin": "Levantine / Ancient", "hex": "#708090", "radius": 25, "context": "Mineral grey of the lowest point on earth. Salt crystalline. Masada fortress. Ancient trade and modern healing."},
+
+  {"name": "Wedgwood Blue", "origin": "English Neoclassical / 1770s", "hex": "#6B95BF", "radius": 30, "context": "Jasperware pale blue from Josiah Wedgwood's pottery. Neoclassical restraint. The original industrial luxury colour."},
+  {"name": "Vermeer Ultramarine Wash", "origin": "Dutch Golden Age / 1660s", "hex": "#7A95BB", "radius": 28, "context": "Diluted lapis lazuli in Vermeer's interiors. More expensive than gold. The pigment that bankrupted patrons."},
+  {"name": "Agnes Martin Pale", "origin": "American Minimalism / 1960s", "hex": "#ACBBD0", "radius": 28, "context": "Muted pencil-grid blues of Agnes Martin's desert minimalism. Stillness, breath, taxonomy of light."},
+  {"name": "Morandi Dusty Blue", "origin": "Italian Still Life / 20th C", "hex": "#8FA4B5", "radius": 28, "context": "Giorgio Morandi's studio bottles. Hushed greys that are almost blue, almost lavender. Devotional colour."},
+  {"name": "Hokusai Sky Wash", "origin": "Japanese Ukiyo-e / 1820s", "hex": "#6A8BA8", "radius": 28, "context": "Katsushika Hokusai's diluted Prussian blue skies. Bokashi gradient printing. The sky before the wave breaks."},
+  {"name": "Delft Pale", "origin": "Dutch Delftware / 1600s+", "hex": "#98B4D4", "radius": 28, "context": "The lighter washes on Dutch Delftware pottery imitating Chinese porcelain. A trade-route blue."},
+  {"name": "Matisse Pale Cutout", "origin": "French Fauvism / 1947", "hex": "#8FA7C8", "radius": 28, "context": "The softer pale blues of Henri Matisse's late cutouts. Joy, arthritis, scissors, Nice."},
+  {"name": "Byzantine Periwinkle", "origin": "Eastern Roman / 6th C", "hex": "#8B9DC3", "radius": 28, "context": "The mid-blue of Ravenna mosaics beside gold. Theodora's court. Imperial but not royal."},
+  {"name": "Tiepolo Ceiling", "origin": "Venetian Rococo / 1750s", "hex": "#8AA8C8", "radius": 28, "context": "Giovanni Battista Tiepolo's ceiling frescoes. The blue of a sky you tilt your head to see."},
+  {"name": "Carolina Noguchi", "origin": "Japanese-American Sculpture / mid-20th C", "hex": "#9CB5CE", "radius": 28, "context": "Isamu Noguchi's stone meditation gardens. Dust on basalt. Calm-blue as structural element."}
 ]

@@ -11,10 +11,15 @@ const router = express.Router();
 const relationalIntelligenceService = require('../services/relationalIntelligenceService');
 const aiTwinService = require('../services/aiTwinService');
 
+// List supported work modes (for frontend dropdown)
+router.get('/modes', (_req, res) => {
+  res.json({ success: true, modes: relationalIntelligenceService.listModes() });
+});
+
 // Analyze a duo (two creators)
 router.post('/duo', async (req, res) => {
   try {
-    const { userId1, userId2, profile1, profile2 } = req.body;
+    const { userId1, userId2, profile1, profile2, mode } = req.body;
 
     let p1 = profile1;
     let p2 = profile2;
@@ -49,7 +54,7 @@ router.post('/duo', async (req, res) => {
       });
     }
 
-    const result = relationalIntelligenceService.analyzeDuo(p1, p2);
+    const result = relationalIntelligenceService.analyzeDuo(p1, p2, { mode });
     res.json(result);
   } catch (error) {
     console.error('[relational] duo analysis error:', error.message);
@@ -60,7 +65,7 @@ router.post('/duo', async (req, res) => {
 // Analyze a team of creators
 router.post('/team', async (req, res) => {
   try {
-    const { userIds, profiles } = req.body;
+    const { userIds, profiles, mode } = req.body;
 
     let teamProfiles = profiles || [];
 
@@ -87,7 +92,7 @@ router.post('/team', async (req, res) => {
       });
     }
 
-    const result = relationalIntelligenceService.analyzeTeam(teamProfiles);
+    const result = relationalIntelligenceService.analyzeTeam(teamProfiles, { mode });
     res.json(result);
   } catch (error) {
     console.error('[relational] team analysis error:', error.message);

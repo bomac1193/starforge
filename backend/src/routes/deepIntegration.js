@@ -73,8 +73,23 @@ router.get('/tizita/top-photos', (req, res) => {
     const userId = parseInt(req.query.user_id) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const minScore = parseFloat(req.query.min_score) || 60;
+    const curated = req.query.curated === 'true';
 
-    const photos = tizitaDirectService.getTopPhotos(userId, limit, minScore);
+    // When curated=true, return the exact photos used for Visual DNA
+    // (best_photo, favorite, star-rated). These carry the file_path the
+    // Python analyzer actually sees, so the user can confirm accuracy.
+    let photos = curated
+      ? tizitaDirectService.getCuratedPhotos(limit)
+      : tizitaDirectService.getTopPhotos(userId, limit, minScore);
+
+    // Strip the siglip_embedding blob from curated results — it's huge
+    // and only used server-side for movement classification.
+    if (curated) {
+      photos = photos.map(p => {
+        const { siglip_embedding, ...rest } = p;
+        return rest;
+      });
+    }
 
     res.json({
       success: true,

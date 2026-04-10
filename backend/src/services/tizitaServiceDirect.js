@@ -182,8 +182,61 @@ class TizitaDirectService {
   }
 
   /**
+   * Get user-curated photos with curation-based scores.
+   * Uses the same weight hierarchy as artMovementClassifier:
+   * best=3.0(100), favorite=2.0(67), highRated=1.5(50), starRated=1.0(33)
+   */
+  getCuratedPhotos(limit = 50) {
+    if (!this.db) this.connect();
+    if (!this.db) return [];
+
+    try {
+      const photoMap = new Map();
+
+      const addPhotos = (photos, curationScore) => {
+        for (const p of photos) {
+          if (!photoMap.has(p.id)) {
+            photoMap.set(p.id, {
+              ...p,
+              curationScore,
+              tags: p.tags ? (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags) : [],
+              fullPath: (p.file_path && path.isAbsolute(p.file_path))
+                ? p.file_path
+                : path.join(this.storagePath, 'photos', path.basename(p.file_path || '')),
+            });
+          }
+        }
+      };
+
+      addPhotos(this.getBestPhotos(), 100);
+      addPhotos(this.getFavoritePhotos(), 67);
+      addPhotos(this.getHighRatedPhotos(4), 50);
+
+      // 3-star photos as secondary signal
+      const starRated = this.db.prepare(`
+        SELECT id, file_path, clarosa_score, user_rating, tags
+        FROM photos
+        WHERE user_rating = 3 AND deleted_at IS NULL
+          AND best_photo != 1 AND favorite != 1
+      `).all();
+      addPhotos(starRated, 33);
+
+      const curated = [...photoMap.values()]
+        .sort((a, b) => b.curationScore - a.curationScore)
+        .slice(0, limit);
+
+      console.log(`Curated photos: ${curated.length} (best=${photoMap.size > 0 ? curated.filter(p => p.curationScore === 100).length : 0}, fav=${curated.filter(p => p.curationScore === 67).length}, rated=${curated.filter(p => p.curationScore <= 50).length})`);
+
+      return curated;
+    } catch (error) {
+      console.error('Error getting curated photos:', error);
+      return [];
+    }
+  }
+
+  /**
    * Extract visual DNA from user's photos
-   * Sophisticated analysis with color extraction and marketing-grade descriptions
+   * Uses curated photos (best, favorites, star-rated) not ML scores
    * Uses intelligent caching to avoid reprocessing
    */
   async extractVisualDNA(userId = 1, forceRefresh = false) {
@@ -191,8 +244,14 @@ class TizitaDirectService {
     if (!this.db) return null;
 
     try {
-      // Get top-rated photos for analysis (limit to 50 for fast k-means — best signal)
-      const allPhotos = this.getTopPhotos(userId, 50, 0.0);
+      // Get user-curated photos (best, favorites, high-rated)
+      let allPhotos = this.getCuratedPhotos(50);
+
+      // Fallback to ML-scored if no curated photos exist
+      if (allPhotos.length === 0) {
+        console.log('No curated photos found, falling back to ML-scored');
+        allPhotos = this.getTopPhotos(userId, 50, 0.0);
+      }
 
       if (allPhotos.length === 0) {
         return {
@@ -217,7 +276,7 @@ class TizitaDirectService {
       // Prepare photo data for Python analyzer
       const photosData = allPhotos.map(p => ({
         path: p.fullPath,
-        score: p.clarosa_score,
+        score: p.curationScore || p.clarosa_score || 50,
         tags: p.tags || []
       }));
 
@@ -278,6 +337,34 @@ class TizitaDirectService {
           }
         });
       });
+
+      // Apply color rating feedback
+      const colorRatingService = require('./colorRatingService');
+      const userIdStr = userId === 1 ? 'default_user' : String(userId);
+      const boosts = colorRatingService.getColorBoosts(userIdStr);
+
+      if (Object.keys(boosts).length > 0 && result.colorPalette) {
+        result.colorPalette = result.colorPalette
+          .map(color => {
+            const boost = boosts[color.hex];
+            if (boost !== undefined) {
+              return { ...color, weight: color.weight * boost, rated: true };
+            }
+            return color;
+          })
+          .filter(c => {
+            const boost = boosts[c.hex];
+            return boost === undefined || boost > 0;
+          })
+          .sort((a, b) => b.weight - a.weight);
+
+        // Recalculate percentages after boost
+        const totalW = result.colorPalette.reduce((s, c) => s + c.weight, 0) || 1;
+        result.colorPalette = result.colorPalette.map(c => ({
+          ...c,
+          percentage: Math.round(c.weight / totalW * 1000) / 10,
+        }));
+      }
 
       // Get profile confidence
       const profile = this.getUserProfile(userId);

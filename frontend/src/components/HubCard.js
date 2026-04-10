@@ -6,6 +6,7 @@ import React, { useRef } from 'react';
  * Controlled by parent (accordion pattern).
  */
 const HubCard = ({
+  id,
   label,
   stat,
   statLabel,
@@ -24,6 +25,7 @@ const HubCard = ({
 
   return (
     <div
+      id={id}
       className={`border bg-brand-surface transition-all duration-300 ${
         expanded ? 'border-brand-text' : 'border-brand-border hover:border-brand-secondary'
       } ${connected ? 'cursor-pointer' : ''}`}

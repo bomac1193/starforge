@@ -11,6 +11,7 @@ import ProjectDNAPanel from './ProjectDNAPanel';
 import LineageDiscoveries from './LineageDiscoveries';
 import VisualLineageDiscovery from './VisualLineageDiscovery';
 import DriftPanel from './DriftPanel';
+import { useRescanProgress } from '../context/RescanProgressContext';
 
 // --- Session cache: instant loads, background refresh every 5 min ---
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -271,6 +272,7 @@ const MODE_DESC = {
 };
 
 const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
+  const rescanProgress = useRescanProgress();
   const [caption, setCaption] = useState('');
   const [bio, setBio] = useState('');
   const [glowLevel, setGlowLevel] = useState(3);
@@ -305,6 +307,8 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
   const [expandedDesignation, setExpandedDesignation] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null); // 'mode' | 'shadow' | 'growth' | null
   const [showVisualAdvanced, setShowVisualAdvanced] = useState(false);
+  const [colorRatings, setColorRatings] = useState({});
+  const [curatedThumbnails, setCuratedThumbnails] = useState([]);
 
   // Track whether we loaded from session cache (skip redundant fetches)
   const loadedFromCache = useRef(false);
@@ -350,6 +354,9 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     if (cached.conviction?.data) {
       setConvictionData(cached.conviction.data);
     }
+    if (cached.colorRatings?.data) {
+      setColorRatings(cached.colorRatings.data);
+    }
     if (cached.projectDna?.data) {
       setProjectDnaData(cached.projectDna.data);
     }
@@ -381,6 +388,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     if (needsRefresh('narrative')) fetchNarrative();
     if (needsRefresh('drift')) fetchDriftData();
     if (needsRefresh('conviction')) fetchConvictionData();
+    if (needsRefresh('colorRatings')) fetchColorRatings();
   }, []);
 
   // --- URL param handling (quiz callback) ---
@@ -500,6 +508,75 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     } catch (err) {
       console.error('Failed to fetch conviction data:', err);
     }
+  };
+
+  // --- Color Ratings ---
+  const fetchColorRatings = async () => {
+    try {
+      const res = await axios.get('/api/color-ratings/default_user');
+      if (res.data?.success) {
+        const rMap = {};
+        (res.data.ratings || []).forEach(r => { rMap[r.color_hex] = r.rating; });
+        setColorRatings(rMap);
+        cacheSet('colorRatings', rMap);
+      }
+    } catch { /* no ratings yet */ }
+  };
+
+  // --- Curated photo thumbnails (verification) ---
+  // Fetch the actual top-signal photos Visual DNA was extracted from.
+  // Used as a visual sanity check so the user can confirm it's reading
+  // the right inputs before trusting the output.
+  const fetchCuratedThumbnails = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/deep/tizita/top-photos', {
+        params: { limit: 8, curated: 'true' },
+      });
+      if (res.data?.success) {
+        const tizitaBase = process.env.REACT_APP_TIZITA_URL || 'http://localhost:8001';
+        const thumbs = (res.data.photos || []).slice(0, 8).map(p => ({
+          id: p.id,
+          url: p.id ? `${tizitaBase}/api/v1/photos/file/${p.id}` : null,
+          score: p.curationScore || 0,
+          tier: p.curationScore === 100 ? 'best'
+              : p.curationScore === 67 ? 'favorite'
+              : p.curationScore === 50 ? 'rated 4+'
+              : 'rated 3',
+        })).filter(t => t.url);
+        setCuratedThumbnails(thumbs);
+      }
+    } catch { /* no photos / tizita offline */ }
+  }, []);
+
+  const handleRateColor = async (color, rating) => {
+    const hex = color.hex;
+    const current = colorRatings[hex];
+
+    if (current === rating) {
+      try {
+        await axios.delete('/api/color-ratings/rate', { data: { userId: 'default_user', colorHex: hex } });
+        setColorRatings(prev => { const next = { ...prev }; delete next[hex]; return next; });
+        cacheSet('colorRatings', { ...colorRatings, [hex]: undefined });
+      } catch { /* ignore */ }
+      return;
+    }
+
+    try {
+      await axios.post('/api/color-ratings/rate', {
+        userId: 'default_user',
+        color: {
+          hex: color.hex,
+          culturalName: color.culturalName || null,
+          genericName: color.genericName || color.name || null,
+          origin: color.origin || null,
+          context: color.context || null,
+        },
+        rating,
+      });
+      const updated = { ...colorRatings, [hex]: rating };
+      setColorRatings(updated);
+      cacheSet('colorRatings', updated);
+    } catch { /* ignore */ }
   };
 
   // --- Identity Narrative ---
@@ -702,28 +779,41 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
 
   const handleRescanTizita = async () => {
     setRescanningTizita(true);
+    rescanProgress.startJob('visual-dna', {
+      label: 'Visual DNA',
+      stage: 'Fetching photos',
+      target: { view: 'genesis', elementId: 'visual-dna-card' },
+    });
     try {
-      const [profileRes, photosRes, dnaRes] = await Promise.all([
+      // Stage 1: lightweight calls in parallel.
+      const [profilePromise, photosPromise] = [
         axios.get('/api/deep/tizita/profile'),
         axios.get('/api/deep/tizita/top-photos', {
-          params: { limit: 500, minScore: 0 }
+          params: { limit: 500, minScore: 0 },
         }),
-        axios.get('/api/deep/tizita/visual-dna', {
-          params: { refresh: 'true' }
-        }),
-      ]);
+      ];
+      const [profileRes, photosRes] = await Promise.all([profilePromise, photosPromise]);
+      rescanProgress.updateJob('visual-dna', { stage: 'Analysing palette', progress: 0.45 });
+
+      // Stage 2: the heavy one — Python analyser with refresh.
+      const dnaRes = await axios.get('/api/deep/tizita/visual-dna', {
+        params: { refresh: 'true' },
+      });
+      rescanProgress.updateJob('visual-dna', { stage: 'Matching movements', progress: 0.85 });
 
       const tizita = {
         profile: profileRes.data.profile,
         photos: photosRes.data.photos,
-        visualDNA: dnaRes.data.visualDNA
+        visualDNA: dnaRes.data.visualDNA,
       };
       setTizitaData(tizita);
       cacheSet('tizita', { profile: tizita.profile, visualDNA: tizita.visualDNA, _photosCount: tizita.photos?.length || 0 });
 
       fetchAutoClassification();
+      rescanProgress.finishJob('visual-dna', { stage: 'Visual DNA ready' });
     } catch (error) {
       console.error('Tizita rescan failed:', error);
+      rescanProgress.finishJob('visual-dna', { error: true, stage: 'Rescan failed' });
     } finally {
       setRescanningTizita(false);
     }
@@ -808,7 +898,14 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
   const canGenerate = (totalTracks > 0 || tizitaData || projectDnaData) && (caption || bio);
 
   const toggleCard = (card) => {
-    setExpandedCard(prev => prev === card ? null : card);
+    setExpandedCard(prev => {
+      const next = prev === card ? null : card;
+      // Lazy-load curated thumbnails when Visual DNA opens
+      if (next === 'visual' && curatedThumbnails.length === 0 && hasVisualDNA) {
+        fetchCuratedThumbnails();
+      }
+      return next;
+    });
   };
 
   // --- Accent elements for collapsed hub cards ---
@@ -1285,6 +1382,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
 
         {/* Card 2 — Visual DNA */}
         <HubCard
+          id="visual-dna-card"
           label="Visual DNA"
           stat={
             hasVisualDNA
@@ -1314,7 +1412,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
             return (
               <div className="space-y-5">
 
-                {/* Color Palette */}
+                {/* Color Palette with Likert ratings */}
                 {palette.length > 0 && (
                   <div>
                     <div className="flex gap-2">
@@ -1322,6 +1420,8 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                         const displayName = color.culturalName || color.name || color.hex;
                         const hex = color.hex;
                         const pct = color.percentage ? Math.round(color.percentage) : null;
+                        const currentRating = colorRatings[hex] || 0;
+                        const ratingLabels = ['Miss', 'Noted', 'Resonant', 'Canon', 'Ancestor'];
                         return (
                           <div key={idx} className="flex-1">
                             <div
@@ -1342,27 +1442,115 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                                 {pct}%
                               </p>
                             )}
+                            {/* Likert rating bar */}
+                            <div className="flex items-center gap-px mt-1.5">
+                              {[1, 2, 3, 4, 5].map(val => (
+                                <button
+                                  key={val}
+                                  onClick={() => handleRateColor(color, val)}
+                                  className="flex-1"
+                                  title={ratingLabels[val - 1]}
+                                >
+                                  <div className={`h-1.5 w-full transition-colors ${
+                                    val <= currentRating
+                                      ? 'bg-brand-text'
+                                      : 'bg-brand-border hover:bg-brand-secondary'
+                                  }`} />
+                                </button>
+                              ))}
+                            </div>
+                            {currentRating > 0 && (
+                              <p className="text-body-xs text-brand-secondary text-center mt-0.5">
+                                {ratingLabels[currentRating - 1]}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
                     </div>
+
+                    {/* My Palette: Canon + Ancestor colors with hex codes */}
+                    {Object.values(colorRatings).some(r => r >= 4) && (
+                      <div className="mt-4 pt-3 border-t border-brand-border">
+                        <p className="uppercase-label text-brand-secondary mb-2">My Palette</p>
+                        <div className="flex gap-3">
+                          {Object.entries(colorRatings)
+                            .filter(([, r]) => r >= 4)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([hex, rating]) => {
+                              const paletteColor = palette.find(c => c.hex === hex);
+                              const name = paletteColor?.culturalName || paletteColor?.name || hex;
+                              return (
+                                <div key={hex} className="text-center">
+                                  <div
+                                    className="w-12 h-12 border-2 border-brand-text"
+                                    style={{ backgroundColor: hex }}
+                                    title={paletteColor?.context || ''}
+                                  />
+                                  <p className="text-body-xs text-brand-text mt-1 font-mono">{hex}</p>
+                                  <p className="text-body-xs text-brand-secondary">
+                                    {rating === 5 ? 'Ancestor' : 'Canon'}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Top movements */}
+                {/* Curated photo thumbnails — accuracy check */}
+                {curatedThumbnails.length > 0 && (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <p className="uppercase-label text-brand-secondary">Photos Analysed</p>
+                      <p className="text-body-xs text-brand-secondary">
+                        Top-signal curation (best · favorites · rated)
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-8 gap-1">
+                      {curatedThumbnails.map((t) => (
+                        <div key={t.id} className="relative">
+                          <div
+                            className="aspect-square bg-brand-border border border-brand-border overflow-hidden"
+                            title={`${t.tier} (curation ${t.score})`}
+                          >
+                            <img
+                              src={t.url}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top movements — compact grid */}
                 {movements.length > 0 && (
                   <div>
                     <p className="uppercase-label text-brand-secondary mb-2">Visual Lineage</p>
                     <div className="space-y-1">
                       {movements.slice(0, 3).map((m, idx) => (
-                        <div key={idx} className="grid items-baseline" style={{ gridTemplateColumns: '1fr auto auto' }}>
-                          <span className="text-body-sm text-brand-text truncate pr-2">
+                        <div
+                          key={idx}
+                          className="grid items-baseline gap-2"
+                          style={{ gridTemplateColumns: '1fr 110px 80px 44px' }}
+                        >
+                          <span className="text-body-sm text-brand-text truncate">
                             {m.name}
                           </span>
-                          <span className="text-body-sm text-brand-secondary text-right pr-3" style={{ minWidth: '90px' }}>
+                          <span className="text-body-xs text-brand-secondary text-right truncate">
                             {m.region || ''}
                           </span>
-                          <span className="text-brand-secondary font-mono text-body-sm text-right" style={{ minWidth: '36px' }}>
+                          <span className="text-body-xs text-brand-secondary text-right truncate">
+                            {m.era || ''}
+                          </span>
+                          <span className="text-brand-secondary font-mono text-body-sm text-right">
                             {Math.round((m.affinity || 0) * 100)}%
                           </span>
                         </div>
@@ -1413,20 +1601,21 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                         <div className="space-y-2">
                           {movements.map((m, idx) => (
                             <div key={idx} className="border border-brand-border p-2.5">
-                              <div className="grid items-baseline" style={{ gridTemplateColumns: '1fr auto auto' }}>
-                                <span className="text-body-sm text-brand-text font-medium truncate pr-2">{m.name}</span>
-                                <span className="text-body-sm text-brand-secondary text-right pr-3" style={{ minWidth: '90px' }}>
+                              <div
+                                className="grid items-baseline gap-2"
+                                style={{ gridTemplateColumns: '1fr 110px 80px 44px' }}
+                              >
+                                <span className="text-body-sm text-brand-text font-medium truncate">{m.name}</span>
+                                <span className="text-body-xs text-brand-secondary text-right truncate">
                                   {m.region || ''}
                                 </span>
-                                <span className="text-brand-secondary font-mono text-body-sm text-right" style={{ minWidth: '36px' }}>
+                                <span className="text-body-xs text-brand-secondary text-right truncate">
+                                  {m.era || ''}
+                                </span>
+                                <span className="text-brand-secondary font-mono text-body-sm text-right">
                                   {Math.round((m.affinity || 0) * 100)}%
                                 </span>
                               </div>
-                              {m.era && (
-                                <p className="text-body-sm text-brand-secondary mt-0.5">
-                                  {m.era}
-                                </p>
-                              )}
                               {m.cultural_context && (
                                 <p className="text-body-sm text-brand-secondary mt-1 leading-snug">
                                   {m.cultural_context}
