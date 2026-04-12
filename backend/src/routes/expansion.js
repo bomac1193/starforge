@@ -140,6 +140,31 @@ router.delete('/rate', (req, res) => {
   }
 });
 
+// Store master lineage synthesis (pushed from Qualn)
+router.post('/lineage-summary', (req, res) => {
+  try {
+    const { userId = 'default', masterLineage } = req.body;
+    if (!masterLineage) {
+      return res.status(400).json({ success: false, error: 'masterLineage required' });
+    }
+    expansionEngine.setLineageSummary(userId, masterLineage);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Expansion] Lineage summary error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get lineage summary (for direct access, also available via /twin/visual-dna/context)
+router.get('/lineage-summary/:userId', (req, res) => {
+  try {
+    const summary = expansionEngine.getLineageSummary(req.params.userId);
+    res.json({ success: true, summary });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ── Visual Lineage Discovery ──
 
 // Match user's color palette to visual movements

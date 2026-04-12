@@ -43,6 +43,13 @@ function getDB() {
         UNIQUE(user_id, artifact_key)
       )
     `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS lineage_summaries (
+        user_id TEXT PRIMARY KEY,
+        master_lineage TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
   }
   return db;
 }
@@ -406,4 +413,59 @@ function removeRating(userId, artifactKey) {
   return { success: true };
 }
 
-module.exports = { discoverLineage, getSuggestions, rateArtifact, getSavedArtifacts, removeRating };
+/**
+ * Build a structured lineage summary from rated artifacts + discovery state.
+ * Used by Twin OS context endpoint to expose lineage to Nommo.
+ */
+function getLineageSummary(userId = 'default') {
+  const saved = getSavedArtifacts(userId);
+  const suggestions = getSuggestions(userId);
+  if (!saved.length && !suggestions) return null;
+
+  const ancestors = saved.filter(a => a.rating === 5);
+  const canon = saved.filter(a => a.rating === 4);
+  const resonant = saved.filter(a => a.rating === 3);
+  const misses = saved.filter(a => a.rating === 1);
+
+  const threads = new Set();
+  for (const a of [...ancestors, ...canon]) {
+    if (a.gap_filled) threads.add(a.gap_filled);
+  }
+
+  // Get persisted master lineage text (pushed from Qualn)
+  let masterLineage = null;
+  try {
+    const database = getDB();
+    const row = database.prepare('SELECT master_lineage FROM lineage_summaries WHERE user_id = ?').get(userId);
+    if (row) masterLineage = row.master_lineage;
+  } catch { /* no summary yet */ }
+
+  return {
+    ancestors: ancestors.map(a => ({ artifact: a.artifact, year: a.year, location: a.location, gap_filled: a.gap_filled })),
+    canon: canon.map(a => ({ artifact: a.artifact, year: a.year, location: a.location, gap_filled: a.gap_filled })),
+    resonant_count: resonant.length,
+    miss_count: misses.length,
+    total_rated: saved.length,
+    resonance_rate: saved.length > 0 ? Math.round(saved.filter(a => a.rating >= 3).length / saved.length * 100) : 0,
+    lineage_threads: [...threads],
+    primary_thread: suggestions?.lineage_map?.primary_thread || null,
+    branches: suggestions?.lineage_map?.branches || [],
+    missing_regions: suggestions?.lineage_map?.missing_regions || [],
+    discovery_round: suggestions?.metadata?.discoveryRound || 0,
+    master_lineage: masterLineage,
+  };
+}
+
+/**
+ * Store master lineage synthesis text (pushed from Qualn after GPT synthesis)
+ */
+function setLineageSummary(userId = 'default', text) {
+  const database = getDB();
+  database.prepare(`
+    INSERT INTO lineage_summaries (user_id, master_lineage, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(user_id) DO UPDATE SET master_lineage = excluded.master_lineage, updated_at = datetime('now')
+  `).run(userId, text);
+}
+
+module.exports = { discoverLineage, getSuggestions, rateArtifact, getSavedArtifacts, removeRating, getLineageSummary, setLineageSummary };

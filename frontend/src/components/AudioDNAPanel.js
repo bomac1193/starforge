@@ -88,12 +88,8 @@ const AudioDNAPanel = ({ embedded = false, audioData, rekordboxData, tizitaData 
     return null;
   }
 
-  // Get prominence color for frequency bar
-  const getProminenceColor = (prominence) => {
-    if (prominence >= 0.3) return 'bg-blue-500';
-    if (prominence >= 0.2) return 'bg-purple-500';
-    return 'bg-pink-500';
-  };
+  // B&W prominence — no color, sharp restraint
+  const getProminenceColor = () => 'bg-white';
 
   return (
     <div className={embedded ? '' : 'mt-6 border border-brand-border p-6'}>
@@ -165,52 +161,50 @@ const AudioDNAPanel = ({ embedded = false, audioData, rekordboxData, tizitaData 
         </div>
       )}
 
-      {/* Sonic Palette (Frequency Bars) */}
+      {/* Sonic Palette (Frequency Bars) — B&W, sharp edges, consistent */}
       {sonicPalette.sonicPalette && sonicPalette.sonicPalette.length > 0 && (
         <div className="mb-6">
           <p className="uppercase-label text-brand-secondary mb-3">Sonic Palette</p>
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {sonicPalette.sonicPalette.map((band, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <span className="text-body-sm font-medium text-brand-text capitalize">
-                      {band.band.replace('_', ' ')}
-                    </span>
-                    <span className="text-body-xs text-brand-secondary ml-2">
-                      {band.frequency_range}
-                    </span>
-                  </div>
-                  <span className="text-body-sm text-brand-text">
-                    {Math.round(band.prominence * 100)}%
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 36px', alignItems: 'center', gap: '8px' }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <span className="text-brand-text capitalize" style={{ fontSize: '11px', fontWeight: 500, display: 'block', lineHeight: 1.2 }}>
+                    {band.band.replace('_', ' ')}
+                  </span>
+                  <span className="text-brand-secondary" style={{ fontSize: '9px' }}>
+                    {band.frequency_range}
                   </span>
                 </div>
-                <div className="w-full bg-brand-border h-2 rounded-full overflow-hidden">
+                <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--brand-border, #333)' }}>
                   <div
-                    className={`h-full ${getProminenceColor(band.prominence)} transition-all duration-300`}
-                    style={{ width: `${band.prominence * 100}%` }}
+                    className={getProminenceColor()}
+                    style={{ height: '100%', width: `${band.prominence * 100}%`, transition: 'width 0.3s' }}
                   />
                 </div>
+                <span className="text-brand-text font-mono" style={{ fontSize: '10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {Math.round(band.prominence * 100)}%
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Dominant Frequencies */}
+      {/* Dominant Frequencies — compact pills */}
       {sonicPalette.dominantFrequencies && sonicPalette.dominantFrequencies.length > 0 && (
-        <div className="mb-6 pt-6 border-t border-brand-border">
-          <p className="uppercase-label text-brand-secondary mb-3">Dominant Frequencies</p>
-          <div className="flex gap-2">
+        <div style={{ marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid var(--brand-border, #333)' }}>
+          <p className="uppercase-label text-brand-secondary" style={{ marginBottom: '8px' }}>Dominant Frequencies</p>
+          <div style={{ display: 'flex', gap: '6px' }}>
             {sonicPalette.dominantFrequencies.map((freq, idx) => (
               <div
                 key={idx}
-                className="flex-1 border border-brand-border p-3 text-center"
+                style={{ flex: 1, border: '1px solid var(--brand-border, #333)', padding: '8px 6px', textAlign: 'center' }}
               >
-                <p className="text-body-sm font-medium text-brand-text capitalize mb-1">
+                <p className="text-brand-text capitalize" style={{ fontSize: '11px', fontWeight: 500, marginBottom: '2px' }}>
                   {freq.band.replace('_', ' ')}
                 </p>
-                <p className="text-body-xs text-brand-secondary">
+                <p className="text-brand-secondary font-mono" style={{ fontSize: '10px', fontVariantNumeric: 'tabular-nums' }}>
                   {freq.prominence}%
                 </p>
               </div>
@@ -219,17 +213,10 @@ const AudioDNAPanel = ({ embedded = false, audioData, rekordboxData, tizitaData 
         </div>
       )}
 
-      {/* Analysis Stats */}
-      <div className="pt-6 border-t border-brand-border text-body-sm text-brand-secondary">
-        {sonicPalette.totalAnalyzed} tracks analyzed •{' '}
-        {sonicPalette.highQualityCount} high-energy •{' '}
-        {Math.round((sonicPalette.confidence || 0) * 100)}% confidence
-        {sonicPalette.cached && (
-          <>
-            {' • '}
-            <span className="text-brand-secondary italic">cached</span>
-          </>
-        )}
+      {/* Analysis Stats — minimal footer */}
+      <div style={{ paddingTop: '10px', borderTop: '1px solid var(--brand-border, #333)', fontSize: '10px', color: 'var(--brand-secondary, #888)' }}>
+        {sonicPalette.totalAnalyzed} tracks · {sonicPalette.highQualityCount} high-energy · {Math.round((sonicPalette.confidence || 0) * 100)}% confidence
+        {sonicPalette.cached && <span style={{ fontStyle: 'italic' }}> · cached</span>}
       </div>
     </div>
   );

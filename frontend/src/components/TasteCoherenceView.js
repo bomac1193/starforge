@@ -138,7 +138,7 @@ const TasteCoherenceView = ({ context, userId }) => {
           </div>
         </div>
 
-        <div className="w-full bg-brand-border h-3 overflow-hidden">
+        <div className="w-full bg-brand-border overflow-hidden" style={{ height: '4px' }}>
           <div
             className="h-full bg-brand-text transition-all duration-500"
             style={{ width: `${coherence.overall * 100}%` }}
@@ -171,7 +171,7 @@ const TasteCoherenceView = ({ context, userId }) => {
               </div>
             </div>
 
-            <div className="w-full bg-brand-border h-1.5 overflow-hidden">
+            <div className="w-full bg-brand-border overflow-hidden" style={{ height: '4px' }}>
               <div
                 className="h-full bg-brand-text transition-all duration-300"
                 style={{ width: `${metric.value * 100}%` }}

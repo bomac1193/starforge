@@ -17,6 +17,8 @@ const subtasteService = require('../services/subtasteService');
 const tizitaDirectService = require('../services/tizitaServiceDirect');
 const artMovementClassifier = require('../services/artMovementClassifier');
 const subtasteGenomeCache = require('../services/subtasteGenomeCache');
+const influenceGenealogy = require('../services/influenceGenealogy');
+const expansionEngine = require('../services/expansionEngine');
 
 // Audio database connection
 const audioDbPath = path.join(__dirname, '../../starforge_audio.db');
@@ -333,6 +335,24 @@ router.get('/context/:userId', async (req, res) => {
       }
     }
 
+    // Musical Identity Cohesion Engine — taste vs output divergence
+    let tasteVsOutput = null;
+    try {
+      tasteVsOutput = influenceGenealogy.computeTasteVsOutputDivergence(userId);
+    } catch (err) {
+      console.error('Cohesion engine error:', err.message);
+    }
+
+    // Cultural lineage from expansion engine (Diepiri discoveries + Likert ratings)
+    let culturalLineage = null;
+    try {
+      culturalLineage = expansionEngine.getLineageSummary(
+        userId === 'default_user' ? 'default' : userId
+      );
+    } catch (err) {
+      console.error('[Context] Lineage fetch error:', err.message);
+    }
+
     // Build Twin OS context
     const context = {
       user_id: userId,
@@ -376,6 +396,16 @@ router.get('/context/:userId', async (req, res) => {
         avoid: projectDna?.coreIdentity?.antiTaste || ['excessive emojis', 'hype language'],
         preserve_terms: projectDna?.tone?.preserveTerms || [],
       },
+      // Cultural Lineage from Diepiri discovery engine
+      cultural_lineage: culturalLineage,
+      // Musical Identity Cohesion Engine
+      taste_vs_output_divergence: tasteVsOutput?.available ? {
+        cohesion_score: tasteVsOutput.cohesionScore,
+        dimension_gaps: tasteVsOutput.dimensionGaps,
+        gap_tracks: tasteVsOutput.gapTracks,
+        own_music_profile: tasteVsOutput.ownProfile,
+        dj_profile: tasteVsOutput.djProfile,
+      } : null,
       last_updated: new Date().toISOString()
     };
 

@@ -494,6 +494,12 @@ const colorRatingRoutes = require('./routes/colorRatings');
 app.use('/api/color-ratings', colorRatingRoutes);
 
 // ========================================
+// COLOR CANON (PERSISTENT IDENTITY)
+// ========================================
+const colorCanonRoutes = require('./routes/colorCanon');
+app.use('/api/color-canon', colorCanonRoutes);
+
+// ========================================
 // WRITING DNA (IBIS INTEGRATION)
 // ========================================
 const writingDnaRoutes = require('./routes/writingDna');

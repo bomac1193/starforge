@@ -113,6 +113,48 @@ db.exec(`
   );
 `);
 
+// ========================================
+// Idempotent schema migrations — Musical Identity Cohesion Engine
+// ========================================
+{
+  const cols = db.pragma('table_info(audio_tracks)').map(c => c.name);
+  const has = (n) => cols.includes(n);
+  const migrations = [
+    // Krata deep-analysis fields
+    ['discogs_effnet_embedding', 'BLOB'],
+    ['mfcc', 'BLOB'],
+    ['sonic_palette_bass', 'REAL'],
+    ['sonic_palette_low_mid', 'REAL'],
+    ['sonic_palette_mid', 'REAL'],
+    ['sonic_palette_high_mid', 'REAL'],
+    ['sonic_palette_treble', 'REAL'],
+    ['mood_happy', 'REAL'],
+    ['mood_sad', 'REAL'],
+    ['mood_aggressive', 'REAL'],
+    ['mood_relaxed', 'REAL'],
+    ['mood_party', 'REAL'],
+    ['mood_electronic', 'REAL'],
+    ['mood_primary', 'TEXT'],
+    // Own music tagging
+    ['is_own_music', 'INTEGER DEFAULT 0'],
+    ['own_music_source', 'TEXT'],
+    ['krata_id', 'TEXT'],
+    ['crucibla_track_id', 'TEXT'],
+    // Subgenre
+    ['subgenre_primary', 'TEXT'],
+    ['subgenre_confidence', 'REAL'],
+    // User ID (for multi-user)
+    ['user_id', 'TEXT'],
+  ];
+  for (const [col, type] of migrations) {
+    if (!has(col)) {
+      try { db.exec(`ALTER TABLE audio_tracks ADD COLUMN ${col} ${type}`); } catch {}
+    }
+  }
+  // Unique index on krata_id for upsert
+  try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_audio_tracks_krata_id ON audio_tracks(krata_id)'); } catch {}
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -1419,6 +1461,147 @@ router.post('/spotify/enrich', async (req, res) => {
       error: error.message,
       hint: 'Make sure SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are set in your .env file'
     });
+  }
+});
+
+// ========================================
+// Krata Import — Musical Identity Cohesion Engine
+// Batch-import tracks from Krata with deep-analysis fields.
+// POST /api/audio/krata/import
+// ========================================
+router.post('/krata/import', async (req, res) => {
+  try {
+    const { user_id = 'default_user', tracks } = req.body;
+    if (!Array.isArray(tracks) || tracks.length === 0) {
+      return res.status(400).json({ success: false, error: 'tracks array required' });
+    }
+
+    const upsert = db.prepare(`
+      INSERT INTO audio_tracks (
+        id, filename, file_path, duration_seconds, bpm,
+        energy, loudness, quality_score,
+        sonic_palette_bass, sonic_palette_low_mid, sonic_palette_mid,
+        sonic_palette_high_mid, sonic_palette_treble,
+        mood_happy, mood_sad, mood_aggressive, mood_relaxed,
+        mood_party, mood_electronic, mood_primary,
+        discogs_effnet_embedding, mfcc,
+        is_own_music, own_music_source, krata_id,
+        subgenre_primary, user_id, source, uploaded_at
+      ) VALUES (
+        @id, @filename, @file_path, @duration, @bpm,
+        @energy, @loudness, @quality_score,
+        @sonic_palette_bass, @sonic_palette_low_mid, @sonic_palette_mid,
+        @sonic_palette_high_mid, @sonic_palette_treble,
+        @mood_happy, @mood_sad, @mood_aggressive, @mood_relaxed,
+        @mood_party, @mood_electronic, @mood_primary,
+        @embedding, @mfcc,
+        @is_own_music, @own_music_source, @krata_id,
+        @subgenre, @user_id, 'krata', CURRENT_TIMESTAMP
+      )
+      ON CONFLICT(krata_id) DO UPDATE SET
+        filename = excluded.filename,
+        file_path = excluded.file_path,
+        duration_seconds = excluded.duration_seconds,
+        bpm = excluded.bpm,
+        energy = excluded.energy,
+        loudness = excluded.loudness,
+        sonic_palette_bass = excluded.sonic_palette_bass,
+        sonic_palette_low_mid = excluded.sonic_palette_low_mid,
+        sonic_palette_mid = excluded.sonic_palette_mid,
+        sonic_palette_high_mid = excluded.sonic_palette_high_mid,
+        sonic_palette_treble = excluded.sonic_palette_treble,
+        mood_happy = excluded.mood_happy,
+        mood_sad = excluded.mood_sad,
+        mood_aggressive = excluded.mood_aggressive,
+        mood_relaxed = excluded.mood_relaxed,
+        mood_party = excluded.mood_party,
+        mood_electronic = excluded.mood_electronic,
+        mood_primary = excluded.mood_primary,
+        discogs_effnet_embedding = excluded.discogs_effnet_embedding,
+        mfcc = excluded.mfcc,
+        is_own_music = excluded.is_own_music,
+        own_music_source = excluded.own_music_source,
+        subgenre_primary = excluded.subgenre_primary,
+        uploaded_at = CURRENT_TIMESTAMP
+    `);
+
+    let inserted = 0;
+    let updated = 0;
+
+    const importMany = db.transaction((batch) => {
+      for (const t of batch) {
+        // Parse sonic_palette JSON
+        let palette = {};
+        if (t.sonic_palette) {
+          try { palette = typeof t.sonic_palette === 'string' ? JSON.parse(t.sonic_palette) : t.sonic_palette; } catch {}
+        }
+
+        // Encode embedding + mfcc as binary blobs (float32)
+        let embeddingBuf = null;
+        if (t.embedding) {
+          try {
+            const arr = typeof t.embedding === 'string' ? JSON.parse(t.embedding) : t.embedding;
+            if (Array.isArray(arr)) embeddingBuf = Buffer.from(new Float32Array(arr).buffer);
+          } catch {}
+        }
+        let mfccBuf = null;
+        if (t.mfcc) {
+          try {
+            const arr = typeof t.mfcc === 'string' ? JSON.parse(t.mfcc) : t.mfcc;
+            if (Array.isArray(arr)) mfccBuf = Buffer.from(new Float32Array(arr).buffer);
+          } catch {}
+        }
+
+        const trackId = `krata_${t.id}`;
+        const result = upsert.run({
+          id: trackId,
+          filename: t.filename || '',
+          file_path: t.path || '',
+          duration: t.duration || null,
+          bpm: t.bpm || null,
+          energy: t.energy || null,
+          loudness: t.loudness || null,
+          quality_score: null,
+          sonic_palette_bass: palette.bass ?? null,
+          sonic_palette_low_mid: palette.low_mid ?? null,
+          sonic_palette_mid: palette.mid ?? null,
+          sonic_palette_high_mid: palette.high_mid ?? null,
+          sonic_palette_treble: palette.treble ?? null,
+          mood_happy: t.mood_happy ?? null,
+          mood_sad: t.mood_sad ?? null,
+          mood_aggressive: t.mood_aggressive ?? null,
+          mood_relaxed: t.mood_relaxed ?? null,
+          mood_party: t.mood_party ?? null,
+          mood_electronic: t.mood_electronic ?? null,
+          mood_primary: t.mood_primary || null,
+          embedding: embeddingBuf,
+          mfcc: mfccBuf,
+          is_own_music: t.is_own_music || 0,
+          own_music_source: t.own_music_source || null,
+          krata_id: String(t.id),
+          subgenre: t.subgenre || t.user_subgenre || null,
+          user_id: user_id,
+        });
+
+        if (result.changes > 0) {
+          // INSERT returns changes=1, ON CONFLICT UPDATE also returns changes=1
+          // Check if the row existed before by seeing if rowid changed
+          inserted++;
+        }
+      }
+    });
+
+    importMany(tracks);
+
+    res.json({
+      success: true,
+      inserted,
+      total: tracks.length,
+      message: `Imported ${tracks.length} tracks from Krata`
+    });
+  } catch (error) {
+    console.error('Krata import error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

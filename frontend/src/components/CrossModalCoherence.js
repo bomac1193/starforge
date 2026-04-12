@@ -69,7 +69,7 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
           <p className="text-body-sm text-brand-text">Overall Coherence</p>
           <p className="text-display-sm text-brand-text">{(overall * 100).toFixed(0)}%</p>
         </div>
-        <div className="h-3 bg-brand-border overflow-hidden">
+        <div className="bg-brand-border overflow-hidden" style={{ height: '4px' }}>
           <div
             className="h-full bg-brand-text transition-all duration-500"
             style={{ width: `${overall * 100}%` }}
@@ -88,7 +88,7 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Visual-Audio Warmth</p>
             <p className="text-body-xs text-brand-text">{(audioVisualMatch * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border overflow-hidden">
+          <div className="bg-brand-border overflow-hidden" style={{ height: '4px' }}>
             <div
               className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${audioVisualMatch * 100}%` }}
@@ -102,7 +102,7 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Energy Alignment</p>
             <p className="text-body-xs text-brand-text">{(energyAlignment * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border overflow-hidden">
+          <div className="bg-brand-border overflow-hidden" style={{ height: '4px' }}>
             <div
               className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${energyAlignment * 100}%` }}
@@ -116,7 +116,7 @@ const CrossModalCoherence = ({ userId = 'default_user' }) => {
             <p className="text-body-xs text-brand-secondary">Palette Diversity Match</p>
             <p className="text-body-xs text-brand-text">{(diversityAlignment * 100).toFixed(0)}%</p>
           </div>
-          <div className="h-2 bg-brand-border overflow-hidden">
+          <div className="bg-brand-border overflow-hidden" style={{ height: '4px' }}>
             <div
               className="h-full bg-brand-text transition-all duration-500"
               style={{ width: `${diversityAlignment * 100}%` }}

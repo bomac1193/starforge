@@ -307,7 +307,12 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
   const [expandedDesignation, setExpandedDesignation] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null); // 'mode' | 'shadow' | 'growth' | null
   const [colorRatings, setColorRatings] = useState({});
+  const [canonColors, setCanonColors] = useState([]);
+  const [canonLineage, setCanonLineage] = useState([]);
+  const [expandedCanonHex, setExpandedCanonHex] = useState(null);
+  const [canonPinMode, setCanonPinMode] = useState(false);
   const [curatedThumbnails, setCuratedThumbnails] = useState([]);
+  const [cohesionData, setCohesionData] = useState(null);
 
   // Track whether we loaded from session cache (skip redundant fetches)
   const loadedFromCache = useRef(false);
@@ -325,6 +330,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       projectDna: cacheGet('projectDna'),
       totalTracks: cacheGet('totalTracks'),
       subscription: cacheGet('subscription'),
+      cohesion: cacheGet('cohesion'),
     };
 
     // Instant state restore from cache
@@ -355,6 +361,9 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     }
     if (cached.colorRatings?.data) {
       setColorRatings(cached.colorRatings.data);
+    }
+    if (cached.cohesion?.data) {
+      setCohesionData(cached.cohesion.data);
     }
     if (cached.projectDna?.data) {
       setProjectDnaData(cached.projectDna.data);
@@ -388,6 +397,8 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     if (needsRefresh('drift')) fetchDriftData();
     if (needsRefresh('conviction')) fetchConvictionData();
     if (needsRefresh('colorRatings')) fetchColorRatings();
+    fetchCanonColors(); // always fresh — small payload
+    if (needsRefresh('cohesion')) fetchCohesionData();
   }, []);
 
   // --- URL param handling (quiz callback) ---
@@ -522,6 +533,61 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
     } catch { /* no ratings yet */ }
   };
 
+  // --- Color Canon (persistent identity) ---
+  const fetchCanonColors = async () => {
+    try {
+      const res = await axios.get('/api/color-canon/default_user');
+      if (res.data?.success) {
+        setCanonColors(res.data.canon || []);
+      }
+    } catch { /* no canon yet */ }
+  };
+
+  const handlePinColor = async (hex) => {
+    try {
+      const res = await axios.post('/api/color-canon/pin', { userId: 'default_user', hex });
+      if (res.data?.success) setCanonColors(res.data.canon || []);
+    } catch { /* ignore */ }
+  };
+
+  const handleUnpinColor = async (hex) => {
+    try {
+      const res = await axios.post('/api/color-canon/unpin', { userId: 'default_user', hex });
+      if (res.data?.success) setCanonColors(res.data.canon || []);
+    } catch { /* ignore */ }
+  };
+
+  const fetchCanonLineage = async (hex) => {
+    try {
+      const url = hex
+        ? `/api/color-canon/default_user/history?hex=${encodeURIComponent(hex)}`
+        : '/api/color-canon/default_user/history';
+      const res = await axios.get(url);
+      if (res.data?.success) setCanonLineage(res.data.lineage || []);
+    } catch { /* ignore */ }
+  };
+
+  const toggleCanonLineage = (hex) => {
+    if (expandedCanonHex === hex) {
+      setExpandedCanonHex(null);
+      setCanonLineage([]);
+    } else {
+      setExpandedCanonHex(hex);
+      fetchCanonLineage(hex);
+    }
+  };
+
+  // --- Creative Compass (taste vs output cohesion) ---
+  const fetchCohesionData = async () => {
+    try {
+      const res = await axios.get('/api/twin/visual-dna/context/default_user');
+      if (res.data?.taste_vs_output_divergence) {
+        setCohesionData(res.data.taste_vs_output_divergence);
+        cacheSet('cohesion', res.data.taste_vs_output_divergence);
+      }
+    } catch { /* cohesion not available */ }
+  };
+
   // --- Curated photo thumbnails (verification) ---
   // Fetch the actual top-signal photos Visual DNA was extracted from.
   // Used as a visual sanity check so the user can confirm it's reading
@@ -575,6 +641,25 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
       const updated = { ...colorRatings, [hex]: rating };
       setColorRatings(updated);
       cacheSet('colorRatings', updated);
+
+      // Sync canon: recalculate with all rated-4+ colors including names
+      const canonEntries = Object.entries(updated).filter(([, r]) => r >= 4);
+      if (canonEntries.length > 0) {
+        // Pull cultural names from the visual DNA palette
+        const vdna = tizitaData?.visualDNA;
+        const palette = vdna?.culturalPalette?.length > 0 ? vdna.culturalPalette : vdna?.colorPalette || [];
+        const paletteColors = canonEntries.map(([h]) => {
+          const p = palette.find(c => c.hex === h);
+          return { hex: h, culturalName: p?.culturalName || p?.name || null, origin: p?.origin || null };
+        });
+        try {
+          const canonRes = await axios.post('/api/color-canon/recalculate', {
+            userId: 'default_user',
+            paletteColors,
+          });
+          if (canonRes.data?.success) setCanonColors(canonRes.data.canon || []);
+        } catch { /* canon sync non-critical */ }
+      }
     } catch { /* ignore */ }
   };
 
@@ -1424,7 +1509,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                 {/* Color Palette with Likert ratings */}
                 {palette.length > 0 && (
                   <div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5">
                       {palette.map((color, idx) => {
                         const displayName = color.culturalName || color.name || color.hex;
                         const hex = color.hex;
@@ -1432,48 +1517,51 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                         const currentRating = colorRatings[hex] || 0;
                         const ratingLabels = ['Miss', 'Noted', 'Resonant', 'Canon', 'Ancestor'];
                         return (
-                          <div key={idx} className="flex-1 flex flex-col">
+                          <div key={idx} className="flex-1" style={{
+                            display: 'grid',
+                            gridTemplateRows: '40px 26px 13px 13px 6px 12px',
+                            gap: 0,
+                          }}>
                             {/* Swatch */}
                             <div
-                              className="h-16 border border-brand-border"
+                              className="border border-brand-border"
                               style={{ backgroundColor: hex }}
                               title={color.context ? `${displayName} (${color.origin}): ${color.context}` : hex}
                             />
-                            {/* Meta block — fixed reserved height so Likert bars align across all swatches */}
-                            <div className="mt-1.5 flex flex-col" style={{ minHeight: '64px' }}>
-                              <p className="text-body-sm text-brand-text text-center leading-tight line-clamp-2">
-                                {color.matched ? displayName : hex}
-                              </p>
-                              {color.origin && color.matched && (
-                                <p className="text-body-xs text-brand-secondary text-center leading-tight line-clamp-1 mt-0.5">
-                                  {color.origin}
-                                </p>
-                              )}
-                              {pct > 0 && (
-                                <p className="text-body-xs text-brand-secondary text-center font-mono mt-auto pt-0.5">
-                                  {pct}%
-                                </p>
-                              )}
-                            </div>
-                            {/* Likert rating bar — always on the same baseline */}
-                            <div className="flex items-center gap-px mt-2">
+                            {/* Name — fixed row */}
+                            <p className="text-center leading-tight line-clamp-2 self-end" style={{ fontSize: '11px', color: 'var(--brand-text, #e0e0e0)' }}>
+                              {color.matched ? displayName : hex}
+                            </p>
+                            {/* Origin — fixed row */}
+                            <p className="text-center leading-tight line-clamp-1" style={{ fontSize: '9px', color: 'var(--brand-secondary, #888)' }}>
+                              {color.origin && color.matched ? color.origin : '\u00A0'}
+                            </p>
+                            {/* Percentage — fixed row, right-aligned with tabular nums */}
+                            <p className="text-center font-mono" style={{ fontSize: '10px', color: 'var(--brand-secondary, #888)', fontVariantNumeric: 'tabular-nums' }}>
+                              {pct > 0 ? `${pct}%` : '\u00A0'}
+                            </p>
+                            {/* Likert rating bar — perfectly aligned across all swatches */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
                               {[1, 2, 3, 4, 5].map(val => (
                                 <button
                                   key={val}
                                   onClick={() => handleRateColor(color, val)}
-                                  className="flex-1"
+                                  style={{ flex: 1, padding: 0, background: 'none', border: 'none', cursor: 'pointer' }}
                                   title={ratingLabels[val - 1]}
                                 >
-                                  <div className={`h-1.5 w-full transition-colors ${
-                                    val <= currentRating
-                                      ? 'bg-brand-text'
-                                      : 'bg-brand-border hover:bg-brand-secondary'
-                                  }`} />
+                                  <div style={{
+                                    height: '3px',
+                                    width: '100%',
+                                    transition: 'background-color 0.15s',
+                                    backgroundColor: val <= currentRating
+                                      ? 'var(--brand-text, #e0e0e0)'
+                                      : 'var(--brand-border, #333)',
+                                  }} />
                                 </button>
                               ))}
                             </div>
-                            {/* Rating label — reserved height so swatches stay aligned */}
-                            <p className="text-body-xs text-brand-secondary text-center mt-1" style={{ minHeight: '14px' }}>
+                            {/* Rating label — fixed row */}
+                            <p className="text-center" style={{ fontSize: '9px', color: 'var(--brand-secondary, #888)', lineHeight: '12px' }}>
                               {currentRating > 0 ? ratingLabels[currentRating - 1] : '\u00A0'}
                             </p>
                           </div>
@@ -1481,30 +1569,117 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
                       })}
                     </div>
 
-                    {/* My Palette: Canon + Ancestor colors with hex codes */}
-                    {Object.values(colorRatings).some(r => r >= 4) && (
-                      <div className="mt-4 pt-3 border-t border-brand-border">
-                        <p className="uppercase-label text-brand-secondary mb-2">My Palette</p>
-                        <div className="flex gap-3">
-                          {Object.entries(colorRatings)
-                            .filter(([, r]) => r >= 4)
-                            .sort(([, a], [, b]) => b - a)
-                            .map(([hex, rating]) => {
+                    {/* My Canon: persistent color identity with pin/lineage */}
+                    {(canonColors.length > 0 || Object.values(colorRatings).some(r => r >= 4)) && (
+                      <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--brand-border, #333)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <p className="uppercase-label text-brand-secondary" style={{ fontSize: '9px', letterSpacing: '0.1em', margin: 0 }}>My Canon</p>
+                          <button
+                            onClick={() => setCanonPinMode(prev => !prev)}
+                            style={{
+                              background: canonPinMode ? 'var(--brand-text, #e0e0e0)' : 'none',
+                              color: canonPinMode ? 'var(--brand-bg, #111)' : 'var(--brand-secondary, #666)',
+                              border: '1px solid var(--brand-border, #444)',
+                              cursor: 'pointer', padding: '1px 6px',
+                              fontSize: '8px', letterSpacing: '0.08em', textTransform: 'uppercase',
+                              lineHeight: '16px',
+                            }}
+                            title={canonPinMode ? 'Exit pin mode' : 'Enter pin mode to lock/unlock colors'}
+                          >
+                            {canonPinMode ? 'Done' : 'Pin'}
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {(() => {
+                            const canonHexSet = new Set(canonColors.map(c => c.hex.toUpperCase()));
+                            const ratedCanon = Object.entries(colorRatings)
+                              .filter(([hex, r]) => r >= 4 && !canonHexSet.has(hex.toUpperCase()))
+                              .map(([hex, rating]) => ({
+                                hex, confidence: rating === 5 ? 0.9 : 0.7, pinned: 0,
+                                first_seen: null, source: 'rated',
+                              }));
+                            const merged = [...canonColors, ...ratedCanon];
+                            return merged.map((canon) => {
+                              const hex = canon.hex;
                               const paletteColor = palette.find(c => c.hex === hex);
+                              const name = canon.cultural_name || paletteColor?.culturalName || paletteColor?.name || '';
+                              const rating = colorRatings[hex] || 0;
+                              const isPinned = !!canon.pinned;
+                              const isExpanded = expandedCanonHex === hex;
+                              const confPct = Math.round((canon.confidence || 0) * 100);
+                              const handleSwatchClick = () => {
+                                if (canonPinMode) {
+                                  isPinned ? handleUnpinColor(hex) : handlePinColor(hex);
+                                } else {
+                                  toggleCanonLineage(hex);
+                                }
+                              };
                               return (
-                                <div key={hex} className="text-center">
-                                  <div
-                                    className="w-12 h-12 border-2 border-brand-text"
-                                    style={{ backgroundColor: hex }}
-                                    title={paletteColor?.context || ''}
-                                  />
-                                  <p className="text-body-xs text-brand-text mt-1 font-mono">{hex}</p>
-                                  <p className="text-body-xs text-brand-secondary">
-                                    {rating === 5 ? 'Ancestor' : 'Canon'}
-                                  </p>
+                                <div key={hex}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {/* Swatch + pinned indicator */}
+                                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                                      <div
+                                        style={{
+                                          width: '28px', height: '28px',
+                                          backgroundColor: hex,
+                                          border: isPinned ? '1.5px solid var(--brand-text, #e0e0e0)' : '1px solid var(--brand-border, #333)',
+                                          cursor: 'pointer',
+                                          outline: canonPinMode ? '1px dashed var(--brand-secondary, #666)' : 'none',
+                                          outlineOffset: '2px',
+                                        }}
+                                        title={canonPinMode ? (isPinned ? 'Click to unpin' : 'Click to pin') : (paletteColor?.context || hex)}
+                                        onClick={handleSwatchClick}
+                                      />
+                                      {isPinned && (
+                                        <div style={{
+                                          position: 'absolute', top: '-3px', right: '-3px',
+                                          width: '6px', height: '6px', borderRadius: '50%',
+                                          backgroundColor: 'var(--brand-text, #e0e0e0)',
+                                        }} />
+                                      )}
+                                    </div>
+                                    {/* Name + meta */}
+                                    <div style={{ flex: 1, lineHeight: 1.2, minWidth: 0, cursor: 'pointer' }} onClick={() => !canonPinMode && toggleCanonLineage(hex)}>
+                                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                        <span className="font-mono" style={{ fontSize: '10px', color: 'var(--brand-text, #e0e0e0)' }}>{hex}</span>
+                                        {name && <span style={{ fontSize: '9px', color: 'var(--brand-secondary, #888)' }}>{name}</span>}
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                        <div style={{ width: '40px', height: '2px', backgroundColor: 'var(--brand-border, #333)' }}>
+                                          <div style={{ height: '100%', width: `${confPct}%`, backgroundColor: 'var(--brand-text, #e0e0e0)' }} />
+                                        </div>
+                                        <span style={{ fontSize: '8px', color: 'var(--brand-secondary, #888)', fontVariantNumeric: 'tabular-nums' }}>{confPct}%</span>
+                                        <span style={{ fontSize: '8px', color: 'var(--brand-secondary, #888)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                          {isPinned ? 'Pinned' : rating === 5 ? 'Ancestor' : rating === 4 ? 'Canon' : canon.source || 'discovered'}
+                                        </span>
+                                        {canon.first_seen && (
+                                          <span style={{ fontSize: '8px', color: 'var(--brand-secondary, #666)' }}>
+                                            since {new Date(canon.first_seen).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Expanded lineage timeline */}
+                                  {isExpanded && canonLineage.length > 0 && (
+                                    <div style={{ marginLeft: '36px', marginTop: '4px', paddingLeft: '8px', borderLeft: '1px solid var(--brand-border, #333)' }}>
+                                      {canonLineage.slice(0, 8).map((evt, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginBottom: '2px' }}>
+                                          <span style={{ fontSize: '8px', color: 'var(--brand-secondary, #666)', whiteSpace: 'nowrap' }}>
+                                            {new Date(evt.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                          </span>
+                                          <span style={{ fontSize: '9px', color: 'var(--brand-secondary, #888)' }}>
+                                            {evt.event}{evt.context ? ` ${evt.context}` : ''}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               );
-                            })}
+                            });
+                          })()}
                         </div>
                       </div>
                     )}
@@ -1672,7 +1847,160 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
           </div>
         </HubCard>
 
-        {/* Card 4 — Lineage */}
+        {/* Card 4 — Creative Compass (taste vs output cohesion) */}
+        <HubCard
+          label="Creative Compass"
+          stat={cohesionData ? `${cohesionData.cohesion_score}` : null}
+          statLabel={cohesionData ? 'Cohesion' : null}
+          connected={!!cohesionData}
+          connectLabel="Tag own music in Krata first"
+          expanded={expandedCard === 'compass'}
+          onToggle={() => toggleCard('compass')}
+          onRescan={cohesionData ? fetchCohesionData : undefined}
+        >
+          {cohesionData && (() => {
+            const own = cohesionData.own_music_profile;
+            const dj = cohesionData.dj_profile;
+            const gaps = cohesionData.dimension_gaps || {};
+            const score = cohesionData.cohesion_score;
+            const stance = score >= 75 ? 'Closing the gap' : 'Productive tension';
+
+            // Dimensions for side-by-side comparison
+            const dims = [
+              { label: 'BPM', own: own?.bpm?.mean, dj: dj?.bpm?.mean, unit: '', scale: 200 },
+              { label: 'Energy', own: own?.energy?.mean, dj: dj?.energy?.mean, unit: '', scale: 1 },
+              { label: 'Party', own: own?.moods?.party, dj: dj?.moods?.party, unit: '', scale: 1 },
+              { label: 'Aggressive', own: own?.moods?.aggressive, dj: dj?.moods?.aggressive, unit: '', scale: 1 },
+              { label: 'Relaxed', own: own?.moods?.relaxed, dj: dj?.moods?.relaxed, unit: '', scale: 1 },
+            ].filter(d => d.own != null && d.dj != null);
+
+            // Top gaps sorted by magnitude
+            const topGaps = Object.entries(gaps)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 6);
+
+            return (
+              <div className="space-y-6">
+                {/* Score + stance */}
+                <div className="flex items-center justify-between border border-brand-border p-4">
+                  <div>
+                    <p className="text-display-lg text-brand-text">{score}</p>
+                    <p className="text-label text-brand-secondary">Cohesion Score</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-body text-brand-text">{stance}</p>
+                    <p className="text-label text-brand-secondary">
+                      {own?.trackCount || 0} own / {dj?.trackCount || 0} DJ
+                    </p>
+                  </div>
+                </div>
+
+                {/* Side-by-side comparison bars */}
+                {dims.length > 0 && (
+                  <div>
+                    <p className="uppercase-label text-brand-secondary mb-3">You Make vs You Play</p>
+                    <div className="space-y-3">
+                      {dims.map(d => {
+                        const ownPct = Math.min(100, ((d.own || 0) / d.scale) * 100);
+                        const djPct = Math.min(100, ((d.dj || 0) / d.scale) * 100);
+                        const ownLabel = d.scale > 1 ? Math.round(d.own) : (d.own * 100).toFixed(0) + '%';
+                        const djLabel = d.scale > 1 ? Math.round(d.dj) : (d.dj * 100).toFixed(0) + '%';
+                        return (
+                          <div key={d.label}>
+                            <div className="flex justify-between text-label text-brand-secondary mb-1">
+                              <span>{d.label}</span>
+                              <span>{ownLabel} / {djLabel}</span>
+                            </div>
+                            <div className="flex gap-1 h-2">
+                              <div className="flex-1 bg-brand-surface rounded-sm overflow-hidden">
+                                <div
+                                  className="h-full bg-brand-text rounded-sm"
+                                  style={{ width: `${ownPct}%`, opacity: 0.8 }}
+                                />
+                              </div>
+                              <div className="flex-1 bg-brand-surface rounded-sm overflow-hidden">
+                                <div
+                                  className="h-full bg-brand-secondary rounded-sm"
+                                  style={{ width: `${djPct}%`, opacity: 0.6 }}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-brand-secondary mt-0.5">
+                              <span>You make</span>
+                              <span>You play</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dimension gaps */}
+                {topGaps.length > 0 && (
+                  <div>
+                    <p className="uppercase-label text-brand-secondary mb-3">Largest Gaps</p>
+                    <div className="space-y-2">
+                      {topGaps.map(([dim, val]) => (
+                        <div key={dim} className="flex justify-between items-center">
+                          <span className="text-body-sm text-brand-text">
+                            {dim.replace(/_/g, ' ').replace(/^palette /, '').replace(/^mood /, '')}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 h-1.5 bg-brand-surface rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-brand-text rounded-full"
+                                style={{ width: `${Math.min(100, val * 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-label text-brand-secondary w-10 text-right">
+                              {(val * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gap tracks */}
+                {cohesionData.gap_tracks?.length > 0 && (
+                  <div>
+                    <p className="uppercase-label text-brand-secondary mb-3">
+                      Gap Tracks — what you play that's least like what you make
+                    </p>
+                    <div className="space-y-1">
+                      {cohesionData.gap_tracks.slice(0, 5).map((t, i) => (
+                        <div key={t.id} className="flex justify-between items-center py-1 border-b border-brand-border/30 last:border-0">
+                          <span className="text-body-sm text-brand-text truncate flex-1 mr-2">
+                            {i + 1}. {t.filename}
+                          </span>
+                          <span className="text-label text-brand-secondary">
+                            {(t.delta * 100).toFixed(0)}% divergent
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary moods comparison */}
+                {(own?.moodPrimary || dj?.moodPrimary) && (
+                  <div className="border-t border-brand-border pt-3 flex justify-between text-body-sm">
+                    <span className="text-brand-secondary">
+                      You make: <span className="text-brand-text">{own?.moodPrimary || '—'}</span>
+                    </span>
+                    <span className="text-brand-secondary">
+                      You play: <span className="text-brand-text">{dj?.moodPrimary || '—'}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </HubCard>
+
+        {/* Card 5 — Lineage */}
         <HubCard
           label="Lineage"
           stat={
@@ -1692,7 +2020,7 @@ const NommoPanel = ({ onTwinGenerated, onGlowChange }) => {
           </div>
         </HubCard>
 
-        {/* Card 5 — Writing DNA (from Ibis) */}
+        {/* Card 6 — Writing DNA (from Ibis) */}
         <HubCard
           label="Writing DNA"
           stat={writingDnaData ? (writingDnaData.patterns?.tone?.[0] || 'Analyzed') : null}

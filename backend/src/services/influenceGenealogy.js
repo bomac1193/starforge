@@ -572,6 +572,284 @@ class InfluenceGenealogyService {
     return { nodes, edges };
   }
 
+  // ========================================
+  // Musical Identity Cohesion Engine
+  // ========================================
+
+  /**
+   * Build a profile from a filtered set of tracks.
+   * Returns centroid across BPM, energy, palette, moods, subgenre histogram.
+   */
+  _buildProfile(tracks) {
+    if (tracks.length === 0) {
+      return {
+        trackCount: 0,
+        bpm: { mean: null, min: null, max: null, stddev: null },
+        energy: { mean: null },
+        palette: { bass: null, low_mid: null, mid: null, high_mid: null, treble: null },
+        moods: { happy: null, sad: null, aggressive: null, relaxed: null, party: null, electronic: null },
+        moodPrimary: null,
+        subgenreHistogram: {},
+        embeddingCentroid: null,
+      };
+    }
+
+    // BPM stats
+    const bpms = tracks.map(t => t.effective_bpm || t.bpm).filter(Boolean);
+    const bpmMean = bpms.length ? bpms.reduce((a, b) => a + b, 0) / bpms.length : null;
+    const bpmStd = bpms.length > 1 ? this.calculateVariance(bpms) : 0;
+
+    // Energy
+    const energies = tracks.map(t => t.energy).filter(v => v != null);
+    const energyMean = energies.length ? energies.reduce((a, b) => a + b, 0) / energies.length : null;
+
+    // Palette
+    const paletteFields = ['sonic_palette_bass', 'sonic_palette_low_mid', 'sonic_palette_mid', 'sonic_palette_high_mid', 'sonic_palette_treble'];
+    const paletteKeys = ['bass', 'low_mid', 'mid', 'high_mid', 'treble'];
+    const palette = {};
+    for (let i = 0; i < paletteFields.length; i++) {
+      const vals = tracks.map(t => t[paletteFields[i]]).filter(v => v != null);
+      palette[paletteKeys[i]] = vals.length ? parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3)) : null;
+    }
+
+    // Moods
+    const moodFields = ['mood_happy', 'mood_sad', 'mood_aggressive', 'mood_relaxed', 'mood_party', 'mood_electronic'];
+    const moodKeys = ['happy', 'sad', 'aggressive', 'relaxed', 'party', 'electronic'];
+    const moods = {};
+    for (let i = 0; i < moodFields.length; i++) {
+      const vals = tracks.map(t => t[moodFields[i]]).filter(v => v != null);
+      moods[moodKeys[i]] = vals.length ? parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3)) : null;
+    }
+
+    // Primary mood vote
+    const moodVotes = {};
+    tracks.forEach(t => {
+      if (t.mood_primary) {
+        moodVotes[t.mood_primary] = (moodVotes[t.mood_primary] || 0) + 1;
+      }
+    });
+    const moodPrimary = Object.entries(moodVotes).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+    // Subgenre histogram
+    const subgenreHistogram = {};
+    tracks.forEach(t => {
+      const sg = t.subgenre_primary || t.rekordbox_genre || null;
+      if (sg) subgenreHistogram[sg] = (subgenreHistogram[sg] || 0) + 1;
+    });
+
+    // Embedding centroid (128-dim float32 blobs from Krata)
+    let embeddingCentroid = null;
+    const embTracks = tracks.filter(t => t.discogs_effnet_embedding);
+    if (embTracks.length > 0) {
+      const dim = 128;
+      const centroid = new Float64Array(dim);
+      let count = 0;
+      for (const t of embTracks) {
+        try {
+          const buf = t.discogs_effnet_embedding;
+          const arr = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+          if (arr.length === dim) {
+            for (let j = 0; j < dim; j++) centroid[j] += arr[j];
+            count++;
+          }
+        } catch {}
+      }
+      if (count > 0) {
+        for (let j = 0; j < dim; j++) centroid[j] /= count;
+        embeddingCentroid = Array.from(centroid).map(v => parseFloat(v.toFixed(6)));
+      }
+    }
+
+    return {
+      trackCount: tracks.length,
+      bpm: {
+        mean: bpmMean ? Math.round(bpmMean) : null,
+        min: bpms.length ? Math.round(Math.min(...bpms)) : null,
+        max: bpms.length ? Math.round(Math.max(...bpms)) : null,
+        stddev: parseFloat(bpmStd.toFixed(1)),
+      },
+      energy: { mean: energyMean ? parseFloat(energyMean.toFixed(3)) : null },
+      palette,
+      moods,
+      moodPrimary,
+      subgenreHistogram,
+      embeddingCentroid,
+    };
+  }
+
+  /**
+   * Profile of tracks the artist makes (is_own_music=1).
+   */
+  computeOwnMusicProfile(userId) {
+    const db = new Database(path.join(__dirname, '../../starforge_audio.db'), { readonly: true });
+    const tracks = db.prepare(
+      'SELECT * FROM audio_tracks WHERE user_id = ? AND is_own_music = 1'
+    ).all(userId);
+    db.close();
+    return this._buildProfile(tracks);
+  }
+
+  /**
+   * Profile of the rest of the library (DJ / curation tracks).
+   */
+  computeDjProfile(userId) {
+    const db = new Database(path.join(__dirname, '../../starforge_audio.db'), { readonly: true });
+    const tracks = db.prepare(
+      'SELECT * FROM audio_tracks WHERE user_id = ? AND (is_own_music IS NULL OR is_own_music = 0)'
+    ).all(userId);
+    db.close();
+    return this._buildProfile(tracks);
+  }
+
+  /**
+   * Compute divergence between own music and DJ library.
+   * Returns cohesion score (0-100, 100 = perfectly aligned), dimension gaps,
+   * and the 10 DJ tracks furthest from the own-music centroid.
+   */
+  computeTasteVsOutputDivergence(userId) {
+    const ownProfile = this.computeOwnMusicProfile(userId);
+    const djProfile = this.computeDjProfile(userId);
+
+    if (ownProfile.trackCount === 0) {
+      return {
+        available: false,
+        message: 'No own music tagged yet. Star tracks as "Mine" in Krata to enable the Creative Compass.',
+        cohesionScore: null,
+        dimensionGaps: {},
+        gapTracks: [],
+      };
+    }
+
+    if (djProfile.trackCount === 0) {
+      return {
+        available: false,
+        message: 'No DJ library tracks found. Import your Rekordbox or upload tracks to compare.',
+        cohesionScore: null,
+        dimensionGaps: {},
+        gapTracks: [],
+      };
+    }
+
+    // Compute dimension gaps (absolute difference, normalised 0-1 where possible)
+    const dimensionGaps = {};
+
+    // BPM gap (normalise by typical range 60-180)
+    if (ownProfile.bpm.mean != null && djProfile.bpm.mean != null) {
+      dimensionGaps.bpm = parseFloat((Math.abs(ownProfile.bpm.mean - djProfile.bpm.mean) / 120).toFixed(3));
+    }
+
+    // Energy gap (already 0-1)
+    if (ownProfile.energy.mean != null && djProfile.energy.mean != null) {
+      dimensionGaps.energy = parseFloat(Math.abs(ownProfile.energy.mean - djProfile.energy.mean).toFixed(3));
+    }
+
+    // Palette gaps
+    for (const k of ['bass', 'low_mid', 'mid', 'high_mid', 'treble']) {
+      if (ownProfile.palette[k] != null && djProfile.palette[k] != null) {
+        dimensionGaps[`palette_${k}`] = parseFloat(Math.abs(ownProfile.palette[k] - djProfile.palette[k]).toFixed(3));
+      }
+    }
+
+    // Mood gaps
+    for (const k of ['happy', 'sad', 'aggressive', 'relaxed', 'party', 'electronic']) {
+      if (ownProfile.moods[k] != null && djProfile.moods[k] != null) {
+        dimensionGaps[`mood_${k}`] = parseFloat(Math.abs(ownProfile.moods[k] - djProfile.moods[k]).toFixed(3));
+      }
+    }
+
+    // Embedding cosine distance
+    let embeddingCosineDistance = null;
+    if (ownProfile.embeddingCentroid && djProfile.embeddingCentroid) {
+      const a = ownProfile.embeddingCentroid;
+      const b = djProfile.embeddingCentroid;
+      let dot = 0, magA = 0, magB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        magA += a[i] * a[i];
+        magB += b[i] * b[i];
+      }
+      magA = Math.sqrt(magA);
+      magB = Math.sqrt(magB);
+      const cosineSim = (magA > 0 && magB > 0) ? dot / (magA * magB) : 0;
+      embeddingCosineDistance = parseFloat((1 - cosineSim).toFixed(4));
+      dimensionGaps.embedding = embeddingCosineDistance;
+    }
+
+    // Cohesion score: mean of all gap values, inverted to 0-100 (100 = perfect cohesion)
+    const gapValues = Object.values(dimensionGaps).filter(v => v != null);
+    const avgGap = gapValues.length > 0 ? gapValues.reduce((a, b) => a + b, 0) / gapValues.length : 0;
+    const cohesionScore = Math.round(Math.max(0, Math.min(100, (1 - avgGap) * 100)));
+
+    // Gap tracks: DJ tracks furthest from own-music embedding centroid
+    let gapTracks = [];
+    if (ownProfile.embeddingCentroid) {
+      const db = new Database(path.join(__dirname, '../../starforge_audio.db'), { readonly: true });
+      const djTracks = db.prepare(
+        'SELECT id, filename, file_path, bpm, energy, mood_primary, subgenre_primary, discogs_effnet_embedding FROM audio_tracks WHERE user_id = ? AND (is_own_music IS NULL OR is_own_music = 0) AND discogs_effnet_embedding IS NOT NULL'
+      ).all(userId);
+      db.close();
+
+      const centroid = ownProfile.embeddingCentroid;
+      const dim = centroid.length;
+
+      const scored = djTracks.map(t => {
+        try {
+          const buf = t.discogs_effnet_embedding;
+          const arr = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+          if (arr.length !== dim) return null;
+
+          let dot = 0, magA = 0, magB = 0;
+          for (let i = 0; i < dim; i++) {
+            dot += centroid[i] * arr[i];
+            magA += centroid[i] * centroid[i];
+            magB += arr[i] * arr[i];
+          }
+          magA = Math.sqrt(magA);
+          magB = Math.sqrt(magB);
+          const sim = (magA > 0 && magB > 0) ? dot / (magA * magB) : 0;
+          return {
+            id: t.id,
+            filename: t.filename,
+            bpm: t.bpm,
+            energy: t.energy,
+            moodPrimary: t.mood_primary,
+            subgenre: t.subgenre_primary,
+            delta: parseFloat((1 - sim).toFixed(4)),
+          };
+        } catch { return null; }
+      }).filter(Boolean);
+
+      scored.sort((a, b) => b.delta - a.delta);
+      gapTracks = scored.slice(0, 10);
+    }
+
+    return {
+      available: true,
+      cohesionScore,
+      dimensionGaps,
+      embeddingCosineDistance,
+      gapTracks,
+      ownProfile: {
+        trackCount: ownProfile.trackCount,
+        bpm: ownProfile.bpm,
+        energy: ownProfile.energy,
+        palette: ownProfile.palette,
+        moods: ownProfile.moods,
+        moodPrimary: ownProfile.moodPrimary,
+        subgenreHistogram: ownProfile.subgenreHistogram,
+      },
+      djProfile: {
+        trackCount: djProfile.trackCount,
+        bpm: djProfile.bpm,
+        energy: djProfile.energy,
+        palette: djProfile.palette,
+        moods: djProfile.moods,
+        moodPrimary: djProfile.moodPrimary,
+        subgenreHistogram: djProfile.subgenreHistogram,
+      },
+    };
+  }
+
   calculateVariance(values) {
     if (values.length === 0) return 0;
     const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
