@@ -1,24 +1,83 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 
 /**
- * Project DNA Scanner
- * Extracts identity signal from codebases — thesis, domain, tools, tone
- * Aesthetic: Minimal, chic, editorial (matches AudioAnalysisCompact)
+ * Project DNA Panel — Sources / Extract / Wall
+ *
+ * Three-tab lifecycle mirroring the backend split:
+ *   Sources  — every uploaded file, archived on disk, additive. Drag new
+ *              files to grow the corpus; nothing ever overwrites.
+ *   Extract  — the live draft of the extracted identity. Rewritten on
+ *              every scan. Review before promoting.
+ *   Wall     — the canonical DNA. Downstream consumers read this.
+ *              Updates only when the user explicitly saves Extract to Wall.
+ *
+ * Pantheon reference (the 12 archetypes) lives in subtaste-twelve's web
+ * UI. This panel links out rather than duplicating the reference.
  */
-const ProjectDNAPanel = ({ embedded = false, onScanComplete }) => {
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'directory'
-  const [files, setFiles] = useState([]);
+
+const SUBTASTE_TWELVE_ARCHETYPES_URL = 'http://localhost:3005/archetypes';
+
+const ProjectDNAPanel = ({ embedded = false, onScanComplete, userId = 'default' }) => {
+  const [activeTab, setActiveTab] = useState('sources');
+  const [sourcesMode, setSourcesMode] = useState('upload'); // upload | directory
+
+  // Sources state
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [direction, setDirection] = useState('');
   const [dirPath, setDirPath] = useState('');
-  const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [archivedSources, setArchivedSources] = useState([]);
 
-  // File upload via dropzone
+  // Extract + Wall state (fetched)
+  const [extractDna, setExtractDna] = useState(null);
+  const [wallDna, setWallDna] = useState(null);
+  const [pending, setPending] = useState({ pending: false, reason: null });
+  const [revisions, setRevisions] = useState([]);
+
+  // Interaction state
+  const [scanning, setScanning] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  // ───── Data fetchers ─────
+
+  const fetchSources = useCallback(async () => {
+    try {
+      const r = await axios.get(`/api/project-dna/sources/${userId}`);
+      if (r.data.success) setArchivedSources(r.data.sources || []);
+    } catch {
+      setArchivedSources([]);
+    }
+  }, [userId]);
+
+  const fetchDna = useCallback(async () => {
+    try {
+      const [exRes, wallRes, pendRes, revRes] = await Promise.all([
+        axios.get(`/api/project-dna/${userId}?state=extract`).catch(() => null),
+        axios.get(`/api/project-dna/${userId}?state=wall`).catch(() => null),
+        axios.get(`/api/project-dna/${userId}/pending`).catch(() => null),
+        axios.get(`/api/project-dna/${userId}/revisions`).catch(() => null),
+      ]);
+      setExtractDna(exRes?.data?.success ? exRes.data.projectDNA : null);
+      setWallDna(wallRes?.data?.success ? wallRes.data.projectDNA : null);
+      setPending(pendRes?.data?.success ? pendRes.data : { pending: false });
+      setRevisions(revRes?.data?.success ? (revRes.data.revisions || []) : []);
+    } catch {
+      /* noop */
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchSources();
+    fetchDna();
+  }, [fetchSources, fetchDna]);
+
+  // ───── Dropzone ─────
+
   const onDrop = useCallback((acceptedFiles) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
+    setPendingFiles((prev) => [...prev, ...acceptedFiles]);
     setError(null);
   }, []);
 
@@ -32,339 +91,465 @@ const ProjectDNAPanel = ({ embedded = false, onScanComplete }) => {
       'text/javascript': ['.js', '.jsx'],
       'text/x-python': ['.py'],
       'application/toml': ['.toml'],
-      'text/yaml': ['.yaml', '.yml']
+      'text/yaml': ['.yaml', '.yml'],
     },
     multiple: true,
-    disabled: scanning
+    disabled: scanning,
   });
 
-  const removeFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+  const removePendingFile = (index) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Upload files and scan
-  const handleUploadScan = async () => {
-    if (files.length === 0) return;
+  // ───── Actions ─────
 
+  const runUpload = async () => {
+    if (pendingFiles.length === 0) return;
     setScanning(true);
     setError(null);
-    setScanResult(null);
-
     try {
       const formData = new FormData();
-      files.forEach(file => {
-        formData.append('files', file);
-      });
-      if (direction.trim()) {
-        formData.append('direction', direction.trim());
-      }
+      pendingFiles.forEach((f) => formData.append('files', f));
+      if (direction.trim()) formData.append('direction', direction.trim());
+      formData.append('userId', userId);
 
-      const response = await axios.post('/api/project-dna/upload-and-scan', formData, {
+      const res = await axios.post('/api/project-dna/upload-and-scan', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000
+        timeout: 120000,
       });
 
-      if (response.data.success) {
-        setScanResult(response.data.projectDNA);
-        setFiles([]);
+      if (res.data.success) {
+        setPendingFiles([]);
         setDirection('');
-        if (onScanComplete) {
-          onScanComplete(response.data.projectDNA);
-        }
+        setToast(
+          res.data.projectDNA.newlyAdded
+            ? `Added ${res.data.projectDNA.newlyAdded} file(s). Corpus is now ${res.data.projectDNA.corpusSize}.`
+            : 'No new files (hash already matched).',
+        );
+        if (onScanComplete) onScanComplete(res.data.projectDNA);
+        await Promise.all([fetchSources(), fetchDna()]);
       } else {
-        setError(response.data.error || 'Scan failed');
+        setError(res.data.error || 'Scan failed');
       }
     } catch (err) {
-      console.error('Project DNA scan failed:', err);
       setError(err.response?.data?.error || err.message || 'Scan failed');
     } finally {
       setScanning(false);
     }
   };
 
-  // Directory scan
-  const handleDirectoryScan = async () => {
+  const runDirectoryScan = async () => {
     if (!dirPath.trim()) return;
-
     setScanning(true);
     setError(null);
-    setScanResult(null);
-
     try {
-      const response = await axios.post('/api/project-dna/scan-directory', {
-        path: dirPath.trim(),
-        userId: 'default'
-      }, {
-        timeout: 120000
-      });
-
-      if (response.data.success) {
-        setScanResult(response.data.projectDNA);
-        if (onScanComplete) {
-          onScanComplete(response.data.projectDNA);
-        }
+      const res = await axios.post(
+        '/api/project-dna/scan-directory',
+        { path: dirPath.trim(), userId },
+        { timeout: 120000 },
+      );
+      if (res.data.success) {
+        setToast('Directory scan complete.');
+        if (onScanComplete) onScanComplete(res.data.projectDNA);
+        await fetchDna();
       } else {
-        setError(response.data.error || 'Scan failed');
+        setError(res.data.error || 'Scan failed');
       }
     } catch (err) {
-      console.error('Directory scan failed:', err);
       setError(err.response?.data?.error || err.message || 'Scan failed');
     } finally {
       setScanning(false);
     }
   };
+
+  const removeArchivedSource = async (sourceId, filename) => {
+    if (!window.confirm(`Remove "${filename}" from the corpus? The extract will re-run; the wall stays until you Save to Wall.`)) {
+      return;
+    }
+    try {
+      const res = await axios.delete(`/api/project-dna/sources/${userId}/${sourceId}`);
+      if (res.data.success) {
+        setToast(`Removed ${filename}. ${res.data.rescanned ? 'Corpus re-extracted.' : 'Corpus empty.'}`);
+        await Promise.all([fetchSources(), fetchDna()]);
+      } else {
+        setError(res.data.error || 'Remove failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Remove failed');
+    }
+  };
+
+  const saveToWall = async () => {
+    setPromoting(true);
+    setError(null);
+    try {
+      const res = await axios.post(`/api/project-dna/${userId}/save-to-wall`, {});
+      if (res.data.success) {
+        setToast(res.data.wasBootstrap ? 'Wall initialised.' : 'Extract saved to Wall. Old wall archived in revisions.');
+        await fetchDna();
+      } else {
+        setError(res.data.error || 'Save failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Save failed');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
+  // ───── Derived ─────
+
+  const hasWall = !!wallDna;
+  const scanButtonLabel = scanning
+    ? 'Scanning...'
+    : hasWall
+      ? 'Refine Lineage'
+      : 'Scan Identity';
+
+  const toastClear = () => setTimeout(() => setToast(null), 4000);
+  useEffect(() => { if (toast) toastClear(); }, [toast]);
 
   return (
     <div className={embedded ? '' : 'card'}>
-      {/* Header */}
       {!embedded && (
         <div className="mb-6">
           <h3 className="text-display-md mb-2">Project DNA</h3>
           <p className="text-body text-brand-secondary">
-            Extract identity signal from your codebase
+            Upload your manifesto, pitch, or strategy docs. We extract who you are.
+            Files archive on disk; the corpus grows with every upload.
+          </p>
+          <p className="text-body-sm text-brand-secondary mt-2">
+            <a
+              href={SUBTASTE_TWELVE_ARCHETYPES_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-brand-text"
+            >
+              See the 12 archetypes →
+            </a>
           </p>
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Three tabs */}
       <div className="flex gap-4 mb-6 border-b border-brand-border">
-        <button
-          onClick={() => setActiveTab('upload')}
-          className={`pb-3 px-1 uppercase-label transition-colors ${
-            activeTab === 'upload'
-              ? 'border-b-2 border-brand-text text-brand-text'
-              : 'text-brand-secondary hover:text-brand-text'
-          }`}
-        >
-          Upload Files
-        </button>
-        <button
-          onClick={() => setActiveTab('directory')}
-          className={`pb-3 px-1 uppercase-label transition-colors ${
-            activeTab === 'directory'
-              ? 'border-b-2 border-brand-text text-brand-text'
-              : 'text-brand-secondary hover:text-brand-text'
-          }`}
-        >
-          Scan Directory
-        </button>
+        {[
+          { id: 'sources', label: `Sources (${archivedSources.length})` },
+          { id: 'extract', label: pending.pending ? 'Extract · draft' : 'Extract' },
+          { id: 'wall', label: 'Wall' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-3 px-1 uppercase-label transition-colors ${
+              activeTab === tab.id
+                ? 'border-b-2 border-brand-text text-brand-text'
+                : 'text-brand-secondary hover:text-brand-text'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Upload Tab */}
-      {activeTab === 'upload' && (
-        <div className="space-y-4">
-          {/* Dropzone */}
-          <div
-            {...getRootProps()}
-            className={`border border-brand-border p-8 text-center cursor-pointer transition-all ${
-              isDragActive ? 'border-brand-text bg-brand-bg' : 'hover:border-brand-text'
-            } ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <input {...getInputProps()} />
-            <p className="text-body text-brand-secondary mb-2">
-              {isDragActive
-                ? 'Drop files here'
-                : 'Drag project files or click to browse'}
-            </p>
-            <p className="text-body-sm text-brand-secondary">
-              MD, TXT, JSON, TS, TSX, JS, JSX, PY, TOML, YAML
-            </p>
-          </div>
-
-          {/* File List */}
-          {files.length > 0 && (
-            <div className="space-y-2">
-              <p className="uppercase-label text-brand-secondary mb-3">
-                {files.length} file{files.length !== 1 ? 's' : ''} ready
-              </p>
-              {files.slice(0, 5).map((file, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between py-2 px-3 border border-brand-border"
-                >
-                  <span className="text-body truncate flex-1">{file.name}</span>
-                  <button
-                    onClick={() => removeFile(idx)}
-                    className="ml-3 text-brand-secondary hover:text-brand-text text-body-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              {files.length > 5 && (
-                <p className="text-body-sm text-brand-secondary pl-3">
-                  +{files.length - 5} more
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Direction Textarea */}
-          <div>
-            <label className="uppercase-label text-brand-secondary block mb-2">
-              Direction
-            </label>
-            <textarea
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-              placeholder="Brief: what do you build? (optional — helps extraction)"
-              rows={3}
-              disabled={scanning}
-              className="input-field w-full resize-none"
-            />
-          </div>
-
-          {/* Scan Button */}
-          <button
-            onClick={handleUploadScan}
-            disabled={files.length === 0 || scanning}
-            className="btn-primary w-full"
-          >
-            {scanning ? 'Scanning...' : 'Scan Identity'}
-          </button>
-        </div>
-      )}
-
-      {/* Directory Tab */}
-      {activeTab === 'directory' && (
-        <div className="space-y-4">
-          <div>
-            <label className="uppercase-label text-brand-secondary block mb-2">
-              Directory Path
-            </label>
-            <input
-              type="text"
-              value={dirPath}
-              onChange={(e) => setDirPath(e.target.value)}
-              placeholder="/home/user/my-projects"
-              disabled={scanning}
-              className="input-field w-full"
-            />
-          </div>
-
-          <button
-            onClick={handleDirectoryScan}
-            disabled={!dirPath.trim() || scanning}
-            className="btn-primary w-full"
-          >
-            {scanning ? 'Scanning...' : 'Scan'}
-          </button>
+      {/* Toast */}
+      {toast && (
+        <div className="border border-brand-border p-3 mb-4">
+          <p className="text-body-sm text-brand-text">{toast}</p>
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div className="border border-brand-border p-4 mt-4">
-          <p className="text-body text-brand-secondary">
-            {error}
-          </p>
+        <div className="border border-brand-border p-3 mb-4" style={{ borderColor: '#F87171' }}>
+          <p className="text-body-sm" style={{ color: '#F87171' }}>{error}</p>
         </div>
       )}
 
-      {/* Scan Result */}
-      {scanResult && (() => {
-        const ci = scanResult.coreIdentity || {};
-        const ev = scanResult.expansionVectors || {};
-        const tn = scanResult.tone || {};
-        return (
-          <div className="border border-brand-border p-4 mt-4 space-y-4">
-            <p className="uppercase-label text-brand-secondary">Identity Extracted</p>
+      {/* ═══ SOURCES ═══ */}
+      {activeTab === 'sources' && (
+        <div className="space-y-6">
+          {/* Mode switch: upload vs directory */}
+          <div className="flex gap-3 text-body-sm">
+            <button
+              onClick={() => setSourcesMode('upload')}
+              className={`uppercase-label ${sourcesMode === 'upload' ? 'text-brand-text' : 'text-brand-secondary hover:text-brand-text'}`}
+            >
+              Upload files
+            </button>
+            <span className="text-brand-secondary">·</span>
+            <button
+              onClick={() => setSourcesMode('directory')}
+              className={`uppercase-label ${sourcesMode === 'directory' ? 'text-brand-text' : 'text-brand-secondary hover:text-brand-text'}`}
+            >
+              Scan directory
+            </button>
+          </div>
 
-            {/* Thesis */}
-            {ci.thesis && (
-              <div>
-                <p className="uppercase-label text-brand-secondary mb-1">Thesis</p>
-                <p className="text-body text-brand-text">{ci.thesis}</p>
+          {sourcesMode === 'upload' && (
+            <div className="space-y-4">
+              <div
+                {...getRootProps()}
+                className={`border border-brand-border p-8 text-center cursor-pointer transition-all ${
+                  isDragActive ? 'border-brand-text bg-brand-bg' : 'hover:border-brand-text'
+                } ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input {...getInputProps()} />
+                <p className="text-body text-brand-secondary mb-2">
+                  {isDragActive ? 'Drop files here' : 'Drag project files or click to browse'}
+                </p>
+                <p className="text-body-sm text-brand-secondary">
+                  MD · TXT · JSON · TS · TSX · JS · JSX · PY · TOML · YAML
+                </p>
               </div>
-            )}
 
-            {/* Domains */}
-            {ci.domains && ci.domains.length > 0 && (
-              <div>
-                <p className="uppercase-label text-brand-secondary mb-2">Domains</p>
-                <div className="flex flex-wrap gap-2">
-                  {ci.domains.map((domain, idx) => (
-                    <span
+              {pendingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="uppercase-label text-brand-secondary">
+                    {pendingFiles.length} pending upload{pendingFiles.length === 1 ? '' : 's'}
+                  </p>
+                  {pendingFiles.slice(0, 10).map((file, idx) => (
+                    <div
                       key={idx}
-                      className="px-2 py-1 border border-brand-border text-body-sm"
+                      className="flex items-center justify-between py-2 px-3 border border-brand-border"
                     >
-                      {domain}
-                    </span>
+                      <span className="text-body truncate flex-1">{file.name}</span>
+                      <button
+                        onClick={() => removePendingFile(idx)}
+                        className="ml-3 text-brand-secondary hover:text-brand-text text-body-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Tools */}
-            {ci.tools && ci.tools.length > 0 && (
               <div>
-                <p className="uppercase-label text-brand-secondary mb-2">Tools</p>
-                <div className="flex flex-wrap gap-2">
-                  {ci.tools.map((tool, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 border border-brand-border text-body-sm"
+                <label className="uppercase-label text-brand-secondary block mb-2">
+                  Direction <span className="normal-case">(optional)</span>
+                </label>
+                <textarea
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                  placeholder="One line: what do you build? Helps extraction stay sharp."
+                  rows={3}
+                  disabled={scanning}
+                  className="input-field w-full resize-none"
+                />
+              </div>
+
+              <button
+                onClick={runUpload}
+                disabled={pendingFiles.length === 0 || scanning}
+                className="btn-primary w-full"
+              >
+                {scanButtonLabel}
+              </button>
+            </div>
+          )}
+
+          {sourcesMode === 'directory' && (
+            <div className="space-y-4">
+              <div>
+                <label className="uppercase-label text-brand-secondary block mb-2">
+                  Directory path
+                </label>
+                <input
+                  type="text"
+                  value={dirPath}
+                  onChange={(e) => setDirPath(e.target.value)}
+                  placeholder="/home/you/projects"
+                  disabled={scanning}
+                  className="input-field w-full"
+                />
+              </div>
+              <button
+                onClick={runDirectoryScan}
+                disabled={!dirPath.trim() || scanning}
+                className="btn-primary w-full"
+              >
+                {scanButtonLabel}
+              </button>
+            </div>
+          )}
+
+          {/* Archived corpus */}
+          <div className="pt-4 border-t border-brand-border">
+            <p className="uppercase-label text-brand-secondary mb-3">
+              Archived corpus ({archivedSources.length} file{archivedSources.length === 1 ? '' : 's'})
+            </p>
+            {archivedSources.length === 0 ? (
+              <p className="text-body-sm text-brand-secondary">
+                No files yet. Upload a manifesto, pitch, or strategy document to begin.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {archivedSources.map((src) => (
+                  <li
+                    key={src.id}
+                    className="flex items-center justify-between py-2 px-3 border border-brand-border"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-body truncate">{src.filename}</div>
+                      <div className="text-body-sm text-brand-secondary">
+                        {(src.byte_size / 1024).toFixed(1)} KB · uploaded{' '}
+                        {new Date(src.uploaded_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeArchivedSource(src.id, src.filename)}
+                      className="ml-3 text-brand-secondary hover:text-brand-text text-body-sm"
                     >
-                      {tool}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tone */}
-            {tn.register && (
-              <div>
-                <p className="uppercase-label text-brand-secondary mb-1">Tone Register</p>
-                <p className="text-body-sm text-brand-text">{tn.register}</p>
-              </div>
-            )}
-
-            {/* Anti-Taste */}
-            {ci.antiTaste && ci.antiTaste.length > 0 && (
-              <div>
-                <p className="uppercase-label text-brand-secondary mb-2">Anti-Taste</p>
-                <div className="flex flex-wrap gap-2">
-                  {ci.antiTaste.map((item, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary"
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Expansion Gaps */}
-            {ev.gaps && ev.gaps.length > 0 && (
-              <div>
-                <p className="uppercase-label text-brand-secondary mb-2">Expansion Gaps</p>
-                <ul className="space-y-1">
-                  {ev.gaps.map((gap, idx) => (
-                    <li key={idx} className="text-body-sm text-brand-secondary">
-                      {gap}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Sources Count */}
-            {scanResult.sourcesScanned != null && (
-              <div className="pt-3 border-t border-brand-border">
-                <span className="text-body-sm text-brand-secondary">Sources scanned:</span>
-                <span className="ml-2 text-body-sm text-brand-text font-medium">
-                  {Array.isArray(scanResult.sourcesScanned) ? scanResult.sourcesScanned.length : scanResult.sourcesScanned}
-                </span>
-              </div>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        );
-      })()}
+        </div>
+      )}
+
+      {/* ═══ EXTRACT ═══ */}
+      {activeTab === 'extract' && (
+        <div className="space-y-4">
+          {!extractDna ? (
+            <div className="border border-brand-border p-4">
+              <p className="text-body-sm text-brand-secondary">
+                Nothing extracted yet. Upload a file or scan a directory in Sources.
+              </p>
+            </div>
+          ) : (
+            <>
+              {pending.pending && (
+                <div className="border border-brand-border p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="uppercase-label text-brand-secondary">Pending commit</p>
+                    <p className="text-body-sm text-brand-text mt-1">
+                      {pending.reason === 'no_wall_yet'
+                        ? 'No wall yet. Save this extract to make it canonical.'
+                        : 'The extract is newer than the wall. Save to Wall to promote it.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={saveToWall}
+                    disabled={promoting}
+                    className="btn-primary shrink-0"
+                  >
+                    {promoting ? 'Saving...' : 'Save to Wall'}
+                  </button>
+                </div>
+              )}
+              <DnaView dna={extractDna} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══ WALL ═══ */}
+      {activeTab === 'wall' && (
+        <div className="space-y-4">
+          {!wallDna ? (
+            <div className="border border-brand-border p-4">
+              <p className="text-body-sm text-brand-secondary">
+                No wall yet. Promote an extract to create the canonical identity.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="border border-brand-border p-3">
+                <p className="uppercase-label text-brand-secondary">Canonical identity</p>
+                <p className="text-body-sm text-brand-text mt-1">
+                  {pending.pending
+                    ? `Last saved ${pending.wallScannedAt ? new Date(pending.wallScannedAt).toLocaleString() : ''}. A newer extract is pending.`
+                    : 'In sync with the current extract.'}
+                </p>
+              </div>
+              <DnaView dna={wallDna} />
+              {revisions.length > 0 && (
+                <details className="border border-brand-border p-3">
+                  <summary className="uppercase-label text-brand-secondary cursor-pointer">
+                    Revision history ({revisions.length})
+                  </summary>
+                  <ul className="mt-3 space-y-2">
+                    {revisions.slice(0, 20).map((r) => (
+                      <li key={r.id} className="text-body-sm">
+                        <span className="uppercase-label text-brand-secondary mr-2">
+                          {r.kind}
+                        </span>
+                        <span className="text-brand-secondary">
+                          {new Date(r.revisedAt).toLocaleString()}
+                        </span>
+                        {r.evidence && (
+                          <span className="text-brand-secondary ml-2 italic">
+                            {r.evidence}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
+/**
+ * Read-only DNA field renderer. Empty fields render as greyed "not detected"
+ * placeholders so gaps are visible without a conversational agent.
+ */
+function DnaView({ dna }) {
+  if (!dna) return null;
+  const ci = dna.coreIdentity || {};
+  const tn = dna.tone || {};
+  const ev = dna.expansionVectors || {};
+
+  const Field = ({ label, value, empty }) => (
+    <div>
+      <p className="uppercase-label text-brand-secondary mb-1">{label}</p>
+      {value ? (
+        <p className="text-body text-brand-text">{value}</p>
+      ) : (
+        <p className="text-body-sm text-brand-secondary italic">{empty}</p>
+      )}
+    </div>
+  );
+
+  const Chips = ({ label, items, empty, muted }) => (
+    <div>
+      <p className="uppercase-label text-brand-secondary mb-2">{label}</p>
+      {items && items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item, idx) => (
+            <span
+              key={idx}
+              className={`px-2 py-1 border border-brand-border text-body-sm ${muted ? 'text-brand-secondary' : ''}`}
+            >
+              {typeof item === 'string' ? item : item.name || JSON.stringify(item)}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-body-sm text-brand-secondary italic">{empty}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="border border-brand-border p-4 space-y-4">
+      <Field label="Thesis" value={ci.thesis} empty="Not detected in sources" />
+      <Chips label="Domains" items={ci.domains} empty="No domains extracted" />
+      <Chips label="Tools" items={ci.tools} empty="No tools extracted" />
+      <Field label="Tone register" value={tn.register} empty="Not detected in sources" />
+      <Chips label="Anti-taste" items={ci.antiTaste} empty="No anti-taste extracted" muted />
+      <Chips label="Expansion gaps" items={ev.gaps} empty="No gaps flagged" muted />
+    </div>
+  );
+}
 
 export default ProjectDNAPanel;
