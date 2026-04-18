@@ -305,6 +305,69 @@ router.get('/:userId/revisions', (req, res) => {
   }
 });
 
+/**
+ * POST /:userId/remove-item
+ * Body: { path, evidence?, source? }
+ *
+ * Removes the item at a dotted array path. Logs a revision with the
+ * removed value so restore is possible. Only works when the final
+ * path segment is an array index.
+ */
+router.post('/:userId/remove-item', (req, res) => {
+  try {
+    const userId = req.params.userId || 'default';
+    const { path: dnaPath, evidence, source } = req.body ?? {};
+    if (!dnaPath) return res.status(400).json({ success: false, error: 'path required' });
+    const result = projectDnaService.reviseProjectDNA(userId, {
+      kind: 'patch',
+      source,
+      evidence,
+      change: { path: dnaPath, op: 'remove' },
+      mutator: (dna) => {
+        removeAtPath(dna, dnaPath);
+        return dna;
+      },
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[Project DNA] Remove-item failed:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Local helper: delete the item addressed by a dotted path with [index]
+// trailing segment. Parent must be an array; index must be in range.
+function removeAtPath(obj, p) {
+  const parts = String(p)
+    .split('.')
+    .flatMap((seg) => {
+      const out = [];
+      const rx = /([^\[\]]+)|\[(\d+)\]/g;
+      let m;
+      while ((m = rx.exec(seg)) !== null) {
+        out.push(m[1] ?? Number(m[2]));
+      }
+      return out;
+    });
+  if (parts.length === 0) throw new Error('Empty path');
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (cur == null || !(k in cur)) {
+      throw new Error(`Path segment "${k}" not found`);
+    }
+    cur = cur[k];
+  }
+  const last = parts[parts.length - 1];
+  if (typeof last !== 'number') {
+    throw new Error(`Remove requires numeric final segment, got "${last}"`);
+  }
+  if (!Array.isArray(cur)) {
+    throw new Error(`Parent at path is not an array`);
+  }
+  cur.splice(last, 1);
+}
+
 // Local helper — path setter that creates missing nested structure as it
 // traverses. Two extensions over plain lookup:
 //   • `[+]` at any array position means "append" — the index is computed

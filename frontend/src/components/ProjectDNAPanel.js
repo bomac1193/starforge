@@ -459,14 +459,23 @@ const ProjectDNAPanel = ({ embedded = false, onScanComplete, userId = 'default' 
           ) : (
             <>
               <div className="border border-brand-border p-3">
-                <p className="uppercase-label text-brand-secondary">Canonical identity</p>
+                <p className="uppercase-label text-brand-secondary">Canonical identity · editable</p>
                 <p className="text-body-sm text-brand-text mt-1">
                   {pending.pending
                     ? `Last saved ${pending.wallScannedAt ? new Date(pending.wallScannedAt).toLocaleString() : ''}. A newer extract is pending.`
                     : 'In sync with the current extract.'}
                 </p>
+                <p className="text-body-sm text-brand-secondary mt-2">
+                  Click any field to edit. Every change is logged to the revision history below.
+                </p>
               </div>
-              <DnaView dna={wallDna} />
+              <EditableDnaView
+                dna={wallDna}
+                userId={userId}
+                onChange={fetchDna}
+                setToast={setToast}
+                setError={setError}
+              />
               {revisions.length > 0 && (
                 <details className="border border-brand-border p-3">
                   <summary className="uppercase-label text-brand-secondary cursor-pointer">
@@ -548,6 +557,287 @@ function DnaView({ dna }) {
       <Field label="Tone register" value={tn.register} empty="Not detected in sources" />
       <Chips label="Anti-taste" items={ci.antiTaste} empty="No anti-taste extracted" muted />
       <Chips label="Expansion gaps" items={ev.gaps} empty="No gaps flagged" muted />
+    </div>
+  );
+}
+
+/**
+ * Editable Wall view. Every field is click-to-edit; every change
+ * rides the rename/revise/remove-item endpoints so revisions are
+ * logged automatically. Array fields support inline rename, remove,
+ * and add-new.
+ */
+function EditableDnaView({ dna, userId, onChange, setToast, setError }) {
+  if (!dna) return null;
+  const ci = dna.coreIdentity || {};
+  const tn = dna.tone || {};
+
+  const post = async (endpoint, body) => {
+    try {
+      const res = await axios.post(`/api/project-dna/${userId}/${endpoint}`, body);
+      if (res.data.success) {
+        if (setToast) setToast('Saved. Revision logged.');
+        if (onChange) await onChange();
+      } else {
+        if (setError) setError(res.data.error || 'Save failed');
+      }
+    } catch (err) {
+      if (setError) setError(err.response?.data?.error || err.message || 'Save failed');
+    }
+  };
+
+  const rename = (path, to, evidence) =>
+    post('rename', { path, to, evidence: evidence || null });
+  const revise = (path, value, evidence) =>
+    post('revise', { kind: 'patch', path, value, evidence: evidence || null });
+  const appendItem = (path, value, evidence) =>
+    post('revise', { kind: 'patch', path: `${path}[+]`, value, evidence: evidence || null });
+  const removeItem = (path, evidence) =>
+    post('remove-item', { path, evidence: evidence || null });
+
+  return (
+    <div className="border border-brand-border p-4 space-y-5">
+      <EditableString
+        label="Thesis"
+        value={ci.thesis}
+        onSave={(v) => revise('coreIdentity.thesis', v, 'edited on wall')}
+        empty="Click to add thesis"
+        multiline
+      />
+
+      <EditableList
+        label="Domains"
+        path="coreIdentity.domains"
+        items={ci.domains}
+        onRename={(idx, to) => rename(`coreIdentity.domains[${idx}]`, to, 'renamed on wall')}
+        onRemove={(idx) => removeItem(`coreIdentity.domains[${idx}]`, 'removed on wall')}
+        onAdd={(v) => appendItem('coreIdentity.domains', v, 'added on wall')}
+      />
+
+      <EditableList
+        label="Tools"
+        path="coreIdentity.tools"
+        items={ci.tools}
+        onRename={(idx, to) => rename(`coreIdentity.tools[${idx}]`, to, 'renamed on wall')}
+        onRemove={(idx) => removeItem(`coreIdentity.tools[${idx}]`, 'removed on wall')}
+        onAdd={(v) => appendItem('coreIdentity.tools', v, 'added on wall')}
+      />
+
+      <EditableString
+        label="Tone register"
+        value={tn.register}
+        onSave={(v) => revise('tone.register', v, 'edited on wall')}
+        empty="Click to add tone register"
+      />
+
+      <EditableList
+        label="Anti-taste"
+        path="coreIdentity.antiTaste"
+        items={ci.antiTaste}
+        muted
+        onRename={(idx, to) => rename(`coreIdentity.antiTaste[${idx}]`, to, 'renamed on wall')}
+        onRemove={(idx) => removeItem(`coreIdentity.antiTaste[${idx}]`, 'removed on wall')}
+        onAdd={(v) => appendItem('coreIdentity.antiTaste', v, 'added on wall')}
+      />
+
+      <EditableList
+        label="Expansion gaps"
+        path="expansionVectors.gaps"
+        items={(dna.expansionVectors || {}).gaps}
+        muted
+        onRename={(idx, to) => rename(`expansionVectors.gaps[${idx}]`, to, 'renamed on wall')}
+        onRemove={(idx) => removeItem(`expansionVectors.gaps[${idx}]`, 'removed on wall')}
+        onAdd={(v) => appendItem('expansionVectors.gaps', v, 'added on wall')}
+      />
+    </div>
+  );
+}
+
+/**
+ * Click-to-edit text field. Single-line input by default; multiline
+ * switches to a textarea. Escape cancels; Enter (or blur) commits.
+ */
+function EditableString({ label, value, onSave, empty, multiline }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || '');
+
+  useEffect(() => { setDraft(value || ''); }, [value]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (next === (value || '').trim()) { setEditing(false); return; }
+    if (!next) { setEditing(false); return; }
+    await onSave(next);
+    setEditing(false);
+  };
+
+  const cancel = () => { setDraft(value || ''); setEditing(false); };
+
+  if (editing) {
+    return (
+      <div>
+        <p className="uppercase-label text-brand-secondary mb-1">{label}</p>
+        {multiline ? (
+          <textarea
+            className="input-field w-full"
+            rows={3}
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+          />
+        ) : (
+          <input
+            type="text"
+            className="input-field w-full"
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commit();
+              if (e.key === 'Escape') cancel();
+            }}
+          />
+        )}
+        <p className="text-body-sm text-brand-secondary mt-1">
+          Enter to save · Esc to cancel
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="uppercase-label text-brand-secondary mb-1">{label}</p>
+      {value ? (
+        <p
+          className="text-body text-brand-text cursor-text hover:opacity-80"
+          onClick={() => setEditing(true)}
+          title="Click to edit"
+        >
+          {value}
+        </p>
+      ) : (
+        <p
+          className="text-body-sm text-brand-secondary italic cursor-pointer hover:text-brand-text"
+          onClick={() => setEditing(true)}
+        >
+          {empty}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Inline-editable list of chips. Click a chip to rename, × to remove,
+ * + chip at the end to add. Works for any string-array field.
+ */
+function EditableList({ label, items, onRename, onRemove, onAdd, muted }) {
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addDraft, setAddDraft] = useState('');
+
+  const startEdit = (idx, current) => {
+    setEditingIdx(idx);
+    setEditDraft(typeof current === 'string' ? current : (current?.name || JSON.stringify(current)));
+  };
+  const commitEdit = async (idx) => {
+    const v = editDraft.trim();
+    if (!v) { setEditingIdx(null); return; }
+    await onRename(idx, v);
+    setEditingIdx(null);
+  };
+  const cancelEdit = () => setEditingIdx(null);
+
+  const commitAdd = async () => {
+    const v = addDraft.trim();
+    if (!v) { setAdding(false); return; }
+    await onAdd(v);
+    setAddDraft('');
+    setAdding(false);
+  };
+
+  const safeItems = Array.isArray(items) ? items : [];
+
+  return (
+    <div>
+      <p className="uppercase-label text-brand-secondary mb-2">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {safeItems.map((item, idx) => {
+          const text = typeof item === 'string' ? item : (item?.name || JSON.stringify(item));
+          if (editingIdx === idx) {
+            return (
+              <input
+                key={idx}
+                type="text"
+                autoFocus
+                className="input-field"
+                style={{ width: Math.max(120, text.length * 9) + 'px', padding: '4px 8px' }}
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                onBlur={() => commitEdit(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitEdit(idx);
+                  if (e.key === 'Escape') cancelEdit();
+                }}
+              />
+            );
+          }
+          return (
+            <span
+              key={idx}
+              className={`inline-flex items-center px-2 py-1 border border-brand-border text-body-sm ${muted ? 'text-brand-secondary' : ''}`}
+            >
+              <span
+                className="cursor-pointer hover:text-brand-text"
+                onClick={() => startEdit(idx, item)}
+                title="Click to rename"
+              >
+                {text}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Remove "${text}"?`)) onRemove(idx);
+                }}
+                className="ml-2 text-brand-secondary hover:text-brand-text"
+                title="Remove"
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
+        {adding ? (
+          <input
+            type="text"
+            autoFocus
+            className="input-field"
+            style={{ width: '180px', padding: '4px 8px' }}
+            placeholder="new item"
+            value={addDraft}
+            onChange={(e) => setAddDraft(e.target.value)}
+            onBlur={commitAdd}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitAdd();
+              if (e.key === 'Escape') { setAdding(false); setAddDraft(''); }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="px-2 py-1 border border-brand-border text-body-sm text-brand-secondary hover:text-brand-text hover:border-brand-text"
+            title="Add item"
+          >
+            + add
+          </button>
+        )}
+      </div>
     </div>
   );
 }
